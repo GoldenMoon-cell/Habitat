@@ -1,0 +1,43 @@
+name: 功能请求
+description: 你想让它多点什么，或者少点什么
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提之前先想一件事：**这个功能会让「她」更像一个人，还是更像一个工具？**
+
+        这个软件刻意不做很多东西 —— 不做助手、不做检索、不做提醒。
+        如果你想加的是那个方向，我会解释为什么不做。
+
+  - type: textarea
+    id: want
+    attributes:
+      label: 你想要什么
+      placeholder: 一句话说清楚
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: 为什么现在这样不够
+      description: |
+        不要说「因为别人都有」。
+        **说你在用的过程中具体哪一步卡住了。**
+      placeholder: |
+        每次 xxx 的时候，我得手动 yyy，多了之后很烦
+    validations:
+      required: true
+
+  - type: dropdown
+    id: willing
+    attributes:
+      label: 你愿意自己实现吗
+      options:
+        - 愿意，我可以开 PR
+        - 愿意，但需要指个方向
+        - 不愿意，只是提个想法
+    validations:
+      required: false
