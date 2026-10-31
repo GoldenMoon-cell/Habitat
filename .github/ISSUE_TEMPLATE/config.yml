@@ -1,0 +1,15 @@
+# issue 模板的开关
+#
+# blank_issues_enabled: false —— 强制走模板。
+# 「软件打不开怎么办」这种描述，没有版本/系统/复现步骤，定位不了任何东西。
+
+blank_issues_enabled: false
+
+contact_links:
+  - name: 报告安全漏洞
+    url: https://github.com/GoldenMoon-cell/Habitat/security/advisories/new
+    about: 不要公开提 issue —— 这里有只有维护者能看到的私密通道
+
+  - name: 使用上的问题 / 想聊聊
+    url: https://github.com/GoldenMoon-cell/Habitat/discussions
+    about: 不算 bug 的问题、想法、或者你跟她之间发生了什么
