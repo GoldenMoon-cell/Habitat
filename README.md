@@ -716,5 +716,4 @@ npm run pack
 
 该项目使用 [AGPL-3.0](LICENSE)。
 
-商业场景下没法遵守的，可以单独联系购买授权。
 第三方组件的许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
