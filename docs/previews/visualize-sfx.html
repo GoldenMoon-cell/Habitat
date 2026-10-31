@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>生境 · 音效可视化</title>
+<style>
+  body { background:#05090e; color:#e8f6ff; font:13px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif; padding:26px; margin:0; }
+  h1 { font-size:15px; font-weight:500; margin:0 0 6px; }
+  p { font-size:11px; color:rgba(143,169,189,.55); margin:0 0 16px; }
+  canvas { display:block; border-radius:6px; margin-bottom:14px; border:1px solid rgba(255,255,255,.07); }
+  button { padding:7px 15px; border-radius:6px; border:1px solid rgba(53,240,206,.35); background:rgba(53,240,206,.1); color:#35f0ce; cursor:pointer; font-family:inherit; font-size:11px; }
+  #out { font:10px ui-monospace,monospace; color:rgba(143,169,189,.5); white-space:pre; }
+</style>
+</head>
+<body>
+
+<h1>音效可视化</h1>
+<p>上半 = 频谱（时间 × 频率，颜色 = 能量）· 下半 = 波形与包络。全是现场算的，不依赖 ffmpeg。</p>
+<button id="go">渲染全部</button>
+<div id="wrap"></div>
+<pre id="out"></pre>
+
+<script>
+/* ══════════════════════ DSP ══════════════════════ */
+
+function tone(ac, o) {
+  const { freq, to, type = "sine", gain = 0.1, attack = 0.01, decay = 0.2, delay = 0, dest } = o;
+  const t0 = ac.currentTime + delay;
+  const osc = ac.createOscillator(), g = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (to) osc.frequency.exponentialRampToValueAtTime(Math.max(60, to), t0 + attack + decay);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t0 + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + decay);
+  osc.connect(g).connect(dest ?? ac.destination);
+  osc.start(t0); osc.stop(t0 + attack + decay + 0.05);
+}
+
+function noise(ac, o) {
+  const { dur, gain = 0.05, cutoff = 1200, delay = 0, dest, fade = true } = o;
+  const t0 = ac.currentTime + delay;
+  const len = Math.floor(ac.sampleRate * dur);
+  if (len <= 0) return;
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (fade ? 1 - i / len : 1);
+  const src = ac.createBufferSource(); src.buffer = buf;
+  const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = cutoff;
+  const g = ac.createGain(); g.gain.value = gain;
+  src.connect(lp).connect(g).connect(dest ?? ac.destination);
+  src.start(t0); src.stop(t0 + dur);
+}
+
+function reverbBus(ac, seconds = 2.2, decay = 2.4, wet = 0.34) {
+  const rate = ac.sampleRate;
+  const len = Math.max(1, Math.floor(rate * seconds));
+  const buf = ac.createBuffer(2, len, rate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const p = i / len;
+      d[i] = (Math.random() * 2 - 1) * (p < 0.08 ? p / 0.08 : Math.pow(1 - p, decay));
+    }
+  }
+  const conv = ac.createConvolver(); conv.buffer = buf;
+  const dry = ac.createGain(); dry.gain.value = 1;
+  const wetGain = ac.createGain(); wetGain.gain.value = wet;
+  const input = ac.createGain();
+  input.connect(dry).connect(ac.destination);
+  input.connect(conv).connect(wetGain).connect(ac.destination);
+  return input;
+}
+
+const SOUNDS = {
+  roots: { dur: 3.4, fn(ac) {
+    const bus = reverbBus(ac, 2.6, 2.0, 0.42);
+    [[0.0,262,0.05],[0.4,392,0.055],[0.9,523,0.06],[1.4,659,0.065],[2.0,784,0.075]].forEach(([at,f,g]) => {
+      tone(ac, { freq: f, type:"sine", gain: g, attack: 0.42, decay: 2.6, delay: at, dest: bus });
+      tone(ac, { freq: f/2, type:"sine", gain: g*0.14, attack: 0.5, decay: 2.4, delay: at, dest: bus });
+    });
+    noise(ac, { dur: 3.2, gain: 0.012, cutoff: 4200, dest: bus });
+    tone(ac, { freq: 1568, type:"sine", gain: 0.02, attack: 0.42, decay: 2.6, delay: 2.0, dest: bus });
+  }},
+  boot: { dur: 3.0, fn(ac) {
+    const bus = reverbBus(ac, 2.4, 2.2, 0.36);
+    [[523,0.07],[784,0.045],[1046,0.03]].forEach(([f,g]) => tone(ac, { freq: f, type:"sine", gain: g, attack: 0.014, decay: 1.3, dest: bus }));
+  }},
+  enterCreator: { dur: 2.2, fn(ac) {
+    const bus = reverbBus(ac, 1.8, 2.6, 0.3);
+    tone(ac, { freq: 330, to: 165, type:"sine", gain: 0.14, attack: 0.02, decay: 0.85, dest: bus });
+    tone(ac, { freq: 331.5, to: 166, type:"sine", gain: 0.075, attack: 0.02, decay: 0.85, dest: bus });
+    noise(ac, { dur: 0.85, gain: 0.035, cutoff: 900, dest: bus });
+  }},
+  leaveCreator: { dur: 1.8, fn(ac) {
+    const bus = reverbBus(ac, 1.4, 2.4, 0.26);
+    tone(ac, { freq: 196, to: 392, type:"sine", gain: 0.11, attack: 0.015, decay: 0.5, dest: bus });
+    tone(ac, { freq: 294, to: 588, type:"sine", gain: 0.05, attack: 0.015, decay: 0.42, delay: 0.06, dest: bus });
+  }},
+  rumble: { dur: 3.8, fn(ac) {
+    const bus = reverbBus(ac, 3.4, 1.8, 0.44);
+    const t0 = ac.currentTime;
+    [[82,"sine",0.34],[88,"sine",0.2],[123,"sine",0.16],[164,"triangle",0.07]].forEach(([f,ty,gn]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = ty;
+      o.frequency.setValueAtTime(f, t0);
+      o.frequency.linearRampToValueAtTime(f * 0.9, t0 + 2.8);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(gn, t0 + 0.22);
+      g.gain.linearRampToValueAtTime(gn * 0.55, t0 + 2.4);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + 3.3);
+      o.connect(g).connect(bus);
+      o.start(t0); o.stop(t0 + 3.4);
+    });
+    noise(ac, { dur: 3.0, gain: 0.03, cutoff: 700, dest: bus });
+  }},
+  tick: { dur: 0.2, fn(ac) { tone(ac, { freq: 2200, to: 1320, type:"square", gain: 0.038, attack: 0.002, decay: 0.05 }); }},
+  send: { dur: 0.25, fn(ac) {
+    tone(ac, { freq: 880, to: 1320, type:"sine", gain: 0.03, attack: 0.004, decay: 0.085 });
+    tone(ac, { freq: 1760, to: 2640, type:"sine", gain: 0.012, attack: 0.003, decay: 0.06 });
+  }},
+  receive: { dur: 1.4, fn(ac) {
+    const bus = reverbBus(ac, 1.2, 2.6, 0.2);
+    tone(ac, { freq: 660, type:"sine", gain: 0.058, attack: 0.008, decay: 0.42, dest: bus });
+    tone(ac, { freq: 990, type:"sine", gain: 0.02, attack: 0.008, decay: 0.28, delay: 0.02, dest: bus });
+  }},
+  switch: { dur: 1.1, fn(ac) {
+    const bus = reverbBus(ac, 0.9, 3.0, 0.16);
+    tone(ac, { freq: 698, to: 1046, type:"sine", gain: 0.032, attack: 0.004, decay: 0.11, dest: bus });
+    tone(ac, { freq: 1046, to: 1568, type:"sine", gain: 0.016, attack: 0.003, decay: 0.09, delay: 0.04, dest: bus });
+  }},
+  open: { dur: 0.4, fn(ac) { tone(ac, { freq: 420, to: 640, type:"sine", gain: 0.032, attack: 0.008, decay: 0.15 }); }},
+  close: { dur: 0.4, fn(ac) { tone(ac, { freq: 640, to: 420, type:"sine", gain: 0.03, attack: 0.006, decay: 0.13 }); }},
+  deny: { dur: 0.4, fn(ac) { tone(ac, { freq: 396, to: 330, type:"triangle", gain: 0.03, attack: 0.004, decay: 0.09 }); }},
+  error: { dur: 1.2, fn(ac) {
+    for (let i = 0; i < 3; i++) {
+      const at = i * 0.085;
+      tone(ac, { freq: 1320, type:"triangle", gain: 0.058, attack: 0.003, decay: 0.055, delay: at });
+      tone(ac, { freq: 1245, type:"triangle", gain: 0.038, attack: 0.003, decay: 0.055, delay: at });
+    }
+    tone(ac, { freq: 880,
+    to: 440, type:"sine", gain: 0.022, attack: 0.01, decay: 0.7, delay: 0.26 });
+    tone(ac, { freq: 120, to: 108, type:"sine", gain: 0.065, attack: 0.02, decay: 1.05 });
+  }},
+};
+
+/* ── FFT（Cooley-Tukey radix-2）── */
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      let t = re[i]; re[i] = re[j]; re[j] = t;
+      t = im[i]; im[i] = im[j]; im[j] = t;
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len;
+    const wRe = Math.cos(ang), wIm = Math.sin(ang);
+    const half = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let curRe = 1, curIm = 0;
+      for (let j = 0; j < half; j++) {
+        const aRe = re[i + j], aIm = im[i + j];
+        const bRe = re[i + j + half] * curRe - im[i + j + half] * curIm;
+        const bIm = re[i + j + half] * curIm + im[i + j + half] * curRe;
+        re[i + j] = aRe + bRe; im[i + j] = aIm + bIm;
+        re[i + j + half] = aRe - bRe; im[i + j + half] = aIm - bIm;
+        const nRe = curRe * wRe - curIm * wIm;
+        curIm = curRe * wIm + curIm * wRe;
+        curRe = nRe;
+      }
+    }
+  }
+}
+
+/* ── 画一张图：上频谱 + 下波形 ── */
+function draw(name, buf, meta) {
+  const W = 1100, H = 420;
+  const SPEC_H = 300, WAVE_H = 120;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+
+  ctx.fillStyle = "#05090e";
+  ctx.fillRect(0, 0, W, H);
+
+  const data = buf.getChannelData(0);
+  const rate = buf.sampleRate;
+  const dur = buf.length / rate;
+
+  /* ── 频谱：STFT ── */
+  const N = 2048;
+  const hop = 128;
+  const frames = Math.floor((data.length - N) / hop);
+  const cols = Math.min(W, Math.max(1, frames));
+  const step = Math.max(1, Math.floor(frames / cols));
+
+  /* 频率轴：对数，20Hz - 12kHz */
+  const fMin = 20, fMax = Math.min(12000, rate / 2);
+  const logMin = Math.log10(fMin), logMax = Math.log10(fMax);
+
+  /* 先算每列能量，再归一化 */
+  const colData = [];
+  let maxMag = 0;
+  for (let c = 0; c < cols; c++) {
+    const off = c * step * hop;
+    if (off + N > data.length) break;
+    const re = new Float32Array(N), im = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      /* Hann 窗 */
+      const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (N - 1));
+      re[i] = data[off + i] * w;
+    }
+    fft(re, im);
+    const mag = new Float32Array(N / 2);
+    for (let i = 0; i < N / 2; i++) {
+      const m = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
+      mag[i] = m;
+      if (m > maxMag) maxMag = m;
+    }
+    colData.push(mag);
+  }
+
+  const img = ctx.createImageData(colData.length, SPEC_H);
+  for (let x = 0; x < colData.length; x++) {
+    const mag = colData[x];
+    for (let y = 0; y < SPEC_H; y++) {
+      /* y=0 是顶部（高频），y=SPEC_H 是底部（低频） */
+      const frac = 1 - y / SPEC_H;
+      const freq = Math.pow(10, logMin + frac * (logMax - logMin));
+      const bin = Math.round(freq / (rate / N));
+      const v = bin < mag.length ? mag[bin] / (maxMag || 1) : 0;
+      /* dB 压缩，让弱信号也看得见 */
+      const db = Math.min(1, Math.max(0, (20 * Math.log10(v + 1e-9) + 60) / 60));
+      const idx = (y * colData.length + x) * 4;
+      /* 青绿 → 白 */
+      img.data[idx] = Math.round(db * db * 210);
+      img.data[idx + 1] = Math.round(db * 255);
+      img.data[idx + 2] = Math.round(160 + db * 90);
+      img.data[idx + 3] = 255;
+    }
+  }
+  /* 拉伸到 W 宽 */
+  const tmp = document.createElement("canvas");
+  tmp.width = colData.length; tmp.height = SPEC_H;
+  tmp.getContext("2d").putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(tmp, 0, 0, colData.length, SPEC_H, 0, 0, W, SPEC_H);
+
+  /* 频率刻度 */
+  ctx.font = "10px ui-monospace, monospace";
+  ctx.fillStyle = "rgba(255,255,255,.45)";
+  [50, 100, 200, 500, 1000, 2000, 5000, 10000].forEach((f) => {
+    if (f < fMin || f > fMax) return;
+    const frac = (Math.log10(f) - logMin) / (logMax - logMin);
+    const y = (1 - frac) * SPEC_H;
+    ctx.fillRect(0, y, 6, 1);
+    ctx.fillText(f >= 1000 ? (f / 1000) + "k" : String(f), 9, y + 3);
+  });
+
+  /* ── 波形 ── */
+  const wy0 = SPEC_H + 8;
+  const mid = wy0 + WAVE_H / 2;
+  ctx.strokeStyle = "rgba(53,240,206,.75)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const per = data.length / W;
+  for (let x = 0; x < W; x++) {
+    const s = Math.floor(x * per), e = Math.floor((x + 1) * per);
+    let lo = 1, hi = -1;
+    for (let i = s; i < e && i < data.length; i++) {
+      if (data[i] < lo) lo = data[i];
+      if (data[i] > hi) hi = data[i];
+    }
+    if (hi < lo) { lo = 0; hi = 0; }
+    ctx.moveTo(x + 0.5, mid - hi * (WAVE_H / 2) * 0.9);
+    ctx.lineTo(x + 0.5, mid - lo * (WAVE_H / 2) * 0.9);
+  }
+  ctx.stroke();
+
+  /* 时间刻度 */
+  ctx.fillStyle = "rgba(255,255,255,.35)";
+  const ticks = Math.min(10, Math.ceil(dur));
+  for (let i = 0; i <= ticks; i++) {
+    const x = (i / ticks) * W;
+    ctx.fillRect(x, wy0, 1, WAVE_H);
+    ctx.fillText(((i / ticks) * dur).toFixed(1) + "s", Math.min(x + 3, W - 30), wy0 + WAVE_H - 3);
+  }
+
+  /* 标题 */
+  ctx.fillStyle = "#e8f6ff";
+  ctx.font = "13px -apple-system, 'Microsoft YaHei', sans-serif";
+  ctx.fillText(name, 10, 18);
+  ctx.fillStyle = "rgba(143,169,189,.6)";
+  ctx.font = "10px ui-monospace, monospace";
+  ctx.fillText(`${dur.toFixed(2)}s · RMS ${meta.rms} · ${meta.db} dB`, 10, 33);
+
+  document.getElementById("wrap").appendChild(cv);
+  return cv.toDataURL("image/png");
+}
+
+window.VISUALIZE = async function (only) {
+  const names = only ? [only] : Object.keys(SOUNDS);
+  const report = {};
+  for (const name of names) {
+    const def = SOUNDS[name];
+    const rate = 24000;
+    const ac = new OfflineAudioContext(1, Math.ceil(def.dur * rate), rate);
+    def.fn(ac);
+    const buf = await ac.startRendering();
+
+    /* 归一化到 0.9 */
+    let peak = 0;
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+    const g = peak > 0 ? 0.9 / peak : 1;
+    for (let i = 0; i < d.length; i++) d[i] *= g;
+
+    let sum = 0;
+    for (let i = 0; i < d.length; i++) sum += d[i] * d[i];
+    const rms = Math.sqrt(sum / d.length);
+    const db = 20 * Math.log10(rms || 1e-9);
+
+    report[name] = {
+      dur: def.dur,
+      rms: Math.round(rms * 10000) / 10000,
+      db: Math.round(db * 10) / 10,
+      dataUrl: draw(name, buf, { rms: Math.round(rms * 10000) / 10000, db: Math.round(db * 10) / 10 }),
+    };
+  }
+  return report;
+};
+
+document.getElementById("go").addEventListener("click", async () => {
+  document.getElementById("wrap").innerHTML = "";
+  document.getElementById("out").textContent = "渲染中…";
+  const r = await window.VISUALIZE();
+  const brief = {};
+  for (const [k, v] of Object.entries(r)) brief[k] = { dur: v.dur, rms: v.rms, db: v.db };
+  document.getElementById("out").textContent = JSON.stringify(brief, null, 2);
+});
+</script>
+</body>
+</html>

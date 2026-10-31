@@ -1,0 +1,588 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   三鲸空间 · 设计令牌
+   深海断面配色：从 abyss 到 shelf，主色是生物磷光青。
+   ═══════════════════════════════════════════════════════════════ */
+@theme {
+  --color-abyss: #03070d;
+  --color-trench: #061019;
+  --color-shelf: #0a1a26;
+  --color-reef: #0d2430;
+
+  --color-biolum: #35f0ce;
+  --color-tide: #4e8cff;
+  --color-lumen: #8b6bff;
+  --color-coral: #ff7a6b;
+  --color-amber: #ffc46b;
+
+  --color-mist: #8fa9bd;
+  --color-ink: #e6f2fb;
+
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", -apple-system,
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", ui-monospace,
+    Consolas, "Liberation Mono", monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-abyss);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.65;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    overflow: hidden;
+  }
+
+  /* 输入光标也用主色，细节层面的统一 */
+  input,
+  textarea {
+    caret-color: var(--color-biolum);
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-biolum) 30%, transparent);
+    color: #fff;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  input,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 1px solid color-mix(in oklab, var(--color-biolum) 70%, transparent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ── 四栏骨架：15 / 20 / 45 / 20 ───────────────────────────── */
+.rail-console {
+  width: 15%;
+  min-width: 176px;
+  flex: 0 0 auto;
+}
+.rail-contacts {
+  width: 20%;
+  min-width: 208px;
+  flex: 0 0 auto;
+}
+.rail-god {
+  width: 20%;
+  min-width: 238px;
+  flex: 0 0 auto;
+  transition:
+    width 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    min-width 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 折叠成一个 46px 的窄条，把宽度让给对话区。
+   特异性高于媒体查询里的单类选择器，所以窄屏断点不用重复写。 */
+.rail-god.is-collapsed {
+  width: 46px;
+  min-width: 46px;
+}
+
+/* 窄窗口：先收窄，再逐栏让位，聊天区永远优先 */
+@media (max-width: 1440px) {
+  .rail-console {
+    width: 15%;
+  }
+  .rail-contacts {
+    width: 20%;
+  }
+  .rail-god {
+    width: 20%;
+  }
+}
+@media (max-width: 1280px) {
+  .rail-console {
+    width: 14%;
+    min-width: 168px;
+  }
+  .rail-contacts {
+    width: 19%;
+  }
+  .rail-god {
+    width: 20%;
+    min-width: 226px;
+  }
+}
+@media (max-width: 1120px) {
+  .rail-console {
+    display: none;
+  }
+  .rail-contacts {
+    width: 22%;
+  }
+}
+@media (max-width: 900px) {
+  .rail-contacts {
+    width: 26%;
+    min-width: 190px;
+  }
+  .rail-god {
+    display: none;
+  }
+}
+
+/* 1080P 及更宽：侧栏略收，把空间还给对话区（45% → 49.5%） */
+@media (min-width: 1600px) {
+  .rail-console {
+    width: 13.5%;
+    min-width: 190px;
+  }
+  .rail-contacts {
+    width: 18.5%;
+    min-width: 224px;
+  }
+  .rail-god {
+    width: 18.5%;
+    min-width: 258px;
+  }
+}
+
+/* ── 细滚动条 ───────────────────────────────────────────────── */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 200, 220, 0.16) transparent;
+}
+.thin-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 200, 220, 0.16);
+  border-radius: 99px;
+}
+.thin-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(53, 240, 206, 0.32);
+}
+
+/* ── 玻璃拟态 ───────────────────────────────────────────────── */
+.glass {
+  background: linear-gradient(
+    166deg,
+    rgba(24, 56, 72, 0.46) 0%,
+    rgba(8, 20, 30, 0.7) 46%,
+    rgba(4, 11, 18, 0.84) 100%
+  );
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(122, 208, 226, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(190, 250, 255, 0.07),
+    inset 0 0 70px -40px rgba(53, 240, 206, 0.22),
+    0 34px 64px -46px rgba(0, 0, 0, 0.95);
+}
+
+/* 浅一档的玻璃片（卡片、气泡底） */
+.glass-soft {
+  background: linear-gradient(
+    158deg,
+    rgba(30, 66, 84, 0.34) 0%,
+    rgba(8, 21, 31, 0.52) 100%
+  );
+  border: 1px solid rgba(122, 208, 226, 0.085);
+  box-shadow: inset 0 1px 0 rgba(190, 250, 255, 0.05);
+}
+
+/* 栏与栏之间的发光分界 */
+.rail-sep::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(80, 220, 224, 0.2) 14%,
+    rgba(80, 220, 224, 0.055) 52%,
+    rgba(80, 220, 224, 0.16) 86%,
+    transparent 100%
+  );
+}
+
+/* ── 质感层 ─────────────────────────────────────────────────── */
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.018) 0px,
+    rgba(255, 255, 255, 0.018) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* ── 文本 ───────────────────────────────────────────────────── */
+.label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: color-mix(in oklab, var(--color-mist) 78%, transparent);
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ── 动画 ───────────────────────────────────────────────────── */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes sonar {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes wave-bar {
+  0%,
+  100% {
+    transform: scaleY(0.28);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes caret {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(400%);
+  }
+}
+
+@keyframes marquee-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+.pulse-dot {
+  animation: breathe 2.8s ease-in-out infinite;
+}
+
+.sonar-ring {
+  animation: sonar 3.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+
+.caret {
+  animation: caret 1.05s step-end infinite;
+}
+
+/* 进度条上的扫光：只在播放/加载时出现，克制的一道 */
+@keyframes sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+/* 点击涟漪 */
+@keyframes ripple {
+  0% {
+    transform: scale(0.4);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+/* 统计数字变化时的一次轻微上浮 */
+@keyframes tick-up {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 80%
+  );
+  animation: sheen 2.4s ease-in-out infinite;
+}
+
+.tick {
+  animation: tick-up 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 语音条的律动只在播放时开，静止时冻结 */
+.wave-playing span {
+  animation: wave-bar 0.72s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* 极细点阵，作为"数据层"的底纹 */
+.dot-grid {
+  background-image: radial-gradient(
+    rgba(120, 200, 220, 0.13) 0.5px,
+    transparent 0.5px
+  );
+  background-size: 14px 14px;
+}
+
+/* ── 无边框窗口的拖拽区 ───────────────────────────────────────
+   Tauri 认 `data-tauri-drag-region` 属性，Electron 认 `-webkit-app-region`。
+   同一个标记配这一条 CSS，两个壳都能拖。
+   里面的按钮必须排除，否则点不动。 */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] a,
+[data-tauri-drag-region] input {
+  -webkit-app-region: no-drag;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   启动时的 HUD 逐块显现
+
+   以前四栏只是整体淡入，像一张画刷地一下糊上来。
+   这里让每个栏位从不同方向滑进来，栏内再按「头部 → 主体 → 底部」
+   依次亮起 —— 像科幻片里一块块屏幕被逐个点亮的那种节奏。
+
+   --d 是该栏的起始延迟，由 App 按索引注入（0ms / 90ms / 180ms / 270ms）。
+   ═══════════════════════════════════════════════════════════ */
+
+@keyframes hud-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.985);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes hud-slide-left {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes hud-slide-right {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@keyframes hud-scan {
+  from {
+    opacity: 0;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* 栏容器本身。延迟由内联 style 的 animationDelay 给（更可靠）。 */
+/* 动画改由 lib/hudReveal.ts 用 Web Animations API 驱动 */
+.hud-rail {}
+.hud-rail.from-left {
+  animation-name: hud-slide-left;
+}
+.hud-rail.from-right {
+  animation-name: hud-slide-right;
+}
+
+/* 栏内的直接子块，逐块亮起。
+   刻意不用 CSS 变量：--d 传不进去时，calc() 会全部落到默认值，
+   四个块同时开始 —— 看起来就是「整栏一起动」，等于没做。
+   这里用固定阶梯，保证无论变量是否生效都是分块的。 */
+.hud-blocks > * {}
+.hud-blocks > *:nth-child(1) {
+  animation-delay: 120ms;
+}
+.hud-blocks > *:nth-child(2) {
+  animation-delay: 230ms;
+}
+.hud-blocks > *:nth-child(3) {
+  animation-delay: 340ms;
+}
+.hud-blocks > *:nth-child(4) {
+  animation-delay: 450ms;
+}
+.hud-blocks > *:nth-child(5) {
+  animation-delay: 560ms;
+}
+.hud-blocks > *:nth-child(n + 6) {
+  animation-delay: 650ms;
+}
+
+/* 顶栏：从上方落下 */
+.hud-header {
+  animation: hud-rise 520ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: 60ms;
+}
+
+/* 动画的 reduce 处理移到 lib/hudReveal.ts：缩短时长，而不是整块禁用 */
+
+
+
+/* 全局动画闸门已移除：它用 !important 把所有动画压成 0.01ms，
+   包括我们自己写的启动序列，导致「代码对但完全没动静」。
+   真正需要无障碍时，由 lib/hudReveal.ts 缩短时长来体现。 */
+
+/* ═══ 故障态演示用的动画（只有 ?sim= 参数时才渲染对应组件） ═══ */
+@keyframes mosaicFlick {
+  0%   { opacity: 0.6; background-position: 0 0, 0 0; }
+  50%  { opacity: 0.3; background-position: 4px 4px, 4px 4px; }
+  100% { opacity: 0.55; background-position: 8px 0, 0 8px; }
+}
+@keyframes stampSlam {
+  0%   { opacity: 0; transform: rotate(-7deg) scale(1.5); }
+  55%  { opacity: 1; transform: rotate(-7deg) scale(0.97); }
+  100% { opacity: 1; transform: rotate(-7deg) scale(1); }
+}
+@keyframes mossBlink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0.15; }
+}
+@keyframes hexBlink {
+  0%, 60%   { opacity: 1; }
+  61%, 100% { opacity: 0.35; }
+}
+/* 浮层专用的实底版本 —— 盖在内容上时不能透出底下的字 */
+.glass[data-opaque="true"] {
+  background: linear-gradient(
+    166deg,
+    rgba(18, 42, 56, 0.985) 0%,
+    rgba(9, 22, 32, 0.992) 46%,
+    rgba(5, 12, 19, 0.995) 100%
+  );
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  box-shadow:
+    0 24px 64px -14px rgba(0, 0, 0, 0.9),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+/* 已选成员的呼吸灯 —— 勾选即时生效后，这个光环就是「活着」的反馈 */
+@keyframes breathRing {
+  0%, 100% { box-shadow: 0 0 0 0 var(--ring, rgba(53,240,206,.32)); }
+  50%      { box-shadow: 0 0 0 4px rgba(53,240,206,0); }
+}
+.breath-ring {
+  animation: breathRing 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .breath-ring { animation: none; }
+}
+
+/* ── 待发窗口的 6 秒倒计时条 ──
+   宽度从 100% 收到 0，和 handleSend 里的 6000ms 对齐。
+   纯 CSS —— 不需要 state 驱动每一帧。 */
+@keyframes pending-countdown {
+  from { width: 100%; }
+  to   { width: 0%; }
+}

@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>生境 · 启动动画预览（U · 双生脉）</title>
+<style>
+  :root { --accent: #35f0ce; --bg: #04080c; --ink: #cfe6f2; --mist: #5c7385; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(760px 520px at 50% 42%, rgba(53,240,206,.055), transparent 68%),
+      radial-gradient(1200px 700px at 50% 120%, rgba(60,120,200,.035), transparent 62%),
+      var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* 启动画面本体 */
+  .splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    transform: translateY(-18px);
+  }
+
+  .mark { position: relative; display: grid; place-items: center; }
+  .mark svg { display: block; overflow: visible; }
+
+  /* 文字 */
+  .wordmark { text-align: center; }
+  .name {
+    font-size: 33px;
+    font-weight: 300;
+    letter-spacing: .42em;
+    text-indent: .42em;
+    color: #e8f6ff;
+    opacity: 0;
+    animation: fadeUp .8s cubic-bezier(.16,1,.3,1) 1.85s forwards;
+  }
+  .latin {
+    margin-top: 9px;
+    font-size: 10px;
+    letter-spacing: .34em;
+    text-indent: .34em;
+    color: rgba(143,199,219,.55);
+    opacity: 0;
+    animation: fadeUp .8s cubic-bezier(.16,1,.3,1) 2.15s forwards;
+  }
+  .tagline {
+    margin-top: 6px;
+    font-size: 8.5px;
+    letter-spacing: .18em;
+    color: rgba(91,120,138,.6);
+    opacity: 0;
+    animation: fadeUp .8s cubic-bezier(.16,1,.3,1) 2.4s forwards;
+  }
+
+  /* 进度条 */
+  .bar-wrap {
+    position: fixed;
+    left: 50%;
+    bottom: 72px;
+    transform: translateX(-50%);
+    width: 210px;
+    opacity: 0;
+    animation: fadeIn .4s ease .25s forwards;
+  }
+  .bar {
+    height: 1.5px;
+    border-radius: 2px;
+    background: rgba(255,255,255,.07);
+    overflow: hidden;
+  }
+  .bar i {
+    display: block;
+    height: 100%;
+    width: 0;
+    border-radius: 2px;
+    background: linear-gradient(90deg, rgba(53,240,206,.35), var(--accent));
+    box-shadow: 0 0 10px rgba(53,240,206,.6);
+    animation: fill 2.9s cubic-bezier(.4,.05,.2,1) .35s forwards;
+  }
+  .status {
+    margin-top: 11px;
+    text-align: center;
+    font: 9px ui-monospace, monospace;
+    letter-spacing: .16em;
+    color: rgba(91,120,138,.7);
+    height: 12px;
+  }
+
+  /* ═══ SVG 动画 ═══ */
+
+  /* 画线：dashoffset 归零 */
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  .trunk   { stroke-dasharray: 34;   stroke-dashoffset: 34;  animation: draw .62s cubic-bezier(.4,0,.2,1) .15s forwards; }
+  .tipbase { stroke-dasharray: 29;   stroke-dashoffset: 29;  animation: draw .44s cubic-bezier(.4,0,.2,1) .70s forwards; }
+  .tipbase2{ stroke-dasharray: 26;   stroke-dashoffset: 26;  animation: draw .44s cubic-bezier(.4,0,.2,1) .86s forwards; }
+  .br-1    { stroke-dasharray: 29;   stroke-dashoffset: 29;  animation: draw .40s ease-out .98s forwards; }
+  .br-2    { stroke-dasharray: 29;   stroke-dashoffset: 29;  animation: draw .40s ease-out 1.10s forwards; }
+  .br-3    { stroke-dasharray: 26;   stroke-dashoffset: 26;  animation: draw .40s ease-out 1.22s forwards; }
+  .br-4    { stroke-dasharray: 26;   stroke-dashoffset: 26;  animation: draw .40s ease-out 1.34s forwards; }
+
+  /* 节点弹出 */
+  @keyframes pop {
+    0%   { transform: scale(0);   opacity: 0; }
+    62%  { transform: scale(1.55); opacity: 1; }
+    100% { transform: scale(1);   opacity: 1; }
+  }
+  .tip { transform-box: fill-box; transform-origin: center; transform: scale(0); opacity: 0; }
+  .tip-1 { animation: pop .38s cubic-bezier(.34,1.56,.64,1) 1.30s forwards; }
+  .tip-2 { animation: pop .38s cubic-bezier(.34,1.56,.64,1) 1.40s forwards; }
+  .tip-3 { animation: pop .38s cubic-bezier(.34,1.56,.64,1) 1.52s forwards; }
+  .tip-4 { animation: pop .38s cubic-bezier(.34,1.56,.64,1) 1.62s forwards; }
+
+  /* 核心：晚一拍亮起，然后一直呼吸 */
+  @keyframes coreIn {
+    0%   { transform: scale(0);   opacity: 0; }
+    55%  { transform: scale(1.7); opacity: 1; }
+    100% { transform: scale(1);   opacity: .95; }
+  }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1);    opacity: .93; }
+    50%      { transform: scale(1.13); opacity: 1; }
+  }
+  .core {
+    transform-box: fill-box; transform-origin: center;
+    transform: scale(0); opacity: 0;
+    animation: coreIn .5s cubic-bezier(.34,1.56,.64,1) 1.72s forwards,
+               breathe 4.2s ease-in-out 2.3s infinite;
+  }
+
+  /* 光晕 */
+  @keyframes haloIn { to { opacity: .2; } }
+  @keyframes haloPulse {
+    0%, 100% { transform: scale(1);    opacity: .2; }
+    50%      { transform: scale(1.5);  opacity: .05; }
+  }
+  .halo {
+    transform-box: fill-box; transform-origin: center;
+    opacity: 0;
+    animation: haloIn .7s ease 1.85s forwards,
+               haloPulse 4.2s ease-in-out 2.5s infinite;
+  }
+
+  /* 常态：信号沿枝流动（启动完成后） */
+  @keyframes climb {
+    0%, 100% { stroke-dashoffset: 0;   opacity: .25; }
+    50%      { stroke-dashoffset: -26; opacity: .85; }
+  }
+  .flow { opacity: 0; }
+  .flow-1 { animation: fadeIn .4s ease 2.35s forwards, climb 3.8s linear 2.5s infinite; }
+  .flow-2 { animation: fadeIn .4s ease 2.45s forwards, climb 3.8s linear 2.7s infinite; }
+  .flow-3 { animation: fadeIn .4s ease 2.55s forwards, climb 3.8s linear 2.9s infinite; }
+  .flow-4 { animation: fadeIn .4s ease 2.65s forwards, climb 3.8s linear 3.1s infinite; }
+
+  @keyframes fadeIn  { to { opacity: 1; } }
+  @keyframes fadeUp  { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fill    { to { width: 100%; } }
+
+  /* ═══ UI ═══ */
+
+  .replay {
+    position: fixed; top: 22px; right: 24px;
+    padding: 7px 15px;
+    border: 1px solid rgba(53,240,206,.28);
+    border-radius: 6px;
+    background: rgba(53,240,206,.07);
+    color: var(--accent);
+    font: 10.5px ui-monospace, monospace;
+    letter-spacing: .1em;
+    cursor: pointer;
+    transition: background .2s, border-color .2s;
+  }
+  .replay:hover { background: rgba(53,240,206,.15); border-color: rgba(53,240,206,.5); }
+
+  .foot {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    font: 9px ui-monospace, monospace; letter-spacing: .14em; color: rgba(74,96,110,.55);
+    text-align: center;
+  }
+  .foot b { color: rgba(53,240,206,.75); font-weight: 400; }
+
+  /* 缩小演示：启动动画结束后，它在标题栏里就是这么小 */
+  .shrink-demo {
+    position: fixed; bottom: 44px; right: 24px;
+    display: flex; align-items: flex-end; gap: 16px;
+    opacity: 0; animation: fadeIn .6s ease 3.2s forwards;
+  }
+  .shrink-demo .cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .shrink-demo span { font: 8px ui-monospace, monospace; color: rgba(74,96,110,.6); }
+  .shrink-demo .divider { width: 1px; height: 22px; background: rgba(255,255,255,.07); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; animation-delay: 0ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ 启动画面 ═══════════ -->
+<div class="splash">
+  <div class="mark" id="mark"></div>
+
+  <div class="wordmark">
+    <div class="name">生 境</div>
+    <div class="latin">HABITAT</div>
+    <div class="tagline">SYSTEMIC ECOSYSTEM FOR AGENTS</div>
+  </div>
+</div>
+
+<div class="bar-wrap">
+  <div class="bar"><i></i></div>
+  <div class="status" id="status">初始化</div>
+</div>
+
+<button class="replay" onclick="replay()">↻ 重播</button>
+
+<div class="shrink-demo" id="shrinkDemo">
+  <div class="cell"><span id="s32"></span><span>32px</span></div>
+  <div class="divider"></div>
+  <div class="cell"><span id="s14"></span><span>14px（标题栏实际大小）</span></div>
+</div>
+
+<div class="foot">U · 双生脉 —— 一条分叉的线，既是电路也是根须 · <b>点右上角可重播</b></div>
+
+<script>
+const ACCENT = "#35f0ce";
+
+/* 主干 + 四条枝的坐标（和预览页 U 一致） */
+const TRUNK = "M50 88 V54";
+const BR = ["M50 54 L30 33", "M50 54 L70 33", "M50 70 L33 51", "M50 70 L67 51"];
+const TIPS = [[30, 33], [70, 33], [33, 51], [67, 51]];
+
+function markSVG(size) {
+  const glowId = "glowBoot";
+  let branches = "";
+  for (let i = 0; i < BR.length; i++) {
+    const cls = "br-" + (i + 1);
+    const flowCls = "flow flow-" + (i + 1);
+    const len = i < 2 ? 29 : 26;
+    branches +=
+      '<path class="' + cls + '" d="' + BR[i] + '" stroke="' + ACCENT + '" stroke-width="1.9" ' +
+        'stroke-linecap="round" opacity=".68" fill="none"/>' +
+      '<path class="' + flowCls + '" d="' + BR[i] + '" stroke="' + ACCENT + '" stroke-width="2.6" ' +
+        'stroke-linecap="round" stroke-dasharray="6 20" opacity="0" fill="none"/>';
+  }
+  let tips = "";
+  for (let i = 0; i < TIPS.length; i++) {
+    tips += '<circle class="tip tip-' + (i + 1) + '" cx="' + TIPS[i][0] + '" cy="' + TIPS[i][1] +
+      '" r="2.6" fill="' + ACCENT + '" opacity="' + (i < 2 ? ".85" : ".6") + '"/>';
+  }
+  return (
+    '<svg viewBox="0 0 100 100" width="' + size + '" height="' + size + '">' +
+      '<defs><filter id="' + glowId + '" x="-70%" y="-70%" width="240%" height="240%">' +
+        '<feGaussianBlur stdDeviation="2.8" result="b"/>' +
+        '<feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+      '</filter></defs>' +
+      '<g filter="url(#' + glowId + ')">' +
+        '<path class="trunk" d="' + TRUNK + '" stroke="' + ACCENT + '" stroke-width="2.6" ' +
+          'stroke-linecap="round" opacity=".9" fill="none"/>' +
+        branches + tips +
+        '<line x1="40" y1="88" x2="60" y2="88" stroke="' + ACCENT + '" stroke-width="2.2" ' +
+          'stroke-linecap="round" opacity=".35"/>' +
+        '<circle class="halo" cx="50" cy="54" r="11" fill="' + ACCENT + '" opacity="0"/>' +
+        '<circle class="core" cx="50" cy="54" r="4.2" fill="' + ACCENT + '" opacity="0"/>' +
+      '</g>' +
+    '</svg>'
+  );
+}
+
+/* 静态版本（给缩小演示用，不带动画） */
+function staticSVG(size) {
+  let branches = "";
+  for (let i = 0; i < BR.length; i++) {
+    branches += '<path d="' + BR[i] + '" stroke="' + ACCENT + '" stroke-width="1.9" ' +
+      'stroke-linecap="round" opacity=".68" fill="none"/>';
+  }
+  let tips = "";
+  for (let i = 0; i < TIPS.length; i++) {
+    tips += '<circle cx="' + TIPS[i][0] + '" cy="' + TIPS[i][1] + '" r="2.6" fill="' + ACCENT +
+      '" opacity="' + (i < 2 ? ".85" : ".6") + '"/>';
+  }
+  return '<svg viewBox="0 0 100 100" width="' + size + '" height="' + size + '">' +
+    '<g>' +
+      '<path d="' + TRUNK + '" stroke="' + ACCENT + '" stroke-width="2.6" stroke-linecap="round" opacity=".72" fill="none"/>' +
+      branches + tips +
+      '<line x1="40" y1="88" x2="60" y2="88" stroke="' + ACCENT + '" stroke-width="2.2" stroke-linecap="round" opacity=".35"/>' +
+      '<circle cx="50" cy="54" r="4.2" fill="' + ACCENT + '" opacity=".95"/>' +
+    '</g></svg>';
+}
+
+/* ═══ 状态文字时间线 ═══ */
+const STEPS = [
+  [0.3, "初始化"],
+  [0.9, "加载角色档案"],
+  [1.7, "唤醒核心"],
+  [2.4, "挂载凭据"],
+  [3.0, "就绪"],
+];
+
+let timers = [];
+function runStatus() {
+  timers.forEach(clearTimeout);
+  timers = [];
+  const el = document.getElementById("status");
+  el.textContent = "";
+  STEPS.forEach(function (s) {
+    timers.push(
+      setTimeout(function () {
+        el.textContent = "· " + s[1];
+      }, s[0] * 1000)
+    );
+  });
+}
+
+/* ═══ 渲染 + 重播 ═══ */
+function render() {
+  document.getElementById("mark").innerHTML = markSVG(320);
+  document.getElementById("s32").innerHTML = staticSVG(32);
+  document.getElementById("s14").innerHTML = staticSVG(14);
+  runStatus();
+}
+
+function replay() {
+  /* 把整块 mark 重新挂载，所有 animation 从头开始 */
+  const m = document.getElementById("mark");
+  m.innerHTML = "";
+  void m.offsetWidth;
+  render();
+
+  /* 进度条和文字也要重置 */
+  const bar = document.querySelector(".bar i");
+  bar.style.animation = "none";
+  void bar.offsetWidth;
+  bar.style.animation = "";
+
+  ["name", "latin", "tagline"].forEach(function (cls) {
+    const el = document.querySelector("." + cls);
+    el.style.animation = "none";
+    void el.offsetWidth;
+    el.style.animation = "";
+  });
+
+  const demo = document.getElementById("shrinkDemo");
+  demo.style.animation = "none";
+  void demo.offsetWidth;
+  demo.style.animation = "";
+}
+
+render();
+</script>
+</body>
+</html>

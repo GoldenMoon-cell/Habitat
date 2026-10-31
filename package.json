@@ -1,0 +1,89 @@
+{
+  "name": "habitat",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "description": "生境 · Habitat — 智能体生态系统",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "serve": "node scripts/serve.mjs",
+    "desktop": "node scripts/run-electron.mjs",
+    "desktop:prod": "npm run build && node scripts/run-electron.mjs --prod",
+    "test:import": "node scripts/test-import.mjs",
+    "test:cred": "node scripts/test-credential.mjs",
+    "pack": "node scripts/run-pack.mjs",
+    "tauri": "node scripts/run-tauri.mjs",
+    "test:l1": "node scripts/test-l1.mjs"
+  },
+  "build": {
+    "appId": "com.goldenmoon.habitat",
+    "productName": "Habitat",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "artifactName": "Habitat-Setup-${version}.exe",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Habitat",
+      "deleteAppDataOnUninstall": false
+    },
+    "compression": "maximum",
+    "extraResources": [
+      {
+        "from": "LICENSE",
+        "to": "LICENSE"
+      },
+      {
+        "from": "THIRD_PARTY_NOTICES.md",
+        "to": "THIRD_PARTY_NOTICES.md"
+      }
+    ],
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true,
+      "enableEmbeddedAsarIntegrityValidation": true
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.6",
+    "@types/react": "^19.0.8",
+    "@types/react-dom": "^19.0.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^38.8.6",
+    "electron-builder": "^26.15.3",
+    "motion": "^12.0.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.6",
+    "typescript": "~5.7.3",
+    "vite": "^6.1.0"
+  },
+  "author": "GoldenMoon"
+}

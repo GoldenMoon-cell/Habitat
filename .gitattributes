@@ -1,0 +1,13 @@
+# 统一换行符 —— 否则 Windows 提交的文件在 Linux 上会整篇显示为改动
+* text=auto eol=lf
+
+# 二进制，别让 git 试图合并或转换
+*.png binary
+*.ico binary
+*.exe binary
+*.woff2 binary
+*.asar binary
+
+# 已提交的文档保持原样
+*.md text eol=lf
+LICENSE text eol=lf

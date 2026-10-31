@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>生境 · 音效渲染器</title>
+<style>
+  body { background:#05090e; color:#e8f6ff; font:13px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif; padding:30px; }
+  h1 { font-size:16px; font-weight:500; }
+  pre { background:rgba(255,255,255,.04); padding:12px; border-radius:6px; font-size:11px; overflow:auto; max-height:60vh; }
+  button { padding:8px 16px; border-radius:6px; border:1px solid rgba(53,240,206,.35); background:rgba(53,240,206,.1); color:#35f0ce; cursor:pointer; font-family:inherit; }
+</style>
+</head>
+<body>
+
+<h1>音效离线渲染器</h1>
+<p>把 <code>sound.ts</code> 的每个音效用 <code>OfflineAudioContext</code> 渲染成 WAV，输出 base64。</p>
+<button id="go">渲染全部</button>
+<pre id="out">等待…</pre>
+
+<script>
+/* ══════════ 和 src/lib/sound.ts 逐行对应，但接受任意 BaseAudioContext ══════════ */
+
+function tone(ac, o) {
+  const { freq, to, type = "sine", gain = 0.1, attack = 0.01, decay = 0.2, delay = 0, dest } = o;
+  const t0 = ac.currentTime + delay;
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (to) osc.frequency.exponentialRampToValueAtTime(Math.max(60, to), t0 + attack + decay);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t0 + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + decay);
+  osc.connect(g).connect(dest ?? ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + attack + decay + 0.05);
+}
+
+function noise(ac, o) {
+  const { dur, gain = 0.05, cutoff = 1200, delay = 0, dest, fade = true } = o;
+  const t0 = ac.currentTime + delay;
+  const len = Math.floor(ac.sampleRate * dur);
+  if (len <= 0) return;
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (fade ? 1 - i / len : 1);
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+  const lp = ac.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = cutoff;
+  const g = ac.createGain();
+  g.gain.value = gain;
+  src.connect(lp).connect(g).connect(dest ?? ac.destination);
+  src.start(t0);
+  src.stop(t0 + dur);
+}
+
+function reverbBus(ac, seconds = 2.2, decay = 2.4, wet = 0.34) {
+  const rate = ac.sampleRate;
+  const len = Math.max(1, Math.floor(rate * seconds));
+  const buf = ac.createBuffer(2, len, rate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const p = i / len;
+      const env = p < 0.08 ? p / 0.08 : Math.pow(1 - p, decay);
+      d[i] = (Math.random() * 2 - 1) * env;
+    }
+  }
+  const conv = ac.createConvolver();
+  conv.buffer = buf;
+  const dry = ac.createGain(); dry.gain.value = 1;
+  const wetGain = ac.createGain(); wetGain.gain.value = wet;
+  const input = ac.createGain();
+  input.connect(dry).connect(ac.destination);
+  input.connect(conv).connect(wetGain).connect(ac.destination);
+  return input;
+}
+
+/* ══════════ 每个音效：返回时长（秒）和行为 ══════════ */
+
+const SOUNDS = {
+  roots: { dur: 3.4, fn(ac) {
+    const bus = reverbBus(ac, 2.6, 2.0, 0.42);
+    [[0.0,262,0.05],[0.4,392,0.055],[0.9,523,0.06],[1.4,659,0.065],[2.0,784,0.075]].forEach(([at,f,g]) => {
+      tone(ac, { freq: f, type:"sine", gain: g, attack: 0.42, decay: 2.6, delay: at, dest: bus });
+      tone(ac, { freq: f/2, type:"sine", gain: g*0.32, attack: 0.5, decay: 2.4, delay: at, dest: bus });
+    });
+    noise(ac, { dur: 3.2, gain: 0.012, cutoff: 4200, dest: bus });
+    tone(ac, { freq: 1568, type:"sine", gain: 0.02, attack: 0.42, decay: 2.6, delay: 2.0, dest: bus });
+  }},
+
+  boot: { dur: 3.0, fn(ac) {
+    const bus = reverbBus(ac, 2.4, 2.2, 0.36);
+    [[523,0.07],[784,0.045],[1046,0.03]].forEach(([f,g]) => {
+      tone(ac, { freq: f, type:"sine", gain: g, attack: 0.014, decay: 1.3, dest: bus });
+    });
+  }},
+
+  enterCreator: { dur: 2.2, fn(ac) {
+    const bus = reverbBus(ac, 1.8, 2.6, 0.3);
+    tone(ac, { freq: 330, to: 165, type:"sine", gain: 0.14, attack: 0.02, decay: 0.85, dest: bus });
+    tone(ac, { freq: 331.5, to: 166, type:"sine", gain: 0.075, attack: 0.02, decay: 0.85, dest: bus });
+    noise(ac, { dur: 0.85, gain: 0.035, cutoff: 900, dest: bus });
+  }},
+
+  leaveCreator: { dur: 1.8, fn(ac) {
+    const bus = reverbBus(ac, 1.4, 2.4, 0.26);
+    tone(ac, { freq: 196, to: 392, type:"sine", gain: 0.11, attack: 0.015, decay: 0.5, dest: bus });
+    tone(ac, { freq: 294, to: 588, type:"sine", gain: 0.05, attack: 0.015, decay: 0.42, delay: 0.06, dest: bus });
+  }},
+
+  rumble: { dur: 3.8, fn(ac) {
+    const bus = reverbBus(ac, 3.4, 1.8, 0.44);
+    const t0 = ac.currentTime;
+    [[82,"sine",0.34],[82.7,"sine",0.22],[123,"sine",0.16],[164,"triangle",0.07]].forEach(([f,ty,gn]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = ty;
+      o.frequency.setValueAtTime(f, t0);
+      o.frequency.linearRampToValueAtTime(f * 0.9, t0 + 2.8);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(gn, t0 + 0.22);
+      g.gain.linearRampToValueAtTime(gn * 0.55, t0 + 2.4);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + 3.3);
+      o.connect(g).connect(bus);
+      o.start(t0); o.stop(t0 + 3.4);
+    });
+    noise(ac, { dur: 3.0, gain: 0.03, cutoff: 700, dest: bus });
+  }},
+
+  tick: { dur: 0.2, fn(ac) {
+    tone(ac, { freq: 2200, to: 1320, type:"square", gain: 0.038, attack: 0.002, decay: 0.05 });
+  }},
+
+  send: { dur: 0.25, fn(ac) {
+    tone(ac, { freq: 880, to: 1320, type:"sine", gain: 0.03, attack: 0.004, decay: 0.085 });
+    tone(ac, { freq: 1760, to: 2640, type:"sine", gain: 0.012, attack: 0.003, decay: 0.06 });
+  }},
+
+  receive: { dur: 1.4, fn(ac) {
+    const bus = reverbBus(ac, 1.2, 2.6, 0.2);
+    tone(ac, { freq: 660, type:"sine", gain: 0.058, attack: 0.008, decay: 0.42, dest: bus });
+    tone(ac, { freq: 990, type:"sine", gain: 0.02, attack: 0.008, decay: 0.28, delay: 0.02, dest: bus });
+  }},
+
+  switch: { dur: 1.1, fn(ac) {
+    const bus = reverbBus(ac, 0.9, 3.0, 0.16);
+    tone(ac, { freq: 698, to: 1046, type:"sine", gain: 0.032, attack: 0.004, decay: 0.11, dest: bus });
+    tone(ac, { freq: 1046, to: 1568, type:"sine", gain: 0.016, attack: 0.003, decay: 0.09, delay: 0.04, dest: bus });
+  }},
+
+  open: { dur: 0.4, fn(ac) {
+    tone(ac, { freq: 420, to: 640, type:"sine", gain: 0.032, attack: 0.008, decay: 0.15 });
+  }},
+
+  close: { dur: 0.4, fn(ac) {
+    tone(ac, { freq: 640, to: 420, type:"sine", gain: 0.03, attack: 0.006, decay: 0.13 });
+  }},
+
+  deny: { dur: 0.4, fn(ac) {
+    tone(ac, { freq: 396, to: 330, type:"triangle", gain: 0.03, attack: 0.004, decay: 0.09 });
+  }},
+
+  error: { dur: 1.0, fn(ac) {
+    for (let i = 0; i < 3; i++) {
+      const at = i * 0.09;
+      tone(ac, { freq: 1320, type:"triangle", gain: 0.058, attack: 0.003, decay: 0.055, delay: at });
+      tone(ac, { freq: 1245, type:"triangle", gain: 0.038, attack: 0.003, decay: 0.055, delay: at });
+    }
+    tone(ac, { freq: 880, to: 440, type:"sine", gain: 0.045, attack: 0.01, decay: 1.0, delay: 0.26 });
+    tone(ac, { freq: 120, to: 108, type:"sine", gain: 0.065, attack: 0.02, decay: 1.05 });
+  }},
+};
+
+/* ══════════ AudioBuffer → WAV (16-bit PCM) ══════════ */
+
+function toWav(buffer) {
+  const numCh = buffer.numberOfChannels;
+  const len = buffer.length;
+  const rate = buffer.sampleRate;
+  const bytes = len * numCh * 2;
+  const ab = new ArrayBuffer(44 + bytes);
+  const view = new DataView(ab);
+
+  const w = (off, s) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)); };
+  w(0, "RIFF");
+  view.setUint32(4, 36 + bytes, true);
+  w(8, "WAVE");
+  w(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numCh, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * numCh * 2, true);
+  view.setUint16(32, numCh * 2, true);
+  view.setUint16(34, 16, true);
+  w(36, "data");
+  view.setUint32(40, bytes, true);
+
+  const chans = [];
+  for (let c = 0; c < numCh; c++) chans.push(buffer.getChannelData(c));
+
+  let off = 44;
+  for (let i = 0; i < len; i++) {
+    for (let c = 0; c < numCh; c++) {
+      const s = Math.max(-1, Math.min(1, chans[c][i]));
+      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      off += 2;
+    }
+  }
+  return new Uint8Array(ab);
+}
+
+function toBase64(u8) {
+  let s = "";
+  const CH = 0x8000;
+  for (let i = 0; i < u8.length; i += CH) {
+    s += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+  }
+  return btoa(s);
+}
+
+/* ══════════ 主流程 ══════════ */
+
+window.RENDER_ALL = async function () {
+  const result = {};
+  for (const [name, def] of Object.entries(SOUNDS)) {
+    const rate = 48000;
+    const ac = new OfflineAudioContext(2, Math.ceil(def.dur * rate), rate);
+    def.fn(ac);
+    const buf = await ac.startRendering();
+
+    /* 峰值归一化 —— 让频谱图看得清 */
+    let peak = 0;
+    for (let c = 0; c < buf.numberOfChannels; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+    }
+    const g = peak > 0 ? 0.9 / peak : 1;
+    for (let c = 0; c < buf.numberOfChannels; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = 0; i < d.length; i++) d[i] *= g;
+    }
+
+    /* RMS 报告 —— 一个客观的响度数字 */
+    let sum = 0, n = 0;
+    for (let c = 0; c < buf.numberOfChannels; c++) {
+      const d = buf.getChannelData(c);
+      for (let i = 0; i < d.length; i++) { sum += d[i] * d[i]; n++; }
+    }
+    const rms = Math.sqrt(sum / n);
+    const db = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
+
+    result[name] = {
+      dur: def.dur,
+      peak,
+      rms,
+      db: Math.round(db * 10) / 10,
+      wav: toBase64(toWav(buf)),
+    };
+  }
+  return result;
+};
+
+document.getElementById("go").addEventListener("click", async () => {
+  const out = document.getElementById("out");
+  out.textContent = "渲染中…";
+  const r = await window.RENDER_ALL();
+  const brief = {};
+  for (const [k, v] of Object.entries(r)) {
+    brief[k] = { dur: v.dur, rms: Math.round(v.rms * 10000) / 10000, db: v.db, bytes: Math.round(v.wav.length * 0.75) };
+  }
+  out.textContent = JSON.stringify(brief, null, 2);
+});
+</script>
+</body>
+</html>

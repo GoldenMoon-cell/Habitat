@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>生境 · 启动序列（U → Z → 界面展开）</title>
+<style>
+  :root {
+    --accent: #35f0ce;
+    --bg: #04080c;
+    --ink: #cfe6f2;
+    --line: rgba(255,255,255,.06);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(820px 560px at 50% 46%, rgba(53,240,206,.05), transparent 68%),
+      radial-gradient(1200px 760px at 50% 116%, rgba(60,120,200,.03), transparent 62%),
+      var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+
+  /* ═══════════════ 主界面骨架（最后显现） ═══════════════ */
+  .app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /*
+   * UI 的浮现方式 = 这个软件的第二句话。
+   *
+   * 滑入 / 淡入是通用 UI 语言，放在任何产品里都成立 —— 也就等于什么都没说。
+   * 这里换成**通电**：光从 logo 那个点出发，沿着结构走一遍，走到的部分才亮起来。
+   * 这是电路的语言。而块内部那层极慢的起伏，是活物的语言。
+   *
+   * 「电子」在揭示的方式上，「生境」在揭示之后。
+   */
+  @keyframes wireX { to { clip-path: inset(0 0 0 0); } }
+  @keyframes wireY { to { clip-path: inset(0 0 0 0); } }
+
+  /* 通电时跟着边缘走的亮线 */
+  @keyframes sweepL { to { transform: translateX(calc(100vw + 120px)); } }
+  @keyframes sweepD { to { transform: translateY(calc(100vh + 120px)); } }
+
+  .topbar {
+    position: relative;
+    height: 38px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 9px;
+    padding-left: 52px;            /* 给停靠后的 logo 让位 */
+    border-bottom: 1px solid var(--line);
+    clip-path: inset(0 100% 0 0);
+    animation: wireX .46s cubic-bezier(.22,.92,.26,1) 3.86s forwards;
+  }
+  .topbar::after {
+    content: "";
+    position: absolute;
+    top: -1px; bottom: -1px; left: -120px;
+    width: 120px;
+    background: linear-gradient(90deg, transparent, rgba(53,240,206,.55) 55%, rgba(200,250,255,.85) 92%, transparent);
+    animation: sweepL .52s cubic-bezier(.3,.9,.3,1) 3.84s forwards;
+    pointer-events: none;
+  }
+  .brand { display: flex; align-items: baseline; gap: 11px; }
+  .brand .cn { font-size: 12.5px; letter-spacing: .16em; color: rgba(232,246,255,.86); }
+  .brand .en { font-size: 9px; letter-spacing: .3em; color: rgba(143,199,219,.4); }
+  .brand .sub { font-size: 8px; letter-spacing: .12em; color: rgba(91,120,138,.45); }
+
+  .body { flex: 1; display: flex; min-height: 0; }
+
+  .rail-left {
+    position: relative;
+    width: 236px; flex-shrink: 0;
+    border-right: 1px solid var(--line);
+    padding: 14px 0;
+    clip-path: inset(0 0 100% 0);
+    animation: wireY .52s cubic-bezier(.22,.92,.26,1) 4.28s forwards;
+  }
+  .rail-left::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: -120px;
+    height: 120px;
+    background: linear-gradient(180deg, transparent, rgba(53,240,206,.4) 60%, rgba(200,250,255,.7) 92%, transparent);
+    animation: sweepD .56s cubic-bezier(.3,.9,.3,1) 4.26s forwards;
+    pointer-events: none;
+  }
+  @keyframes bloom {
+    0%   { clip-path: circle(0%   at 50% 34%); }
+    100% { clip-path: circle(148% at 50% 34%); }
+  }
+  .main {
+    flex: 1; min-width: 0;
+    padding: 22px 26px;
+    clip-path: circle(0% at 50% 34%);
+    animation: bloom .72s cubic-bezier(.16,1,.3,1) 4.52s forwards;
+  }
+  .rail-right {
+    position: relative;
+    width: 268px; flex-shrink: 0;
+    border-left: 1px solid var(--line);
+    padding: 16px 18px;
+    clip-path: inset(0 0 100% 0);
+    animation: wireY .52s cubic-bezier(.22,.92,.26,1) 4.40s forwards;
+  }
+  .rail-right::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; top: -120px;
+    height: 120px;
+    background: linear-gradient(180deg, transparent, rgba(53,240,206,.4) 60%, rgba(200,250,255,.7) 92%, transparent);
+    animation: sweepD .56s cubic-bezier(.3,.9,.3,1) 4.38s forwards;
+    pointer-events: none;
+  }
+
+  /* 骨架里的假块 */
+  .ghost {
+    border-radius: 7px;
+    background: linear-gradient(140deg, rgba(53,240,206,.085), rgba(53,240,206,.028));
+    border: 1px solid rgba(53,240,206,.14);
+    margin-bottom: 11px;
+  }
+  .rail-left .ghost { height: 42px; margin: 0 12px 9px; }
+  .rail-left .ghost:first-child { height: 34px; }
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(7px) scale(.985); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+  .main .bubble {
+    display: flex; gap: 11px; margin-bottom: 20px;
+    opacity: 0;
+    animation: bubbleIn .42s cubic-bezier(.16,1,.3,1) forwards;
+  }
+  .main .bubble:nth-child(1) { animation-delay: 4.62s; }
+  .main .bubble:nth-child(2) { animation-delay: 4.80s; }
+  .main .bubble:nth-child(3) { animation-delay: 4.98s; }
+  .main .avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(53,240,206,.16); border: 1px solid rgba(53,240,206,.3); }
+  .main .bubble > div:last-child { flex: 1; }
+  .main .line { height: 9px; border-radius: 5px; margin-bottom: 8px;
+    background: linear-gradient(90deg, rgba(207,230,242,.16), rgba(207,230,242,.055)); }
+  .main .line.w60 { width: 60%; }
+  .main .line.w85 { width: 85%; }
+  .main .line.w40 { width: 40%; }
+  .rail-right .ghost { height: 56px; }
+  .rail-right .radar { height: 150px; border-radius: 10px;
+    border: 1px solid rgba(53,240,206,.18);
+    background: radial-gradient(circle at 50% 50%, rgba(53,240,206,.13), transparent 62%);
+    margin-bottom: 12px; }
+
+  /* ═══════════════ 中央 logo（会移动 / 变形 / 停靠） ═══════════════ */
+  .logo-stage {
+    position: fixed;
+    left: 50%; top: 50%;
+    width: 320px; height: 320px;
+    margin: -160px 0 0 -160px;
+    z-index: 40;
+    pointer-events: none;
+    /* 移动 + 缩小，从第 2.7s 开始，0.95s 完成 */
+    transform-origin: center center;
+    animation: dock 0.95s cubic-bezier(.55,.06,.28,1) 2.70s forwards;
+  }
+
+  /* 停靠终点：屏幕左上角标题栏位置，320 * 0.075 = 24px */
+  @keyframes dock {
+    0%   { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(calc(-50vw + 24px), calc(-50vh + 19px)) scale(0.088); }
+  }
+
+  .layer { position: absolute; inset: 0; display: grid; place-items: center; }
+  .layer svg { display: block; overflow: visible; }
+
+  /* U 层：移动过程中淡出 */
+  .layer-u { animation: uOut .7s ease 2.85s forwards; }
+  @keyframes uOut { to { opacity: 0; } }
+
+  /* Z 层：移动过程中淡入 */
+  .layer-z { opacity: 0; animation: zIn .7s ease 3.00s forwards; }
+
+  /* Z 落位之后不能是死的 —— 边框上要有一段信号一直跑 */
+  @keyframes trace { to { stroke-dashoffset: -264; } }
+  .z-flow {
+    stroke-dasharray: 16 248;
+    animation: trace 8.5s linear infinite;
+  }
+  @keyframes zIn { to { opacity: 1; } }
+
+  /* ═══════════════ U 的逐笔生长 ═══════════════ */
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .u-trunk { stroke-dasharray: 34; stroke-dashoffset: 34; animation: draw .58s cubic-bezier(.4,0,.2,1) .12s forwards; }
+  .u-b1 { stroke-dasharray: 29; stroke-dashoffset: 29; animation: draw .40s ease-out .72s forwards; }
+  .u-b2 { stroke-dasharray: 29; stroke-dashoffset: 29; animation: draw .40s ease-out .84s forwards; }
+  .u-b3 { stroke-dasharray: 26; stroke-dashoffset: 26; animation: draw .40s ease-out .96s forwards; }
+  .u-b4 { stroke-dasharray: 26; stroke-dashoffset: 26; animation: draw .40s ease-out 1.08s forwards; }
+
+  @keyframes pop {
+    0% { transform: scale(0); opacity: 0; }
+    62% { transform: scale(1.55); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .u-tip { transform-box: fill-box; transform-origin: center; transform: scale(0); opacity: 0; }
+  .u-t1 { animation: pop .34s cubic-bezier(.34,1.56,.64,1) 1.05s forwards; }
+  .u-t2 { animation: pop .34s cubic-bezier(.34,1.56,.64,1) 1.14s forwards; }
+  .u-t3 { animation: pop .34s cubic-bezier(.34,1.56,.64,1) 1.24s forwards; }
+  .u-t4 { animation: pop .34s cubic-bezier(.34,1.56,.64,1) 1.33s forwards; }
+
+  @keyframes coreIn {
+    0% { transform: scale(0); opacity: 0; }
+    55% { transform: scale(1.7); opacity: 1; }
+    100% { transform: scale(1); opacity: .95; }
+  }
+  .u-core { transform-box: fill-box; transform-origin: center; transform: scale(0); opacity: 0;
+    animation: coreIn .46s cubic-bezier(.34,1.56,.64,1) 1.44s forwards; }
+  .u-halo { transform-box: fill-box; transform-origin: center; opacity: 0;
+    animation: fadeIn .6s ease 1.56s forwards; }
+
+  @keyframes fadeIn { to { opacity: .18; } }
+
+  /* ═══════════════ Z 的显现（简化版，尺寸小时细节会自动消失） ═══════════════ */
+  @keyframes hexDraw { to { stroke-dashoffset: 0; } }
+  .z-hex { stroke-dasharray: 264; stroke-dashoffset: 264; animation: hexDraw .55s ease-out 3.05s forwards; }
+  @keyframes zCoreIn {
+    0% { transform: scale(.4); opacity: 0; }
+    100% { transform: scale(1); opacity: .95; }
+  }
+  .z-core { transform-box: fill-box; transform-origin: center; opacity: 0;
+    animation: zCoreIn .45s cubic-bezier(.34,1.56,.64,1) 3.40s forwards,
+               zBreathe 5.2s ease-in-out 3.9s infinite; }
+  .z-legs { opacity: 0; animation: fadeIn2 .4s ease 3.30s forwards; }
+  @keyframes fadeIn2 { to { opacity: .45; } }
+
+  /* ═══════════════ 文字（跟着 logo 一起，然后消失） ═══════════════ */
+  .wordmark {
+    position: fixed; left: 50%; top: calc(50% + 190px);
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 41;
+    opacity: 0;
+    animation: wordIn .7s cubic-bezier(.16,1,.3,1) 1.55s forwards,
+               wordOut .45s ease 2.65s forwards;
+  }
+  .wordmark .cn { font-size: 32px; font-weight: 300; letter-spacing: .42em; text-indent: .42em; color: #e8f6ff; }
+  .wordmark .en { margin-top: 8px; font-size: 9.5px; letter-spacing: .32em; text-indent: .32em; color: rgba(143,199,219,.5); }
+  .wordmark .tag { margin-top: 5px; font-size: 8px; letter-spacing: .16em; color: rgba(91,120,138,.55); }
+  @keyframes wordIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+  @keyframes wordOut { to { opacity: 0; } }
+
+  /* ═══════════════ 进度条 ═══════════════ */
+  .bar-wrap {
+    position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%);
+    width: 200px; z-index: 41;
+    opacity: 0;
+    animation: barIn .35s ease .25s forwards, barOut .35s ease 2.55s forwards;
+  }
+  @keyframes barIn { to { opacity: 1; } }
+  @keyframes barOut { to { opacity: 0; } }
+  .bar { height: 1.5px; border-radius: 2px; background: rgba(255,255,255,.07); overflow: hidden; }
+  .bar i {
+    display: block; height: 100%; width: 0; border-radius: 2px;
+    background: linear-gradient(90deg, rgba(53,240,206,.3), var(--accent));
+    box-shadow: 0 0 9px rgba(53,240,206,.55);
+    animation: fill 2.35s cubic-bezier(.4,.05,.2,1) .3s forwards;
+  }
+  @keyframes fill { to { width: 100%; } }
+  .status {
+    margin-top: 10px; text-align: center; height: 12px;
+    font: 8.5px ui-monospace, monospace; letter-spacing: .16em; color: rgba(91,120,138,.65);
+  }
+
+  /* ── UI 各块的显现关键帧（之前漏了这四条，所以一直是透明的） ── */
+  @keyframes uiTop   { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes uiLeft  { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes uiMain  { from { opacity: 0; transform: translateY(8px); }  to { opacity: 1; transform: translateY(0); } }
+  @keyframes uiRight { from { opacity: 0; transform: translateX(10px); }  to { opacity: 1; transform: translateX(0); } }
+
+  /* 落位之后，整块界面开始极慢地起伏 —— 幅度只有 4%，周期 9 秒 */
+  @keyframes alive {
+    0%, 100% { opacity: .965; }
+    50%      { opacity: 1; }
+  }
+  .app { animation: alive 9s ease-in-out 5.5s infinite; }
+
+  /* ═══════════════ 背景网格（UI 展开后才有） ═══════════════ */
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(53,240,206,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(53,240,206,.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 12%, transparent 68%);
+    mask-image: radial-gradient(circle at 50% 42%, #000 12%, transparent 68%);
+    opacity: 0;
+    animation: gridIn 1.1s ease 4.05s forwards;
+  }
+  @keyframes gridIn { to { opacity: 1; } }
+
+  /* ═══════════════ 控件 ═══════════════ */
+  .replay {
+    position: fixed; top: 18px; right: 20px; z-index: 60;
+    padding: 6px 14px;
+    border: 1px solid rgba(53,240,206,.26);
+    border-radius: 6px;
+    background: rgba(53,240,206,.06);
+    color: var(--accent);
+    font: 10px ui-monospace, monospace;
+    letter-spacing: .1em;
+    cursor: pointer;
+    opacity: 0;
+    animation: barIn .4s ease 5.6s forwards;
+  }
+  .replay:hover { background: rgba(53,240,206,.14); }
+
+  .note {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 60;
+    font: 8.5px ui-monospace, monospace; letter-spacing: .13em; color: rgba(74,96,110,.5);
+    opacity: 0;
+    animation: barIn .5s ease 5.8s forwards;
+  }
+  .note b { color: rgba(53,240,206,.7); font-weight: 400; }
+
+  /* ═══════════════ 落地：只留一口气 ═══════════════
+
+     试过压扁（像物体被砸）、试过锁定框（像游戏 HUD）、试过冲击波 + 扫描线 ——
+     都不对。因为 Z 落到标题栏不是「撞击」，是「归位」。
+
+     归位不需要被强调。它只需要**亮一下**，然后安静下来。
+     ══════════════════════════════════════════════════════════════ */
+
+  @keyframes settle {
+    0%   { opacity: 0; transform: scale(.55); }
+    30%  { opacity: .55; }
+    100% { opacity: 0; transform: scale(2.6); }
+  }
+  .settle {
+    position: fixed;
+    left: 26px; top: 20px;
+    width: 40px; height: 40px;
+    margin: -20px 0 0 -20px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 44;
+    opacity: 0;
+    background: radial-gradient(circle, rgba(53,240,206,.42) 0%, rgba(53,240,206,.10) 45%, transparent 72%);
+    animation: settle .78s cubic-bezier(.2,.75,.3,1) 3.66s forwards;
+  }
+
+  /* Z 自身轻轻亮一下 —— 「我到了」 */
+  @keyframes arrived {
+    0%, 100% { opacity: 1; }
+    40%      { opacity: 1; filter: brightness(1.5) drop-shadow(0 0 6px rgba(53,240,206,.9)); }
+  }
+
+  /* ═══════════════ 背景网格（UI 展开后才有） ═══════════════ */
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(53,240,206,.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(53,240,206,.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(circle at 50% 42%, #000 12%, transparent 68%);
+    mask-image: radial-gradient(circle at 50% 42%, #000 12%, transparent 68%);
+    opacity: 0;
+    animation: gridIn 1.1s ease 4.05s forwards;
+  }
+  @keyframes gridIn { to { opacity: 1; } }
+
+  /* ═══════════════ 控件 ═══════════════ */
+  .replay {
+    position: fixed; top: 18px; right: 20px; z-index: 60;
+    padding: 6px 14px;
+    border: 1px solid rgba(53,240,206,.26);
+    border-radius: 6px;
+    background: rgba(53,240,206,.06);
+    color: var(--accent);
+    font: 10px ui-monospace, monospace;
+    letter-spacing: .1em;
+    cursor: pointer;
+    opacity: 0;
+    animation: barIn .4s ease 5.6s forwards;
+  }
+  .replay:hover { background: rgba(53,240,206,.14); }
+
+  .note {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 60;
+    font: 8.5px ui-monospace, monospace; letter-spacing: .13em; color: rgba(74,96,110,.5);
+    opacity: 0;
+    animation: barIn .5s ease 5.8s forwards;
+  }
+  .note b { color: rgba(53,240,206,.7); font-weight: 400; }
+
+  /* ═══════════════ 落地效果（3.66s 触发） ═══════════════ */
+
+
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; animation-delay: 0ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<!-- ═══════════ 主界面骨架 ═══════════ -->
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="cn">生 境</span>
+      <span class="en">HABITAT</span>
+      <span class="sub">SYSTEMIC ECOSYSTEM FOR AGENTS</span>
+    </div>
+  </header>
+
+  <div class="body">
+    <!-- 左栏 -->
+    <aside class="rail-left">
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+    </aside>
+
+    <!-- 中间 -->
+    <main class="main">
+      <div class="bubble">
+        <div class="avatar"></div>
+        <div>
+          <div class="line w40" style="width:90px;background:rgba(53,240,206,.15)"></div>
+          <div class="line w85"></div>
+          <div class="line w60"></div>
+        </div>
+      </div>
+      <div class="bubble">
+        <div class="avatar"></div>
+        <div>
+          <div class="line w40" style="width:70px;background:rgba(53,240,206,.12)"></div>
+          <div class="line w60"></div>
+        </div>
+      </div>
+      <div class="bubble">
+        <div class="avatar"></div>
+        <div>
+          <div class="line w40" style="width:110px;background:rgba(53,240,206,.14)"></div>
+          <div class="line w85"></div>
+          <div class="line w85" style="width:64%"></div>
+          <div class="line w40"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- 右栏 -->
+    <aside class="rail-right">
+      <div class="radar"></div>
+      <div class="ghost"></div>
+      <div class="ghost"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ═══════════ 落地：只留一圈极淡的扩散 ═══════════ -->
+<div class="settle"></div>
+
+<!-- ═══════════ 中央 logo（会飞左上角） ═══════════ -->
+<div class="logo-stage" id="logoStage">
+  <div class="layer layer-u" id="layerU"></div>
+  <div class="layer layer-z" id="layerZ"></div>
+</div>
+
+<!-- ═══════════ 启动文字 ═══════════ -->
+<div class="wordmark">
+  <div class="cn">生 境</div>
+  <div class="en">HABITAT</div>
+  <div class="tag">SYSTEMIC ECOSYSTEM FOR AGENTS</div>
+</div>
+
+<div class="bar-wrap">
+  <div class="bar"><i></i></div>
+  <div class="status" id="status"></div>
+</div>
+
+<button class="replay" onclick="location.reload()">↻ 重播</button>
+<div class="note">U 生长 → 移动中变形 → 停靠左上角 → <b>界面各块依次显现</b></div>
+
+<script>
+const A = "#35f0ce";
+
+/* ─── U · 双生脉 ─── */
+function buildU() {
+  const BR = [
+    ["M50 54 L30 33", "u-b1", 29],
+    ["M50 54 L70 33", "u-b2", 29],
+    ["M50 70 L33 51", "u-b3", 26],
+    ["M50 70 L67 51", "u-b4", 26],
+  ];
+  const TIPS = [[30, 33, "u-t1", ".85"], [70, 33, "u-t2", ".85"], [33, 51, "u-t3", ".6"], [67, 51, "u-t4", ".6"]];
+  let s = "";
+  for (const [d, cls, len] of BR) {
+    s += `<path class="${cls}" d="${d}" stroke="${A}" stroke-width="1.9" stroke-linecap="round" opacity=".68" fill="none"/>`;
+  }
+  for (const [x, y, cls, op] of TIPS) {
+    s += `<circle class="u-tip ${cls}" cx="${x}" cy="${y}" r="2.6" fill="${A}" opacity="${op}"/>`;
+  }
+  return `<svg viewBox="0 0 100 100" width="320" height="320">
+    <defs>
+      <filter id="gU" x="-70%" y="-70%" width="240%" height="240%">
+        <feGaussianBlur stdDeviation="2.6" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g filter="url(#gU)">
+      <path class="u-trunk" d="M50 88 V54" stroke="${A}" stroke-width="2.9" stroke-linecap="round" opacity=".9" fill="none"/>
+      ${s}
+      <line x1="40" y1="88" x2="60" y2="88" stroke="${A}" stroke-width="2.2" stroke-linecap="round" opacity=".38"/>
+      <circle class="u-halo" cx="50" cy="54" r="11" fill="${A}" opacity="0"/>
+      <circle class="u-core" cx="50" cy="54" r="4.2" fill="${A}" opacity="0"/>
+    </g>
+  </svg>`;
+}
+
+/* ─── Z · 电路巢 ─── */
+function buildZ() {
+  const HEX = "M50 8 L87 29 L87 71 L50 92 L13 71 L13 29 Z";
+  return `<svg viewBox="0 0 100 100" width="320" height="320">
+    <defs>
+      <filter id="gZ" x="-70%" y="-70%" width="240%" height="240%">
+        <feGaussianBlur stdDeviation="2.6" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g filter="url(#gZ)">
+      <path class="z-hex" d="${HEX}" fill="none" stroke="${A}" stroke-width="2.2"
+            stroke-linejoin="round" opacity=".6"/>
+      <path class="z-flow" d="${HEX}" fill="none" stroke="${A}" stroke-width="3"
+            stroke-linejoin="round" stroke-linecap="round" opacity=".9"/>
+      <g class="z-legs">
+        <path d="M34 76 L34 62 L44 56" fill="none" stroke="${A}" stroke-width="1.9" stroke-linecap="round"/>
+        <path d="M50 80 L50 62" fill="none" stroke="${A}" stroke-width="1.9" stroke-linecap="round"/>
+        <path d="M66 76 L66 62 L56 56" fill="none" stroke="${A}" stroke-width="1.9" stroke-linecap="round"/>
+      </g>
+      <circle class="z-core" cx="50" cy="52" r="7" fill="${A}" opacity="0"/>
+    </g>
+  </svg>`;
+}
+
+document.getElementById("layerU").innerHTML = buildU();
+document.getElementById("layerZ").innerHTML = buildZ();
+
+/* ─── 状态文字 ─── */
+const STEPS = [
+  [0.3, "初始化"],
+  [0.85, "加载角色档案"],
+  [1.45, "唤醒核心"],
+  [1.95, "挂载凭据"],
+  [2.45, "绘制坐标"],
+];
+const st = document.getElementById("status");
+STEPS.forEach(([t, label]) => {
+  setTimeout(() => { st.textContent = "· " + label; }, t * 1000);
+});
+</script>
+</body>
+</html>

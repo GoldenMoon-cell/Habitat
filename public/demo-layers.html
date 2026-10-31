@@ -1,0 +1,1440 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>三鲸空间 · 分层故障演示</title>
+<style>
+  :root {
+    --abyss: #03070d;
+    --glass: rgba(10, 22, 32, 0.82);
+    --biolum: #35f0ce;
+    --tide: #4e8cff;
+    --lumen: #8b6bff;
+    --coral: #ff7a6b;
+    --amber: #fde68a;
+    --ink: #e6f2fb;
+    --mist: #8fa9bd;
+    --line: rgba(255,255,255,0.06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--abyss);
+    color: var(--ink);
+    font-family: "Segoe UI", "Noto Sans SC", system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 20px 24px 50px;
+    background-image:
+      linear-gradient(rgba(53,240,206,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(53,240,206,0.03) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* ── 头部 ── */
+  .head {
+    max-width: 1560px; margin: 0 auto 16px;
+    display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  }
+  .title { font-size: 13px; letter-spacing: 0.2em; color: rgba(230,242,251,0.88); }
+  .sub { font-size: 10.5px; color: rgba(143,169,189,0.45); line-height: 1.7; margin-top: 5px; }
+  .sub b { color: rgba(53,240,206,0.8); font-weight: 400; }
+  .actions { margin-left: auto; display: flex; gap: 7px; }
+  .act {
+    padding: 6px 12px; border-radius: 7px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.09);
+    background: rgba(255,255,255,0.025);
+    color: rgba(143,169,189,0.7);
+    font-size: 10.5px; font-family: inherit; transition: all 0.15s;
+  }
+  .act:hover { border-color: rgba(53,240,206,0.3); color: rgba(53,240,206,0.9); }
+
+  /* ── 外壳 ── */
+  .shell {
+    max-width: 1560px; margin: 0 auto;
+    background: var(--glass);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px; overflow: hidden;
+    box-shadow: 0 26px 70px -34px #000, inset 0 1px 0 rgba(200,245,255,0.05);
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 9px;
+    height: 34px; padding: 0 14px; border-bottom: 1px solid var(--line);
+    font-size: 10px; color: rgba(143,169,189,0.45);
+  }
+  .topbar .dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(53,240,206,0.6); }
+  .topbar .badge {
+    font-family: monospace; font-size: 8px; letter-spacing: 0.1em;
+    border: 1px solid rgba(253,230,138,0.25);
+    background: rgba(253,230,138,0.08);
+    color: rgba(253,230,138,0.7);
+    padding: 1px 5px; border-radius: 3px;
+  }
+
+  .cols { display: grid; grid-template-columns: 190px 220px 1fr 250px; min-height: 620px; }
+  .col {
+    display: flex; flex-direction: column; min-width: 0;
+    border-right: 1px solid var(--line); position: relative;
+  }
+  .col:last-child { border-right: none; }
+
+  /* 栏顶：整栏崩溃按钮 */
+  .colhead {
+    display: flex; align-items: center; gap: 6px;
+    padding: 9px 11px 8px; border-bottom: 1px solid var(--line);
+    font-size: 9px; letter-spacing: 0.16em; color: rgba(143,169,189,0.4);
+    text-transform: uppercase;
+  }
+  .killrail {
+    margin-left: auto; padding: 2px 6px; border-radius: 4px; cursor: pointer;
+    border: 1px solid rgba(255,122,107,0.22);
+    background: transparent; color: rgba(255,122,107,0.5);
+    font-family: monospace; font-size: 7.5px; letter-spacing: 0.08em;
+    transition: all 0.15s;
+  }
+  .killrail:hover { background: rgba(255,122,107,0.14); color: rgba(255,122,107,0.95); }
+
+  /* ── 区块 ── */
+  .block {
+    position: relative; padding: 11px 11px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.035);
+    transition: background 0.15s;
+  }
+  .block:hover { background: rgba(255,255,255,0.012); }
+  .block:last-child { border-bottom: none; }
+  .bh {
+    font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: rgba(143,169,189,0.35); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .bh .tag { margin-left: auto; opacity: 0; transition: opacity 0.15s; }
+  .block:hover .bh .tag { opacity: 1; }
+  .killblock {
+    cursor: pointer; border: 1px solid rgba(255,122,107,0.22);
+    background: transparent; color: rgba(255,122,107,0.5);
+    border-radius: 3px; padding: 1px 4px;
+    font-family: monospace; font-size: 7px; letter-spacing: 0.06em;
+  }
+  .killblock:hover { background: rgba(255,122,107,0.14); color: rgba(255,122,107,0.95); }
+
+  .ln { height: 5px; border-radius: 2px; background: rgba(255,255,255,0.045); margin-bottom: 6px; }
+  .ln.w90 { width: 90%; } .ln.w70 { width: 70%; } .ln.w50 { width: 50%; } .ln.w35 { width: 35%; }
+  .row { display: flex; align-items: baseline; gap: 6px; font-size: 9px; color: rgba(143,169,189,0.42); margin-bottom: 5px; }
+  .row .v { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .spark { height: 22px; margin: 3px 0 8px; }
+  .spark svg { width: 100%; height: 100%; display: block; }
+  .spark polyline { fill: none; stroke: rgba(53,240,206,0.5); stroke-width: 1.1; }
+
+  .avatar {
+    display: flex; align-items: center; gap: 7px; margin-bottom: 7px;
+  }
+  .avatar i {
+    width: 19px; height: 19px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid rgba(53,240,206,0.3); background: rgba(53,240,206,0.1);
+  }
+  .avatar .nm { font-size: 10px; color: rgba(230,242,251,0.72); }
+  .avatar .sub2 { font-size: 8.5px; color: rgba(143,169,189,0.32); }
+
+  .msg { padding: 7px 9px; border-radius: 8px; margin-bottom: 7px; font-size: 10px; line-height: 1.65; }
+  .msg.ai {
+    background: linear-gradient(154deg, rgba(53,240,206,0.09), rgba(9,22,32,0.6));
+    border: 1px solid rgba(53,240,206,0.16);
+    color: rgba(217,232,242,0.78);
+  }
+  .msg.me {
+    background: linear-gradient(136deg, rgba(78,140,255,0.28), rgba(53,240,206,0.1));
+    border: 1px solid rgba(150,220,255,0.2);
+    color: #eef9ff; text-align: right; margin-left: 26px;
+  }
+
+  /* ── 区块崩溃态 ── */
+  .block.dead .bh { opacity: 0.25; }
+  .block.dead .body { display: none !important; }
+  .bd {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; min-height: 40px;
+    
+  }
+  .bd .r1 { display: flex; align-items: center; gap: 5px; }
+  .bd .r1 .d {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: var(--coral); box-shadow: 0 0 6px var(--coral);
+  }
+  .bd .r1 .t { font-family: monospace; font-size: 8.5px; letter-spacing: 0.08em; color: rgba(255,122,107,0.72); }
+  /* 通用：任何层级里的「重试」都要小、要灰、不要抢视线。
+     原来只写了 .bd .r1 .rt，专属形态把 .rt 放进了 .meta/.sub/.ar/.halt/.lr/.tag2/.sr，
+     全部不匹配 → 退回浏览器默认 16px 白字，在深色界面上像个大按钮。 */
+  .bd .rt {
+    font-family: monospace !important;
+    font-size: 8px !important;
+    letter-spacing: 0.06em;
+    color: rgba(143,169,189,0.32) !important;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    flex-shrink: 0;
+  }
+  .bd .rt:hover { color: rgba(53,240,206,0.65) !important; }
+  .bd .r2 {
+    font-family: monospace; font-size: 7.5px; color: rgba(143,169,189,0.22);
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* !important 必须有：.bd.radar / .bd.sparkline / .bd.tear 都是 (0,2,0)，
+     和 .bd[hidden] 同权，后定义的会把隐藏规则盖掉 —— 结果就是
+     这三个区块的崩溃占位在正常状态下也一直在显示（斜纹 canvas 一起露出来）。 */
+  .bd[hidden] { display: none !important; }
+
+  /* ── 整栏崩溃态 ── */
+  .col.rail-dead { border-right-color: rgba(255,122,107,0.14); }
+  .col.rail-dead > .colbody { display: none; }
+  .raild {
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 9px; flex: 1; padding: 20px 12px; text-align: center;
+    
+  }
+  .col.rail-dead .raild { display: flex; }
+  .raild .ic {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid rgba(255,122,107,0.4); background: rgba(255,122,107,0.08);
+    display: grid; place-items: center; color: var(--coral); font-size: 13px;
+  }
+  .raild .t { font-size: 10.5px; color: rgba(255,122,107,0.92); }
+  .raild .d {
+    font-family: monospace; font-size: 8.5px; line-height: 1.7;
+    color: rgba(143,169,189,0.4); word-break: break-all; max-width: 150px;
+  }
+  .raild .btn {
+    padding: 4px 10px; border-radius: 5px; cursor: pointer;
+    border: 1px solid rgba(255,122,107,0.3); background: rgba(255,122,107,0.1);
+    color: rgba(255,122,107,0.9); font-size: 9px; font-family: inherit;
+  }
+
+  /* ── 说明 ── */
+  .legend {
+    max-width: 1560px; margin: 16px auto 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .lg {
+    padding: 11px 13px; border-radius: 9px;
+    border: 1px solid rgba(255,255,255,0.055);
+    background: rgba(255,255,255,0.012);
+    font-size: 10px; line-height: 1.8; color: rgba(143,169,189,0.5);
+  }
+  .lg b { display: block; margin-bottom: 5px; font-size: 9px; letter-spacing: 0.14em; font-weight: 400; }
+  .lg.r { border-color: rgba(255,122,107,0.16); }
+  .lg.r b { color: rgba(255,122,107,0.85); }
+  .lg.y { border-color: rgba(253,230,138,0.14); }
+  .lg.y b { color: rgba(253,230,138,0.8); }
+  .lg.g { border-color: rgba(53,240,206,0.16); }
+  .lg.g b { color: rgba(53,240,206,0.85); }
+
+    /* ═══════════════════════════════════════════════════════
+     专属崩溃形态 —— 不是所有区块都该变成同一条红线。
+     雷达该「塌成一点」、CPU 该「压成一条线」、
+     消息该「文字错位」。这样才能看出「这块是怎么坏的」。
+     ═══════════════════════════════════════════════════════ */
+
+  /* canvas 斜纹层：垫在内容之下 */
+  .bd > canvas.stripe,
+  .raild > canvas.stripe {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .bd > *:not(canvas),
+  .raild > *:not(canvas) { position: relative; z-index: 1; }
+
+  /* ── RADAR：六边形塌缩成一个点，再裂成一条水平线 ── */
+  @keyframes radarCollapse {
+    0%   { transform: scale(1);      opacity: 1; }
+    35%  { transform: scale(1.18);   opacity: 1; filter: brightness(2.2); }
+    70%  { transform: scale(0.06);   opacity: 0.9; }
+    100% { transform: scale(0.06, 0.004); opacity: 0.5; }
+  }
+  .bd.radar {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative;
+    min-height: 100px;
+    gap: 8px;
+  }
+  .bd.radar .poly {
+    width: 84px; height: 84px;
+    animation: radarCollapse 520ms cubic-bezier(0.4, 0, 0.7, 1) forwards;
+    transform-origin: center;
+  }
+  .bd.radar .poly polygon {
+    fill: rgba(255,122,107,0.1);
+    stroke: rgba(255,122,107,0.6);
+    stroke-width: 1;
+  }
+  /* 塌完之后：一条水平红线 + 轴标全部归零 */
+  .bd.radar .flat {
+    position: absolute; left: 16%; right: 16%; top: 50%;
+    height: 1.5px; background: rgba(255,122,107,0.55);
+    box-shadow: 0 0 10px rgba(255,122,107,0.6);
+    animation: flatIn 320ms 420ms cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes flatIn {
+    from { transform: scaleX(0); opacity: 0; }
+    to   { transform: scaleX(1); opacity: 1; }
+  }
+  .bd.radar .axes {
+    position: absolute; inset: 0; pointer-events: none;
+    animation: flatIn 320ms 420ms both;
+  }
+  .bd.radar .axes span {
+    position: absolute;
+    font-family: monospace; font-size: 7px;
+    color: rgba(255,122,107,0.5);
+  }
+  .bd.radar .axes .a1 { left: 50%; top: 6%; transform: translateX(-50%); }
+  .bd.radar .axes .a2 { right: 4%; top: 28%; }
+  .bd.radar .axes .a3 { right: 8%; bottom: 22%; }
+  .bd.radar .axes .a4 { left: 50%; bottom: 4%; transform: translateX(-50%); }
+  .bd.radar .axes .a5 { left: 8%; bottom: 22%; }
+  .bd.radar .axes .a6 { left: 4%; top: 28%; }
+
+  /* ── CPU：折线被压成一条水平红线 ── */
+  .bd.sparkline {
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 46px; padding: 0 11px; gap: 6px;
+  }
+  .bd.sparkline canvas.ecg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+  .bd.sparkline .lbl { position: relative; z-index: 1; }
+  .bd.sparkline .lbl {
+    display: flex; align-items: center; gap: 5px;
+    font-family: monospace; font-size: 8px; color: rgba(255,122,107,0.65);
+  }
+  .bd.sparkline .lbl .d {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: var(--coral); box-shadow: 0 0 6px var(--coral);
+    animation: mossBlink 1.1s steps(1) infinite;
+  }
+  @keyframes mossBlink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0.15; } }
+
+  /* ── MESSAGES：文字横向切断错位，露出十六进制 ── */
+  .bd.tear {
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 140px; padding: 14px 16px; gap: 12px;
+    font-family: monospace;
+  }
+  .bd.tear .seg { position: relative; }
+  .bd.tear .seg .up,
+  .bd.tear .seg .dn {
+    font-size: 11px; line-height: 1.9; white-space: nowrap; overflow: hidden;
+  }
+  .bd.tear .seg .up {
+    color: rgba(200,210,220,0.55);
+    clip-path: inset(0 0 52% 0);
+  }
+  .bd.tear .seg .dn {
+    color: rgba(200,210,220,0.26);
+    clip-path: inset(48% 0 0 0);
+    transform: translateX(11px);
+    margin-top: -21px;
+  }
+  .bd.tear .hex {
+    display: inline-block; padding: 0 3px;
+    color: rgba(255,122,107,0.9);
+    background: rgba(255,122,107,0.12);
+    font-size: 9.5px; letter-spacing: 0.08em;
+    animation: hexBlink 0.9s steps(1) infinite;
+  }
+  @keyframes hexBlink { 0%,60% { opacity: 1; } 61%,100% { opacity: 0.35; } }
+  .bd.tear .meta {
+    display: flex; gap: 12px; font-size: 7.5px;
+    color: rgba(143,169,189,0.28);
+  }
+  .bd.tear .meta b { color: rgba(255,122,107,0.7); font-weight: 400; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bd.radar .poly, .bd.radar .flat, .bd.radar .axes,
+    .bd.sparkline polyline, .bd.tear .hex,
+    .bd.sparkline .lbl .d { animation: none; }
+  }
+  /* ═══════════════════════════════════════════════════════
+     剩余 9 个区块的专属崩溃形态
+     原则：崩溃形态要说出「这块是怎么坏的」，而不只是「它坏了」。
+     全部只依赖 CSS 类 + 伪元素，不改原有 DOM 结构。
+     ═══════════════════════════════════════════════════════ */
+
+  /* .bd 默认 align-items:center，列布局会塌成一条，这里放开 */
+  .bd.api, .bd.freeze, .bd.lost, .bd.sealed, .bd.strike { align-items: stretch; }
+
+  /* ① IDENTITY —— 字母逐个错位成数字 */
+  .bd.ident {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px; min-height: 52px;
+  }
+  .bd.ident .corrupt {
+    font-size: 13px; letter-spacing: 0.22em; font-weight: 400;
+    color: rgba(255,122,107,0.72);
+    text-shadow: 1px 0 rgba(78,140,255,0.5), -1px 0 rgba(53,240,206,0.35);
+    animation: identGlitch 2.4s steps(1) infinite;
+  }
+  @keyframes identGlitch {
+    0%, 92%, 100% { transform: translate(0); filter: none; }
+    93% { transform: translate(-1px, 1px); filter: brightness(1.6); }
+    95% { transform: translate(1px, -1px); }
+    97% { transform: translate(0); }
+  }
+  .bd.ident .sub { font-family: monospace; font-size: 7.5px; letter-spacing: 0.16em; color: rgba(255,122,107,0.42); }
+
+  /* ② API LINKS —— 四行状态同时塌成破折号 */
+  .bd.api {
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 5px; min-height: 74px; padding: 0 11px;
+    font-family: monospace; font-size: 9px;
+  }
+  .bd.api .ar { display: flex; align-items: baseline; gap: 6px; color: rgba(255,122,107,0.55); }
+  .bd.api .ar .nm { min-width: 62px; }
+  .bd.api .ar .st { margin-left: auto; color: rgba(255,122,107,0.85); letter-spacing: 0.12em; }
+  .bd.api .ar:nth-child(1) { animation: apiDie 320ms 0ms both; }
+  .bd.api .ar:nth-child(2) { animation: apiDie 320ms 60ms both; }
+  .bd.api .ar:nth-child(3) { animation: apiDie 320ms 120ms both; }
+  .bd.api .ar:nth-child(4) { animation: apiDie 320ms 180ms both; }
+  @keyframes apiDie {
+    from { opacity: 1; transform: translateX(0); }
+    40%  { opacity: 1; transform: translateX(3px); filter: brightness(2); }
+    100% { opacity: 0.85; transform: translateX(0); }
+  }
+
+  /* ③ EVENT STREAM —— 加速滚动后冻结 */
+  .bd.freeze {
+    display: flex; flex-direction: column; justify-content: flex-end;
+    min-height: 76px; padding: 0 11px 10px; gap: 4px;
+    overflow: hidden;
+  }
+  .bd.freeze .noise {
+    font-family: monospace; font-size: 8px; line-height: 1.5;
+    color: rgba(255,122,107,0.22); white-space: nowrap;
+    animation: scrollUp 260ms linear infinite;
+  }
+  @keyframes scrollUp {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-12px); }
+  }
+  .bd.freeze .halt {
+    display: flex; align-items: center; gap: 5px;
+    font-family: monospace; font-size: 8.5px; color: rgba(255,122,107,0.8);
+    border-top: 1px solid rgba(255,122,107,0.18); padding-top: 7px;
+  }
+  .bd.freeze .halt .cur {
+    display: inline-block; width: 5px; height: 9px;
+    background: rgba(255,122,107,0.8);
+    animation: curBlink 1.05s steps(1) infinite;
+  }
+  @keyframes curBlink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+
+  /* ④ GROUPS —— 折叠成虚线空框 */
+  .bd.tomb {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px; min-height: 52px;
+  }
+  .bd.tomb .box {
+    width: 100%; height: 26px; margin: 0 11px;
+    border: 1px dashed rgba(255,122,107,0.28);
+    border-radius: 5px;
+    display: grid; place-items: center;
+    font-family: monospace; font-size: 8px; letter-spacing: 0.18em;
+    color: rgba(255,122,107,0.55);
+  }
+
+  /* ⑤ CORE —— 头像逐个打叉，名字变问号 */
+  .bd.lost {
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 7px; min-height: 96px; padding: 0 11px;
+  }
+  .bd.lost .lr { display: flex; align-items: center; gap: 7px; }
+  .bd.lost .av {
+    position: relative; width: 17px; height: 17px; border-radius: 50%;
+    border: 1px solid rgba(255,122,107,0.3);
+    background: rgba(255,122,107,0.04);
+    display: grid; place-items: center;
+    font-size: 9px; color: rgba(255,122,107,0.75);
+  }
+  .bd.lost .q { font-family: monospace; font-size: 9px; letter-spacing: 0.16em; color: rgba(255,122,107,0.5); }
+  .bd.lost .lr:nth-child(1) { animation: fadeOutRow 260ms 0ms both; }
+  .bd.lost .lr:nth-child(2) { animation: fadeOutRow 260ms 70ms both; }
+  .bd.lost .lr:nth-child(3) { animation: fadeOutRow 260ms 140ms both; }
+  .bd.lost .lr:nth-child(4) { animation: fadeOutRow 260ms 210ms both; }
+  @keyframes fadeOutRow {
+    from { opacity: 1; transform: translateX(0); }
+    50%  { opacity: 0.5; transform: translateX(-3px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ⑥ HEADER —— 群名被红色遮罩条盖住 */
+  .bd.void {
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 6px; min-height: 52px; padding: 0 11px;
+  }
+  .bd.void .bar {
+    height: 10px; border-radius: 2px;
+    background: linear-gradient(90deg, rgba(255,122,107,0.42), rgba(255,122,107,0.14));
+    animation: voidSweep 700ms cubic-bezier(0.16,1,0.3,1) both;
+    transform-origin: left;
+  }
+  @keyframes voidSweep {
+    from { transform: scaleX(0); opacity: 0.2; }
+    to   { transform: scaleX(1); opacity: 1; }
+  }
+  .bd.void .tag2 {
+    font-family: monospace; font-size: 7.5px; letter-spacing: 0.2em;
+    color: rgba(255,122,107,0.55);
+  }
+
+  /* ⑦ COMPOSER —— 输入框塌成一条 */
+  .bd.inputlock {
+    display: flex; align-items: center; gap: 7px;
+    min-height: 36px; padding: 0 11px;
+    border: 1px solid rgba(255,122,107,0.18);
+    border-radius: 6px; margin: 4px 11px;
+    font-family: monospace; font-size: 8px; letter-spacing: 0.16em;
+    color: rgba(255,122,107,0.62);
+    background: rgba(255,122,107,0.03);
+  }
+  .bd.inputlock .lock { font-size: 9px; }
+
+  /* ⑧ MEMORY STREAM —— 卡片 3D 翻面成 SEALED */
+  .bd.sealed {
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 6px; min-height: 76px; padding: 0 11px;
+    perspective: 400px;
+  }
+  .bd.sealed .cd {
+    height: 18px; border-radius: 3px;
+    border: 1px solid rgba(255,122,107,0.22);
+    background: rgba(255,122,107,0.05);
+    display: grid; place-items: center;
+    font-family: monospace; font-size: 7px; letter-spacing: 0.22em;
+    color: rgba(255,122,107,0.6);
+    transform-origin: left center;
+    animation: seal 520ms cubic-bezier(0.4,0,0.6,1) both;
+  }
+  .bd.sealed .cd:nth-child(1) { animation-delay: 0ms; }
+  .bd.sealed .cd:nth-child(2) { animation-delay: 110ms; }
+  .bd.sealed .cd:nth-child(3) { animation-delay: 220ms; }
+  @keyframes seal {
+    from { transform: rotateY(0deg); opacity: 1; }
+    55%  { transform: rotateY(90deg); opacity: 0.6; }
+    to   { transform: rotateY(0deg); opacity: 1; }
+  }
+
+  /* ⑨ QUICK COMMANDS —— 逐条划掉 */
+  .bd.strike {
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 6px; min-height: 76px; padding: 0 11px;
+    font-family: monospace; font-size: 9px;
+  }
+  .bd.strike .sr {
+    position: relative; display: flex; align-items: baseline; gap: 6px;
+    color: rgba(255,122,107,0.45);
+  }
+  .bd.strike .sr .v { margin-left: auto; }
+  .bd.strike .sr::after {
+    content: ""; position: absolute; left: 0; right: 0; top: 50%;
+    height: 1px; background: rgba(255,122,107,0.55);
+    transform-origin: left; animation: strikeLine 320ms ease-out both;
+  }
+  .bd.strike .sr:nth-child(1)::after { animation-delay: 0ms; }
+  .bd.strike .sr:nth-child(2)::after { animation-delay: 90ms; }
+  .bd.strike .sr:nth-child(3)::after { animation-delay: 180ms; }
+  @keyframes strikeLine {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .bd.ident .corrupt, .bd.freeze .noise, .bd.freeze .halt .cur,
+    .bd.api .ar, .bd.lost .lr, .bd.void .bar,
+    .bd.sealed .cd, .bd.strike .sr::after { animation: none; }
+  }
+  /* ═══ 正常 → 故障的过渡 ═══
+     故障不是一个瞬间，是一个过程：
+     闪一下 → 抖两下 → 抽色模糊 → 塌缩 → 警示带接手。
+     总共 440ms，够看清发生了什么，又不至于让人等。 */
+  @keyframes blockDie {
+    0%   { opacity: 1; filter: brightness(1);            transform: translateX(0)    scaleY(1); }
+    10%  { opacity: 0.35; filter: brightness(2.4) contrast(1.7); transform: translateX(-2px); }
+    18%  { opacity: 1;    filter: brightness(1);          transform: translateX(2px); }
+    26%  { opacity: 0.55; filter: brightness(1.8) contrast(1.4); transform: translateX(-1.5px); }
+    34%  { opacity: 1;    filter: brightness(1);          transform: translateX(1px); }
+    46%  { opacity: 0.75; filter: grayscale(0.5) blur(1px); transform: translateX(0); }
+    100% { opacity: 0;    filter: grayscale(1) blur(5px); transform: scaleY(0.5); }
+  }
+
+  .block.dying .body {
+    animation: blockDie 440ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
+    transform-origin: top center;
+  }
+  .block.dying .bh {
+    animation: bhDie 440ms ease-out forwards;
+  }
+  @keyframes bhDie {
+    0% { opacity: 1; }
+    30% { opacity: 0.4; }
+    100% { opacity: 0; transform: translateY(-3px); }
+  }
+
+  /* 警示带淡入，不硬切 */
+  @keyframes bdIn {
+    from { opacity: 0; transform: scaleY(0.7); }
+    to   { opacity: 1; transform: none; }
+  }
+  .block.dead .bd { animation: bdIn 300ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+  /* ── 整栏崩溃：内容整体塌下去 ── */
+  @keyframes railDie {
+    0%   { opacity: 1; filter: none; transform: scaleY(1); }
+    12%  { opacity: 0.4; filter: brightness(2.0); }
+    24%  { opacity: 1; filter: brightness(1); }
+    50%  { opacity: 0.6; filter: grayscale(0.8) blur(2px); }
+    100% { opacity: 0; filter: grayscale(1) blur(6px); transform: scaleY(0.9); }
+  }
+  .col.rail-dying .colbody {
+    animation: railDie 520ms cubic-bezier(0.4, 0, 0.6, 1) forwards;
+    transform-origin: top center;
+  }
+  .col.rail-dying .colhead { animation: bhDie 520ms ease-out forwards; }
+
+  @keyframes raildIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .col.rail-dead .raild { animation: raildIn 340ms cubic-bezier(0.16, 1, 0.3, 1); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .block.dying .body, .block.dying .bh,
+    .col.rail-dying .colbody, .col.rail-dying .colhead,
+    .block.dead .bd, .col.rail-dead .raild { animation: none; }
+  }
+  /* ═══ 全局离线态 ═══ */
+  .shell.offline .cols > .col > .colbody { display: none; }
+  .shell.offline .cols > .col > .colhead { opacity: 0.3; }
+  .shell.offline .cols > .col { border-right-color: rgba(255,122,107,0.1); }
+
+  .goglobal {
+    display: none;
+    position: absolute; inset: 0;
+    background: rgba(3,7,13,0.93);
+    backdrop-filter: blur(3px);
+    z-index: 20;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .shell.offline .goglobal { display: flex; }
+  .shell { position: relative; }
+
+  .gcard {
+    width: 520px; max-width: 100%;
+    border: 1px solid rgba(255,122,107,0.24);
+    background: rgba(12,16,22,0.9);
+    border-radius: 12px; overflow: hidden;
+    box-shadow: 0 30px 80px -40px #000, inset 0 1px 0 rgba(255,122,107,0.08);
+    animation: gIn 0.42s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes gIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.99); }
+    to   { opacity: 1; transform: none; }
+  }
+  .ghead {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid rgba(255,122,107,0.14);
+  }
+  .ghead .ic {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid rgba(255,122,107,0.45);
+    background: rgba(255,122,107,0.09);
+    display: grid; place-items: center;
+    color: var(--coral); font-size: 14px;
+  }
+  .ghead .tt { font-size: 13px; color: #eef4f8; }
+  .ghead .ss {
+    margin-top: 2px; font-family: monospace; font-size: 8.5px;
+    letter-spacing: 0.14em; color: rgba(255,122,107,0.55);
+  }
+  .gbody { padding: 14px 16px; }
+  .greason {
+    font-family: monospace; font-size: 9.5px; line-height: 1.8;
+    color: rgba(143,169,189,0.55);
+    padding: 9px 11px; border-radius: 7px;
+    background: rgba(255,122,107,0.04);
+    border: 1px solid rgba(255,122,107,0.12);
+  }
+  .greason b { color: rgba(255,122,107,0.85); font-weight: 400; }
+
+  .gcols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .gcol h5 {
+    font-size: 8.5px; letter-spacing: 0.16em; font-weight: 400;
+    color: rgba(143,169,189,0.32); margin-bottom: 7px;
+  }
+  .gcol ul { list-style: none; }
+  .gcol li {
+    font-size: 10px; line-height: 1.9; color: rgba(143,169,189,0.5);
+    display: flex; gap: 6px;
+  }
+  .gcol li::before { content: "·"; color: rgba(143,169,189,0.25); }
+  .gcol.ok li { color: rgba(53,240,206,0.6); }
+  .gcol.ok li::before { color: rgba(53,240,206,0.3); }
+  .gcol.no li { color: rgba(143,169,189,0.32); }
+  .gcol.no li::before { color: rgba(255,122,107,0.3); }
+
+  .gfoot {
+    display: flex; gap: 8px; padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .gbtn {
+    padding: 6px 14px; border-radius: 7px; cursor: pointer;
+    font-size: 10.5px; font-family: inherit; border: none;
+    transition: all 0.15s;
+  }
+  .gbtn.pri { background: rgba(53,240,206,0.16); color: var(--biolum); box-shadow: inset 0 0 0 1px rgba(53,240,206,0.3); }
+  .gbtn.pri:hover { background: rgba(53,240,206,0.26); }
+  .gbtn.sec { background: rgba(255,255,255,0.055); color: rgba(143,169,189,0.72); margin-left: auto; }
+
+  /* 瞬间全断的闪白 */
+  .flash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 99;
+    background: rgba(200,240,255,0.06); opacity: 0;
+  }
+  .flash.go { animation: flashHit 0.28s ease-out; }
+  @keyframes flashHit {
+    0% { opacity: 0; } 22% { opacity: 1; } 100% { opacity: 0; }
+  }
+
+  /* 内容抽色：一瞬间所有文字失去颜色 */
+  .shell.draining .cols { filter: grayscale(0.85) blur(1.2px); transition: filter 0.24s ease-out; }
+  @media (max-width: 1200px) {
+    .cols { grid-template-columns: 1fr 1fr; }
+    .legend { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div>
+    <div class="title">三鲸空间 · 分层故障演示</div>
+    <div class="sub">
+      把鼠标移到任意区块上，右上角会出现 <b>[ kill ]</b>。点它让这一块崩溃。<br />
+      每栏顶部还有一个 <b>[ KILL RAIL ]</b>，用来演示「整栏崩溃」。
+    </div>
+  </div>
+  <div class="actions">
+    <button class="act" id="reset">全部恢复</button>
+    <button class="act" id="killAll">全部区块崩溃</button>
+    <button class="act" id="offline" style="border-color:rgba(255,122,107,0.32);color:rgba(255,122,107,0.85)">⚡ 瞬间全断</button>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="topbar">
+    <span class="dot"></span>
+    <span>三鲸空间</span>
+    <span class="badge">LAYER TEST</span>
+    <span id="stat" style="margin-left:auto;font-family:monospace;font-size:8.5px">0 处故障</span>
+  </div>
+
+  <div class="cols">
+
+    <!-- ═══ 栏 1：极客控制台 ═══ -->
+    <div class="col" data-rail="console">
+      <div class="colhead">
+        CONSOLE
+        <button class="killrail">KILL RAIL</button>
+      </div>
+      <div class="raild">
+        <div class="ic">!</div>
+        <div class="t">监控台 离线</div>
+        <div class="d">ConsoleRail 渲染期异常</div>
+        <button class="btn railretry">重新挂载</button>
+      </div>
+      <div class="colbody">
+        <div class="block" data-block>
+          <div class="bh">IDENTITY <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="avatar"><i></i><div><div class="nm">监控台</div><div class="sub2">LOCAL STACK</div></div></div>
+          </div>
+          <div class="bd ident" hidden>
+            <div class="corrupt">3WH4L3S</div>
+            <div class="sub">IDENTITY CORRUPT · <span class="rt" style="text-decoration:underline;text-underline-offset:2px;cursor:pointer">重试</span></div>
+          </div>
+        </div>
+
+        <div class="block" data-block>
+          <div class="bh">SYSTEM <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="row"><span>CPU</span><span class="v" style="color:rgba(53,240,206,0.7)">41%</span></div>
+            <div class="spark"><svg viewBox="0 0 100 22" preserveAspectRatio="none"><polyline points="0,15 12,11 24,16 36,9 48,13 60,7 72,11 84,6 100,10"/></svg></div>
+            <div class="row"><span>MEM</span><span class="v" style="color:rgba(53,240,206,0.7)">7.6G</span></div>
+          </div>
+          <div class="bd sparkline" hidden>
+            <canvas class="ecg"></canvas>
+            <div class="lbl"><span class="d"></span><span class="ecgtext">METRIC STREAM LOST</span><span class="rt" style="margin-left:auto">重试</span></div>
+          </div>
+        </div>
+
+        <div class="block" data-block>
+          <div class="bh">API LINKS <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="row"><span>dsH</span><span class="v">busy</span></div>
+            <div class="row"><span>astrbot</span><span class="v" style="color:rgba(53,240,206,0.6)">idle</span></div>
+            <div class="row"><span>google</span><span class="v" style="color:rgba(53,240,206,0.6)">idle</span></div>
+            <div class="row"><span>anthropic</span><span class="v" style="color:rgba(53,240,206,0.6)">idle</span></div>
+          </div>
+          <div class="bd api" hidden>
+            <div class="ar"><span class="nm">dsH</span><span class="st">— —</span></div>
+            <div class="ar"><span class="nm">astrbot</span><span class="st">— —</span></div>
+            <div class="ar"><span class="nm">google</span><span class="st">— —</span></div>
+            <div class="ar"><span class="nm">anthropic</span><span class="st">— —</span><span class="rt" style="margin-left:8px">重试</span></div>
+          </div>
+        </div>
+
+        <div class="block" data-block style="flex:1">
+          <div class="bh">EVENT STREAM <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="ln w90"></div><div class="ln w70"></div><div class="ln w50"></div><div class="ln w90"></div><div class="ln w35"></div>
+          </div>
+          <div class="bd freeze" hidden>
+            <div class="noise">░▒░ ▓░ ░▒░ ▒░ ░ ░▒ ▓░▒ ░ ░▒░ ▒░ ░ ░▒░ ▓░ ░▒░ ▒░ ░</div>
+            <div class="noise">░ ░▒░ ▓░ ░▒░ ░ ░▒░ ▓░ ░ ░▒ ▒░ ░▒░ ▓░ ░▒░ ░ ░▒░ ▓░ ░ ░</div>
+            <div class="noise">▒░ ░ ░▒░ ▓░ ░▒░ ▒░ ░ ░▒ ▓░▒ ░ ░▒░ ▒░ ░ ░▒░ ▓░ ░▒░ ▒░ ░</div>
+            <div class="halt"><span class="cur"></span>SEGFAULT · <span class="rt">重试</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 栏 2：通讯录 ═══ -->
+    <div class="col" data-rail="contacts">
+      <div class="colhead">
+        CONTACTS
+        <button class="killrail">KILL RAIL</button>
+      </div>
+      <div class="raild">
+        <div class="ic">!</div>
+        <div class="t">会话 离线</div>
+        <div class="d">会话模块渲染异常</div>
+        <button class="btn railretry">重新挂载</button>
+      </div>
+      <div class="colbody">
+        <div class="block" data-block>
+          <div class="bh">GROUPS <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="avatar"><i style="border-color:rgba(169,232,255,0.35)"></i><div><div class="nm">三鲸之家</div><div class="sub2">3 位成员</div></div></div>
+            <div class="ln w70"></div>
+          </div>
+          <div class="bd tomb" hidden data-tomb>
+            <div class="box"></div>
+            <span class="rt">重试</span>
+          </div>
+        </div>
+
+        <div class="block" data-block style="flex:1">
+          <div class="bh">CORE <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="avatar"><i></i><div><div class="nm">鲸鲸</div><div class="sub2">海沟里最爱说话的那一只</div></div></div>
+            <div class="avatar"><i style="border-color:rgba(78,140,255,0.35)"></i><div><div class="nm">澜汐</div><div class="sub2">把想法编译成文件的人</div></div></div>
+            <div class="avatar"><i style="border-color:rgba(139,107,255,0.35)"></i><div><div class="nm">Gemini</div><div class="sub2">一兆上下文里的审判者</div></div></div>
+            <div class="avatar"><i style="border-color:rgba(255,160,107,0.35)"></i><div><div class="nm">Claude</div><div class="sub2">逐字读你潜台词的人</div></div></div>
+          </div>
+          <div class="bd lost" hidden data-lost>
+            <div class="lr"><span class="av">×</span><span class="q"></span></div>
+            <div class="lr"><span class="av">×</span><span class="q"></span></div>
+            <div class="lr"><span class="av">×</span><span class="q"></span></div>
+            <div class="lr"><span class="av">×</span><span class="q"></span><span class="rt" style="margin-left:auto">重试</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 栏 3：聊天区 ═══ -->
+    <div class="col" data-rail="stage">
+      <div class="colhead">
+        STAGE
+        <button class="killrail">KILL RAIL</button>
+      </div>
+      <div class="raild">
+        <div class="ic">!</div>
+        <div class="t">聊天区 离线</div>
+        <div class="d">ChatStage 渲染期异常</div>
+        <button class="btn railretry">重新挂载</button>
+      </div>
+      <div class="colbody">
+        <div class="block" data-block>
+          <div class="bh">HEADER <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="avatar"><i></i><div><div class="nm">三鲸之家</div><div class="sub2">4 位成员 · 上下文隔离已开启</div></div></div>
+          </div>
+          <div class="bd void" hidden>
+            <div class="bar"></div>
+            <div class="tag2">SESSION VOID · <span class="rt" style="text-decoration:underline;text-underline-offset:2px;cursor:pointer">重试</span></div>
+          </div>
+        </div>
+
+        <div class="block" data-block style="flex:1">
+          <div class="bh">MESSAGES <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="msg ai">鲸鲸的慌其实也不是为那张表——是怕自己记的东西没人保管了。</div>
+            <div class="msg me">别吵了。今晚开一局狼人杀，谁当法官？</div>
+            <div class="msg ai">法官人选我做个快速权衡：鲸鲸——情绪外露；澜汐——逻辑最稳。</div>
+            <div class="msg ai">规则我拟了一版，放在附件里。核心只有三条：不查身份、不记仇。</div>
+          </div>
+          <div class="bd tear" hidden data-tear>
+            <div class="seg" data-seg="0"></div>
+            <div class="seg" data-seg="1"></div>
+            <div class="meta">
+              <span>ADDR <b>0x7FF8A0C2</b></span>
+              <span>FRAME <b>#2214</b></span>
+              <span style="margin-left:auto" class="rt">重试</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="block" data-block>
+          <div class="bh">COMPOSER <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div style="border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:9px;font-size:9.5px;color:rgba(143,169,189,0.3)">
+              对 三鲸之家 说点什么…
+            </div>
+          </div>
+          <div class="bd inputlock" hidden>
+            <span class="lock">▧</span>INPUT LOCKED<span class="rt" style="margin-left:auto">重试</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ 栏 4：上帝视角 ═══ -->
+    <div class="col" data-rail="god">
+      <div class="colhead">
+        GOD VIEW
+        <button class="killrail">KILL RAIL</button>
+      </div>
+      <div class="raild">
+        <div class="ic">!</div>
+        <div class="t">上帝视角 离线</div>
+        <div class="d">上帝视角模块渲染异常</div>
+        <button class="btn railretry">重新挂载</button>
+      </div>
+      <div class="colbody">
+        <div class="block" data-block>
+          <div class="bh">MEMORY STREAM <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="ln w90"></div><div class="ln w70"></div><div class="ln w50"></div>
+          </div>
+          <div class="bd sealed" hidden>
+            <div class="cd">[ SEALED ]</div>
+            <div class="cd">[ SEALED ]</div>
+            <div class="cd">[ SEALED ]</div>
+          </div>
+        </div>
+
+        <div class="block" data-block>
+          <div class="bh">AFFECT RADAR <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body" style="display:grid;place-items:center;padding:8px 0">
+            <svg viewBox="0 0 100 100" style="width:84px;height:84px">
+              <polygon points="50,12 82,34 76,72 50,90 24,72 18,34" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="0.6"/>
+              <polygon points="50,22 74,40 70,68 50,82 30,68 26,40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+              <polygon points="50,20 76,36 68,70 50,84 28,70 22,36" fill="rgba(53,240,206,0.14)" stroke="rgba(53,240,206,0.55)" stroke-width="1"/>
+            </svg>
+          </div>
+          <div class="bd radar" hidden>
+            <svg class="poly" viewBox="0 0 100 100">
+              <polygon points="50,10 85,33 78,75 50,92 22,75 15,33"/>
+            </svg>
+            <div class="flat"></div>
+            <div class="axes">
+              <span class="a1">共鸣 0</span><span class="a2">张力 0</span><span class="a3">玩心 0</span>
+              <span class="a4">信任 0</span><span class="a5">专注 0</span><span class="a6">亲密 0</span>
+            </div>
+            <div class="r1" style="position:absolute;bottom:6px">
+              <span class="d"></span><span class="t">雷达 离线</span><span class="rt">重试</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="block" data-block style="flex:1">
+          <div class="bh">QUICK COMMANDS <span class="tag"><button class="killblock">kill</button></span></div>
+          <div class="body">
+            <div class="row"><span>发牌，开局</span><span class="v">全员</span></div>
+            <div class="row"><span>投喂一轮</span><span class="v">+1</span></div>
+            <div class="row"><span>朗读最近三条</span><span class="v">TTS</span></div>
+          </div>
+          <div class="bd strike" hidden data-strike></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <!-- ═══ 全局离线态 ═══ -->
+  <div class="goglobal">
+    <div class="gcard">
+      <div class="ghead">
+        <div class="ic">!</div>
+        <div>
+          <div class="tt">全部服务离线</div>
+          <div class="ss">ALL SYSTEMS UNREACHABLE</div>
+        </div>
+      </div>
+      <div class="gbody">
+        <div class="greason">
+          <b>NETWORK_UNREACHABLE</b> · 3 个接口无响应（dsH / astrbot / google）<br>
+          <b>STORAGE_READONLY</b> · localStorage 写入被拒<br>
+          检测于 15:22:41 · 已重试 2 次
+        </div>
+
+        <div class="gcols">
+          <div class="gcol ok">
+            <h5>仍可查看</h5>
+            <ul>
+              <li>本地缓存的 4 段对话</li>
+              <li>角色档案（只读）</li>
+              <li>记忆流历史</li>
+            </ul>
+          </div>
+          <div class="gcol no">
+            <h5>暂时不可用</h5>
+            <ul>
+              <li>发送新消息</li>
+              <li>语音输入与朗读</li>
+              <li>记忆提取 / 检索</li>
+              <li>切换会话</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="gfoot">
+        <button class="gbtn pri" id="retryConn">重试连接</button>
+        <button class="gbtn sec" id="restoreAll">回到正常</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="lg r">
+    <b>BLOCK 级 —— 一条红线</b>
+    栏内某个功能区崩了。只这一块变成两行小字，<b>上面的 CPU 曲线、下面的输入框全都正常</b>。
+  </div>
+  <div class="lg y">
+    <b>RAIL 级 —— 整栏占位卡</b>
+    一栏的根组件崩了。这一栏变成红底斜纹占位，<b>其他三栏完全不受影响</b>，还能正常聊天。
+  </div>
+  <div class="lg g">
+    <b>恢复 —— 不刷新页面</b>
+    点「重试」只是把那一块重新挂载，<b>其余部分的状态一动不动</b>。这就是为什么要有边界。
+  </div>
+</div>
+
+<script>
+  var count = 0;
+
+  function updateStat() {
+    var n = document.querySelectorAll('.block.dead').length +
+            document.querySelectorAll('.col.rail-dead').length;
+    count = n;
+    document.getElementById('stat').textContent = n + ' 处故障';
+    document.getElementById('stat').style.color = n > 0 ? 'rgba(255,122,107,0.8)' : 'rgba(143,169,189,0.4)';
+  }
+
+  // 区块：kill → 显示红线
+  function killBlock(blk, delay) {
+    setTimeout(function () {
+      blk.classList.add('dying');
+      setTimeout(function () {
+        blk.classList.remove('dying');
+        blk.classList.add('dead');
+        blk.querySelector('.bd').hidden = false;
+        updateStat();
+      }, 440);
+    }, delay || 0);
+  }
+
+  document.querySelectorAll('.killblock').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      killBlock(btn.closest('.block'));
+    });
+  });
+
+  // 区块：重试 → 恢复
+  document.querySelectorAll('.bd .rt').forEach(function (rt) {
+    rt.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var blk = rt.closest('.block');
+      blk.classList.remove('dead');
+      blk.querySelector('.bd').hidden = true;
+      updateStat();
+    });
+  });
+
+  // 整栏崩溃
+  document.querySelectorAll('.killrail').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var col = btn.closest('.col');
+      col.classList.add('rail-dying');
+      setTimeout(function () {
+        col.classList.remove('rail-dying');
+        col.classList.add('rail-dead');
+        updateStat();
+      }, 520);
+    });
+  });
+
+  // 整栏恢复
+  document.querySelectorAll('.railretry').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.closest('.col').classList.remove('rail-dead');
+      updateStat();
+    });
+  });
+
+  document.getElementById('reset').addEventListener('click', function () {
+    document.querySelectorAll('.block.dead').forEach(function (b) {
+      var bd = b.querySelector('.bd');
+      bd.style.transition = 'opacity 180ms ease-out';
+      bd.style.opacity = '0';
+      setTimeout(function () {
+        b.classList.remove('dead');
+        bd.hidden = true;
+        bd.style.opacity = '';
+        bd.style.transition = '';
+      }, 180);
+    });
+    document.querySelectorAll('.col.rail-dead').forEach(function (c) {
+      c.classList.remove('rail-dead');
+    });
+    updateStat();
+  });
+
+  document.getElementById('killAll').addEventListener('click', function () {
+    /* 错开 55ms 依次死掉 —— 像多米诺，而不是「啪」一下全黑 */
+    document.querySelectorAll('.block').forEach(function (b, i) {
+      killBlock(b, i * 55);
+    });
+  });
+
+  /* ═══ 瞬间全断 ═══
+     不是「12 个区块各自崩」，是共享依赖同时断掉。
+     表现：抽色 → 闪白 → 框架保留但内容让位给统一面板。
+     之所以不给 12 条红线：那会把「一件事」说成「十二件事」。 */
+  var shell = document.querySelector('.shell');
+  var flashEl = document.createElement('div');
+  flashEl.className = 'flash';
+  document.body.appendChild(flashEl);
+
+  document.getElementById('offline').addEventListener('click', function () {
+    // 先恢复干净状态
+    document.querySelectorAll('.block.dead').forEach(function (b) {
+      b.classList.remove('dead'); b.querySelector('.bd').hidden = true;
+    });
+    document.querySelectorAll('.col.rail-dead').forEach(function (c) { c.classList.remove('rail-dead'); });
+
+    // ① 抽色（所有文字一瞬间失去颜色）
+    shell.classList.add('draining');
+
+    // ② 闪白
+    setTimeout(function () {
+      flashEl.classList.remove('go');
+      void flashEl.offsetWidth;
+      flashEl.classList.add('go');
+    }, 180);
+
+    // ③ 内容让位
+    setTimeout(function () {
+      shell.classList.remove('draining');
+      shell.classList.add('offline');
+      updateStat();
+    }, 420);
+  });
+
+  document.getElementById('restoreAll').addEventListener('click', function () {
+    shell.classList.remove('offline');
+    updateStat();
+  });
+
+  document.getElementById('retryConn').addEventListener('click', function () {
+    var btn = document.getElementById('retryConn');
+    btn.textContent = '重试中…';
+    btn.disabled = true;
+    setTimeout(function () {
+      btn.textContent = '仍无响应 ×3';
+      setTimeout(function () {
+        btn.textContent = '重试连接';
+        btn.disabled = false;
+      }, 900);
+    }, 1100);
+  });
+  /* ═══ 斜纹：canvas 绘制，真正整体平移 ═══
+     CSS 做不到的原因：repeating-linear-gradient 是无缝周期图案，
+     任何整数周期位移后与自身完全重合，肉眼看不出移动。
+     canvas 逐条画线、在左右动态补线，所以能无限平移。 */
+  var stripeTargets = [];
+
+  function mountStripe(el) {
+    if (el.querySelector('canvas.stripe')) return;
+    var cv = document.createElement('canvas');
+    cv.className = 'stripe';
+    el.insertBefore(cv, el.firstChild);
+    stripeTargets.push({ cv: cv, el: el, ctx: cv.getContext('2d') });
+  }
+
+  document.querySelectorAll('.bd, .raild').forEach(mountStripe);
+
+  var GAP = 12.73;          // 45° 斜纹的水平间距
+  var SPEED = 0.72;         // px / 帧，约 43px/秒
+
+  function drawStripes(now) {
+    var offset = (now * SPEED / 16.67) % GAP;
+    for (var i = 0; i < stripeTargets.length; i++) {
+      var t = stripeTargets[i];
+      var el = t.el;
+      // 不可见的跳过
+      if (el.offsetParent === null) continue;
+
+      var r = el.getBoundingClientRect();
+      var w = Math.round(r.width), h = Math.round(r.height);
+      if (w === 0 || h === 0) continue;
+
+      var dpr = window.devicePixelRatio || 1;
+      if (t.cv.width !== Math.round(w * dpr) || t.cv.height !== Math.round(h * dpr)) {
+        t.cv.width = Math.round(w * dpr);
+        t.cv.height = Math.round(h * dpr);
+      }
+      var ctx = t.ctx;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.strokeStyle = 'rgba(255,122,107,0.058)';
+      ctx.lineWidth = 3;
+
+      // 从左上角外侧开始，向右下画，并在右侧补足
+      var startX = -h + offset - GAP;
+      for (var x = startX; x < w + h; x += GAP) {
+        ctx.beginPath();
+        ctx.moveTo(x, h);
+        ctx.lineTo(x + h, 0);
+        ctx.stroke();
+      }
+    }
+    requestAnimationFrame(drawStripes);
+  }
+  requestAnimationFrame(drawStripes);
+  /* ═══ 心电图：崩溃时从「有心跳」变成「一条直线」 ═══
+     PQRST 波形用解析式生成，扫描线随时间右移。
+     死亡过程：波形幅度衰减 → 抖动加剧（室颤）→ 拉扯成平直。
+     直线标记医学上的 flatline，比「折线压扁」有力得多。 */
+  var ecgTargets = [];
+
+  function mountECG(el) {
+    var cv = el.querySelector('canvas.ecg');
+    if (!cv) return;
+    ecgTargets.push({ cv: cv, ctx: cv.getContext('2d'), el: el, phase: 0 });
+  }
+  document.querySelectorAll('.bd.sparkline').forEach(mountECG);
+
+  /* 一个心动周期的波形，返回 -1..1 */
+  function ecgWave(p) {
+    if (p < 0.10) return -0.10 * Math.sin((p / 0.10) * Math.PI);           // P
+    if (p < 0.15) return 0;
+    if (p < 0.18) return  0.12 * Math.sin(((p - 0.15) / 0.03) * Math.PI);  // Q
+    if (p < 0.23) return -1.00 * Math.sin(((p - 0.18) / 0.05) * Math.PI);  // R
+    if (p < 0.27) return  0.40 * Math.sin(((p - 0.23) / 0.04) * Math.PI);  // S
+    if (p < 0.40) return 0;
+    if (p < 0.58) return  0.28 * Math.sin(((p - 0.40) / 0.18) * Math.PI);  // T
+    return 0;
+  }
+
+  function drawECG(now) {
+    for (var i = 0; i < ecgTargets.length; i++) {
+      var t = ecgTargets[i];
+      var el = t.el;
+      if (el.offsetParent === null) continue;
+
+      var block = el.closest('.block');
+      var dead = block && block.classList.contains('dead');
+
+      var r = el.getBoundingClientRect();
+      var w = Math.round(r.width), h = Math.round(r.height);
+      if (w === 0 || h === 0) continue;
+
+      var dpr = window.devicePixelRatio || 1;
+      if (t.cv.width !== Math.round(w * dpr) || t.cv.height !== Math.round(h * dpr)) {
+        t.cv.width = Math.round(w * dpr);
+        t.cv.height = Math.round(h * dpr);
+      }
+      var ctx = t.ctx;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+
+      var mid = h / 2;
+      var amp = h * 0.36;
+
+      /* 时间推进：活着时慢，死了之后停下来 */
+      if (!dead) t.phase += 0.0032;
+      else t.phase += 0.0004;
+
+      /* 死亡进度：从累加到 1 */
+      t.deadProg = dead ? Math.min(1, (t.deadProg || 0) + 0.02) : 0;
+      var dp = t.deadProg;
+
+      /* 室颤：死前 30% 的时间里，幅度先抖一下 */
+      var jitter = dp > 0.15 && dp < 0.55
+        ? (Math.random() - 0.5) * 0.55 * (1 - Math.abs(dp - 0.35) / 0.2)
+        : 0;
+
+      var cycle = 0.85;  // 一个波占多少屏幕宽度
+      ctx.beginPath();
+      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = dead
+        ? 'rgba(255,122,107,' + (0.35 + 0.5 * dp) + ')'
+        : 'rgba(53,240,206,0.55)';
+
+      for (var x = 0; x <= w; x += 1.5) {
+        var p = ((x / w) / cycle + t.phase) % 1;
+        var v = ecgWave(p) * (1 - dp * 0.94) + jitter;
+        /* 完全死亡后：压成一条线，只留极小的噪点 */
+        if (dp >= 1) v = (Math.random() - 0.5) * 0.04;
+        var y = mid - v * amp;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      /* 死亡后：加一条水平基准线 + 一个游标 */
+      if (dp >= 1) {
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255,122,107,0.75)';
+        ctx.lineWidth = 1.4;
+        ctx.moveTo(0, mid);
+        ctx.lineTo(w, mid);
+        ctx.stroke();
+      }
+    }
+    requestAnimationFrame(drawECG);
+  }
+  requestAnimationFrame(drawECG);
+
+  /* ═══ 消息流的撕裂文本：用页面上真实的消息 ═══
+     不写死文本 —— 撕裂的应该是「用户刚看到的那两句」，
+     否则一个写着别人台词的东西崩了，没有代入感。 */
+  var HEX = ['0x8000FFFF', 'ERR_CTX', '0xDEADBEEF', 'NULL_REF'];
+
+  function corruptText(s, pos) {
+    var i = Math.max(2, Math.min(s.length - 4, Math.floor(s.length * pos)));
+    var hex = HEX[Math.floor(Math.random() * HEX.length)];
+    return s.slice(0, i) + '<span class="hex">' + hex + '</span>' + s.slice(i + 3);
+  }
+
+  function buildTear() {
+    var msgs = Array.prototype.slice
+      .call(document.querySelectorAll('[data-rail="stage"] .msg'))
+      .map(function (m) { return m.textContent.trim(); })
+      .filter(function (s) { return s.length > 6; });
+
+    var tear = document.querySelector('[data-tear]');
+    if (!tear || msgs.length === 0) return;
+
+    var picks = [msgs[0], msgs[msgs.length > 2 ? 2 : msgs.length - 1]];
+
+    tear.querySelectorAll('[data-seg]').forEach(function (seg, i) {
+      var text = picks[i] || '';
+      seg.innerHTML =
+        '<div class="up"></div><div class="dn"></div>';
+      seg.querySelector('.up').textContent = text;
+      seg.querySelector('.dn').innerHTML = corruptText(text, 0.35 + i * 0.15);
+    });
+  }
+
+  /* ═══ 崩溃态里「涉及内容」的部分必须用真实数据 ═══
+     状态标签（SEALED / LOCKED / SEGFAULT）可以是固定枚举，
+     但角色名、群名、命令名是用户自己的东西 —— 崩的必须是「他的」数据。 */
+
+  /* 腐蚀：把一部分字符替换成实心块，看起来像被涂掉了 */
+  function corrode(s, ratio) {
+    var chars = s.split('');
+    var n = Math.max(1, Math.round(chars.length * (ratio || 0.45)));
+    var used = {};
+    for (var i = 0; i < n * 3 && n > 0; i++) {
+      var idx = Math.floor(Math.random() * chars.length);
+      if (used[idx] || chars[idx] === ' ' || chars[idx] === '█') continue;
+      used[idx] = 1;
+      chars[idx] = '█';
+      n--;
+    }
+    return chars.join('');
+  }
+
+  function buildLost() {
+    var host = document.querySelector('[data-lost]');
+    if (!host) return;
+    /* 从真实的角色列表里取名字 */
+    var names = Array.prototype.slice
+      .call(document.querySelectorAll('[data-rail="contacts"] .body .nm'))
+      .map(function (n) { return n.textContent.trim(); })
+      .filter(Boolean);
+
+    var rows = host.querySelectorAll('.lr .q');
+    rows.forEach(function (q, i) {
+      var real = names[i] || names[0] || 'UNKNOWN';
+      q.textContent = corrode(real, 0.5);
+    });
+  }
+
+  function buildTomb() {
+    var host = document.querySelector('[data-tomb]');
+    if (!host) return;
+    var name = document.querySelector('[data-rail="contacts"] .body .nm');
+    var real = name ? name.textContent.trim() : 'GROUP';
+    host.querySelector('.box').textContent = '✕ ' + corrode(real, 0.35) + '  [ EMPTY ]';
+  }
+
+  function buildStrike() {
+    var host = document.querySelector('[data-strike]');
+    if (!host) return;
+    /* 从真实的快捷命令里取 */
+    var rows = Array.prototype.slice
+      .call(document.querySelectorAll('[data-rail="god"] .body .row'))
+      .map(function (r) {
+        var sp = r.querySelectorAll('span');
+        return {
+          label: sp[0] ? sp[0].textContent.trim() : '',
+          value: sp[1] ? sp[1].textContent.trim() : ''
+        };
+      })
+      .filter(function (r) { return r.label; });
+
+    host.innerHTML = '';
+    (rows.length ? rows : [{ label: 'NO COMMANDS', value: '' }]).forEach(function (r, i) {
+      var d = document.createElement('div');
+      d.className = 'sr';
+      d.innerHTML =
+        '<span>' + r.label + '</span>' +
+        '<span class="v">' + r.value + '</span>' +
+        (i === rows.length - 1 ? '<span class="rt" style="margin-left:6px">重试</span>' : '');
+      host.appendChild(d);
+    });
+  }
+
+  buildLost();
+  buildTomb();
+  buildStrike();
+  buildTear();
+  buildLost();
+  buildTomb();
+  buildStrike();
+  document.getElementById('reset').addEventListener('click', function () {
+    buildTear(); buildLost(); buildTomb(); buildStrike();
+  });
+  updateStat();
+</script>
+</body>
+</html>

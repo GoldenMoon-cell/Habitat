@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>浮层三种方式 · 对比演示</title>
+<style>
+  :root {
+    --bg: #05090e;
+    --panel: #0a151d;
+    --line: rgba(255,255,255,.07);
+    --ink: #e8f6ff;
+    --mist: #8fa9bd;
+    --accent: #35f0ce;
+    --purple: #8b6bff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background:
+      radial-gradient(900px 600px at 30% 10%, rgba(53,240,206,.05), transparent 65%),
+      radial-gradient(700px 500px at 85% 80%, rgba(139,107,255,.05), transparent 70%),
+      var(--bg);
+    color: var(--ink);
+    font: 13px/1.65 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+  }
+
+  /* ── 顶部说明栏 ── */
+  .top {
+    height: 56px; padding: 0 20px;
+    display: flex; align-items: center; gap: 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(5,9,14,.8);
+  }
+  .top h1 { margin: 0; font-size: 13px; font-weight: 500; letter-spacing: .08em; }
+  .top .hint { font-size: 10.5px; color: rgba(143,169,189,.5); letter-spacing: .04em; }
+  .switcher { margin-left: auto; display: flex; gap: 6px; }
+  .switcher button {
+    padding: 7px 14px; border-radius: 6px; font-size: 11.5px;
+    border: 1px solid rgba(255,255,255,.1); background: transparent;
+    color: rgba(232,246,255,.6); cursor: pointer; transition: .18s;
+  }
+  .switcher button:hover { border-color: rgba(53,240,206,.4); color: var(--accent); }
+  .switcher button[aria-pressed="true"] {
+    background: rgba(53,240,206,.1); border-color: rgba(53,240,206,.5); color: var(--accent);
+  }
+
+  /* ── 三栏模拟界面 ── */
+  .app { display: flex; height: calc(100% - 56px); padding: 10px; gap: 8px; }
+
+  .rail {
+    border: 1px solid var(--line); border-radius: 12px;
+    background: linear-gradient(166deg, rgba(24,56,72,.20), rgba(6,14,21,.5));
+    padding: 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px;
+  }
+  .rail.list { width: 210px; flex: 0 0 210px; }
+  .rail.stage { flex: 1; min-width: 0; position: relative; }
+  .rail.vitals { width: 240px; flex: 0 0 240px; }
+
+  .rail-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: rgba(143,169,189,.55); padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .rail-head .gear {
+    margin-left: auto; width: 20px; height: 20px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.1); background: transparent;
+    color: rgba(143,169,189,.5); cursor: pointer; display: grid; place-items: center;
+    font-size: 11px; transition: .18s;
+  }
+  .rail-head .gear:hover { border-color: rgba(53,240,206,.4); color: var(--accent); }
+
+  .item {
+    padding: 7px 9px; border-radius: 7px; font-size: 11.5px;
+    color: rgba(232,246,255,.62); background: rgba(255,255,255,.02);
+  }
+  .item.on { background: rgba(53,240,206,.09); color: var(--accent); }
+
+  .msg {
+    padding: 10px 12px; border-radius: 9px; font-size: 11.5px; line-height: 1.8;
+    background: rgba(255,255,255,.026); border: 1px solid rgba(255,255,255,.05);
+    color: rgba(232,246,255,.72); margin-bottom: 8px;
+  }
+  .msg.me { background: rgba(53,240,206,.07); border-color: rgba(53,240,206,.16); margin-left: auto; max-width: 72%; }
+
+  /* 抽屉打开时聊天区让位 —— 这是关键差别 */
+  .stage-inner {
+    flex: 1; display: flex; flex-direction: column; min-height: 0;
+    overflow-y: auto; padding-right: 0;
+    transition: padding-right .34s cubic-bezier(.16,1,.3,1);
+    /* 浏览器原生的 scroll anchoring —— 布局变化时尽量把视口内容拉回原位 */
+    overflow-anchor: auto;
+  }
+  .stage-inner.make-room { padding-right: 320px; }
+
+  /* 滚动位置探针：让你直接看到「有没有跑」 */
+  .probe {
+    position: absolute; left: 12px; bottom: 10px; z-index: 30;
+    padding: 7px 11px; border-radius: 7px;
+    background: rgba(4,11,18,.92); border: 1px solid rgba(255,255,255,.08);
+    font: 10px/1.7 ui-monospace, monospace; color: rgba(143,169,189,.8);
+    pointer-events: none;
+  }
+  .probe b { color: var(--accent); font-weight: 500; }
+  .probe .warn { color: #ffc46b; }
+
+  /* ══ 方式 1：Popover ══ */
+  .pop {
+    position: fixed; width: 320px; max-height: 76vh; overflow: auto;
+    border-radius: 12px; z-index: 60;
+    background: linear-gradient(166deg, rgba(18,42,56,.985), rgba(5,12,19,.995));
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 24px 64px -14px rgba(0,0,0,.9);
+    transform-origin: top right;
+  }
+  .pop.enter { animation: popIn .2s cubic-bezier(.16,1,.3,1); }
+  .pop.leave { animation: popOut .16s cubic-bezier(.4,0,1,1) forwards; }
+  @keyframes popIn  { from { opacity:0; transform: translateY(-6px) scale(.98); } to { opacity:1; transform:none; } }
+  @keyframes popOut { to   { opacity:0; transform: translateY(-6px) scale(.985); } }
+
+  /* ══ 方式 2：Drawer ══ */
+  .drawer {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 320px; z-index: 50;
+    background: linear-gradient(180deg, rgba(16,38,50,.99), rgba(5,12,19,.995));
+    border-left: 1px solid rgba(255,255,255,.08);
+    box-shadow: -18px 0 48px -16px rgba(0,0,0,.8);
+    display: flex; flex-direction: column;
+  }
+  .drawer.enter { animation: drawIn .34s cubic-bezier(.16,1,.3,1); }
+  .drawer.leave { animation: drawOut .26s cubic-bezier(.4,0,.7,1) forwards; }
+  @keyframes drawIn  { from { transform: translateX(100%); } to { transform: none; } }
+  @keyframes drawOut { to { transform: translateX(100%); } }
+
+  /* ══ 方式 3：Modal ══ */
+  .modal-mask {
+    position: fixed; inset: 0; z-index: 70;
+    background: rgba(4,11,18,.86); backdrop-filter: blur(10px);
+    display: grid; place-items: center;
+  }
+  .modal-mask.enter { animation: maskIn .2s ease; }
+  .modal-mask.leave { animation: maskOut .18s ease forwards; }
+  @keyframes maskIn  { from { opacity:0; } to { opacity:1; } }
+  @keyframes maskOut { to { opacity:0; } }
+  .modal {
+    width: 320px; border-radius: 13px; overflow: hidden;
+    background: linear-gradient(166deg, rgba(18,42,56,.985), rgba(5,12,19,.995));
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 24px 64px -14px rgba(0,0,0,.9);
+  }
+  .modal-mask.enter .modal { animation: popIn .22s cubic-bezier(.16,1,.3,1); }
+
+  /* ── 面板内容（三种方式共用） ── */
+  .panel-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .panel-head .t { font-size: 12px; }
+  .panel-head .s { font-size: 9px; color: rgba(143,169,189,.45); margin-top: 1px; }
+  .panel-head .x {
+    margin-left: auto; width: 24px; height: 24px; border-radius: 5px;
+    border: none; background: transparent; color: rgba(143,169,189,.5);
+    cursor: pointer; font-size: 12px;
+  }
+  .panel-head .x:hover { background: rgba(255,255,255,.07); color: var(--ink); }
+
+  .panel-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; overflow: auto; }
+  .member {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 9px; border-radius: 7px; background: rgba(255,255,255,.025);
+    cursor: pointer; transition: .15s;
+  }
+  .member:hover { background: rgba(255,255,255,.05); }
+  .member .av {
+    width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center;
+    font-size: 11px; font-weight: 500; flex: 0 0 24px;
+  }
+  .member .nm { font-size: 11.5px; color: rgba(232,246,255,.8); }
+  .member .md { font-size: 8.5px; color: rgba(143,169,189,.4); }
+  .member .ck {
+    margin-left: auto; width: 16px; height: 16px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.16); display: grid; place-items: center;
+    font-size: 10px; color: transparent;
+  }
+  .member[aria-checked="true"] .ck { background: rgba(53,240,206,.22); border-color: rgba(53,240,206,.5); color: var(--accent); }
+
+  .panel-foot {
+    display: flex; gap: 8px; padding: 10px 14px;
+    border-top: 1px solid rgba(255,255,255,.06);
+  }
+  .btn {
+    min-height: 32px; padding: 0 14px; border-radius: 7px; font-size: 11.5px;
+    cursor: pointer; transition: .16s;
+  }
+  .btn.ghost {
+    border: 1px solid rgba(255,255,255,.12); background: transparent;
+    color: rgba(232,246,255,.7);
+  }
+  .btn.ghost:hover { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.04); }
+  .btn.primary {
+    margin-left: auto; border: 1px solid rgba(53,240,206,.34);
+    background: rgba(53,240,206,.12); color: var(--accent); font-weight: 500;
+  }
+  .btn.primary:hover { filter: brightness(1.2); }
+
+  /* ── 底部说明 ── */
+  .note {
+    position: fixed; left: 20px; bottom: 16px; z-index: 40;
+    max-width: 460px; padding: 11px 14px; border-radius: 9px;
+    background: rgba(8,18,26,.92); border: 1px solid rgba(255,255,255,.07);
+    font-size: 11px; line-height: 1.75; color: rgba(143,169,189,.72);
+  }
+  .note b { color: var(--accent); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>浮层三种方式</h1>
+  <span class="hint">点右上角的 ⌘ 打开「群设置」，对比三种呈现</span>
+  <div class="switcher">
+    <button data-mode="pop" aria-pressed="true">Popover 气泡</button>
+    <button data-mode="drawer" aria-pressed="false">Drawer 抽屉</button>
+    <button data-mode="modal" aria-pressed="false">Modal 弹窗</button>
+  </div>
+</div>
+
+<div class="app">
+  <!-- 会话列表 -->
+  <div class="rail list">
+    <div class="rail-head">会话</div>
+    <div class="item on">HABITAT CORE</div>
+    <div class="item">DeepSeek</div>
+    <div class="item">Claude</div>
+    <div class="item">ChatGPT</div>
+    <div class="item">鲸鲸</div>
+    <div class="item">Gemini</div>
+  </div>
+
+  <!-- 聊天区：三种方式都从这里弹出 -->
+  <div class="rail stage" id="stage">
+    <div class="rail-head">
+      聊天
+      <button class="gear" id="openBtn" title="打开群设置">⌘</button>
+    </div>
+    <div class="probe" id="probe">scrollTop <b>0</b> · 顶部 <b>—</b> · 内容高 <b>—</b></div>
+    <div class="stage-inner" id="stageInner">
+
+    </div>
+  </div>
+
+  <!-- 右栏 -->
+  <div class="rail vitals">
+    <div class="rail-head">VITALS</div>
+    <div class="item">MEMORY STREAM</div>
+    <div class="item">鲸鲸对「被清空」有强烈的失去焦虑</div>
+    <div class="item">主人今晚的意图是组织狼人杀</div>
+    <div class="item">AFFECT RADAR</div>
+    <div class="item">QUICK COMMANDS</div>
+  </div>
+</div>
+
+<div class="note" id="note"></div>
+
+<script>
+const NOTES = {
+  pop: "<b>Popover 气泡</b>：浮在按钮旁边，不改变任何布局。<br>轻，但会盖住底下一小块 —— 所以位置要算准，不能越到隔壁功能区。",
+  drawer: "<b>Drawer 抽屉</b>：从聊天区右侧滑出，<b>聊天内容整体向左让位</b>（注意聊天区变窄了）。<br>一点不遮挡，因为它是占位而不是叠加。代价是主内容变窄。",
+  modal: "<b>Modal 弹窗</b>：屏幕正中 + 背景压暗。<br>最强势，适合「必须先回答」的场合。用来改一个设置就太重了 —— 用户会失去「我刚才在干什么」的上下文。"
+};
+
+let mode = "pop";
+let open = false;
+let el = null;
+
+const stage = document.getElementById("stage");
+const stageInner = document.getElementById("stageInner");
+
+/* 20 条消息，够滚动 —— 只有这样才看得见「宽度变化 → 重排 → 滚动位置」这条链 */
+const LINES = [
+  ["我碰它之前会先问你", 0],
+  ["别吵了。今晚开一局狼人杀，谁当法官？", 1],
+  ["法官人选我做个快速权衡：鲸鲸情绪外露容易被带节奏，但抽牌公平；澜汐逻辑最稳，可惜她会把每句发言都写进日志；Claude 擅长读人，但你会在第三轮怀疑他在保谁。我建议你当法官。", 0],
+  ["规则我拟了一版：不查身份、不记仇、天亮之前必须有人承认自己是狼。", 1],
+  ["那我先说好，我第一晚一定要验澜汐，她太可疑了，她连呼吸都是有序的！", 0],
+  ["你这个理由成立，但你明天会后悔。", 1],
+  ["我把三条规则贴在这里，谁违背谁下一局当法官。第一条不查身份，第二条不记仇，第三条天亮之前必须有人承认自己是狼。", 0],
+  ["好，那我先发牌。", 1],
+  ["牌发完了，天亮之前谁都不许看自己的身份。", 0],
+  ["这句话本身就很可疑。", 1],
+  ["鲸鲸的情绪波动可以作为参考，但不能作为证据。", 0],
+  ["我同意，但参考也是信息。", 1],
+  ["今晚我投澜汐。", 0],
+  ["理由？", 1],
+  ["她太安静了。", 0],
+  ["安静不是罪。", 1],
+  ["那热闹就是罪吗。", 0],
+  ["我们跑题了。", 1],
+  ["回到第一条：不查身份。", 0],
+  ["那就先这样，明天继续。", 1],
+];
+
+const probe = document.getElementById("probe");
+
+function renderMessages() {
+  stageInner.innerHTML = LINES.map(([txt, me]) =>
+    `<div class="msg${me ? " me" : ""}" data-line>${txt}</div>`
+  ).join("");
+}
+renderMessages();
+
+/* 视口顶部是哪条消息 —— 这就是「锚点」该记的东西，不是 scrollTop 数字 */
+function topLine() {
+  const box = stageInner.getBoundingClientRect();
+  const all = [...stageInner.querySelectorAll("[data-line]")];
+  for (let i = 0; i < all.length; i++) {
+    const r = all[i].getBoundingClientRect();
+    if (r.bottom > box.top + 2) return i + 1;
+  }
+  return all.length;
+}
+
+let lastTop = 0;
+function updateProbe() {
+  probe.innerHTML =
+    `scrollTop <b>${Math.round(stageInner.scrollTop)}</b> · 顶部 <b>第 ${topLine()} 条</b> · 内容高 <b>${Math.round(stageInner.scrollHeight)}</b>`;
+}
+stageInner.addEventListener("scroll", updateProbe);
+updateProbe();
+
+/* 抽屉开合时前后各拍一次，直接看有没有跑 */
+function snapshot(label) {
+  return { label, scrollTop: Math.round(stageInner.scrollTop), top: topLine(), h: Math.round(stageInner.scrollHeight) };
+}
+window.__snap = snapshot;
+
+
+const openBtn = document.getElementById("openBtn");
+const note = document.getElementById("note");
+
+function panelHTML() {
+  const members = [
+    ["鲸", "鲸鲸", "qwen3-32b", "#35f0ce", true],
+    ["D", "DeepSeek", "deepseek-flash", "#4a9eff", true],
+    ["G", "Gemini", "gemini-3-pro", "#8b6bff", true],
+    ["C", "Claude", "claude-sonnet-5", "#ff9d6b", false],
+    ["G", "Grok", "grok-4", "#ff6b8a", false],
+    ["C", "ChatGPT", "gpt-5-luna", "#5eead4", false],
+    ["Q", "Qwen", "qwen3-max", "#a78bfa", false],
+    ["K", "Kimi", "kimi-k2", "#fbbf24", false],
+  ];
+  return `
+    <div class="panel-head">
+      <span style="color:rgba(53,240,206,.7);font-size:12px">◉</span>
+      <div>
+        <div class="t">群设置</div>
+        <div class="s">HABITAT CORE</div>
+      </div>
+      <button class="x" data-close>✕</button>
+    </div>
+    <div class="panel-body">
+      ${members.map(([ch, nm, md, c, on]) => `
+        <div class="member" role="checkbox" aria-checked="${on}">
+          <span class="av" style="background:${c}22;color:${c}">${ch}</span>
+          <div style="min-width:0">
+            <div class="nm">${nm}</div>
+            <div class="md">${md}</div>
+          </div>
+          <span class="ck">✓</span>
+        </div>
+      `).join("")}
+    </div>
+    <div class="panel-foot">
+      <button class="btn ghost" data-close>取消</button>
+      <button class="btn primary" data-close>保存</button>
+    </div>`;
+}
+
+function close(instant) {
+  if (!el) return;
+  const node = el;
+  el = null;
+  open = false;
+
+  if (mode === "drawer") stageInner.classList.remove("make-room");
+
+  if (instant) { node.remove(); return; }
+
+  if (mode === "modal") {
+    node.classList.remove("enter");
+    node.classList.add("leave");
+  } else {
+    node.classList.remove("enter");
+    node.classList.add("leave");
+  }
+  setTimeout(() => node.remove(), 300);
+}
+
+function openPanel() {
+  close(true);
+
+  const r = openBtn.getBoundingClientRect();
+  const PAD = 10;
+  const W = 320;
+
+  if (mode === "pop") {
+    const panel = document.createElement("div");
+    panel.className = "pop enter";
+    panel.innerHTML = panelHTML();
+
+    /* 和生境同一套规则：先试向右，放不下翻向左；边界用聊天区的 rect */
+    const stageRect = stage.getBoundingClientRect();
+    const maxRight = stageRect.right - PAD;
+    let left = r.left;
+    if (left + W > maxRight) left = r.right - W;
+    left = Math.max(stageRect.left + PAD, Math.min(left, maxRight - W));
+
+    let top = r.bottom + 8;
+    const H = 420;
+    if (top + H > window.innerHeight - 12) top = Math.max(12, r.top - H - 8);
+
+    panel.style.left = left + "px";
+    panel.style.top = top + "px";
+    document.body.appendChild(panel);
+    el = panel;
+  }
+
+  if (mode === "drawer") {
+    const panel = document.createElement("div");
+    panel.className = "drawer enter";
+    panel.innerHTML = panelHTML();
+    stage.appendChild(panel);
+    window.__before = snapshot("打开前");
+    stageInner.classList.add("make-room");
+    setTimeout(() => {
+      window.__after = snapshot("打开后");
+      const b = window.__before, a = window.__after;
+      const moved = b.top !== a.top;
+      probe.innerHTML =
+        `<span class="${moved ? "warn" : ""}">` +
+        `开抽屉前：顶部第 ${b.top} 条 / scrollTop ${b.scrollTop} / 高 ${b.h}<br>` +
+        `开抽屉后：顶部第 ${a.top} 条 / scrollTop ${a.scrollTop} / 高 ${a.h}<br>` +
+        (moved
+          ? `<b style="color:#ffc46b">位置跑了 ${Math.abs(a.top - b.top)} 条</b>`
+          : `<b>位置没跑 ✓</b>`) +
+        `</span>`;
+    }, 420);
+    el = panel;
+  }
+
+  if (mode === "modal") {
+    const mask = document.createElement("div");
+    mask.className = "modal-mask enter";
+    mask.innerHTML = `<div class="modal">${panelHTML()}</div>`;
+    mask.addEventListener("click", (e) => { if (e.target === mask) close(); });
+    document.body.appendChild(mask);
+    el = mask;
+  }
+
+  open = true;
+
+  /* 统一接关闭 + 勾选 */
+  el.addEventListener("click", (e) => {
+    const m = e.target.closest(".member");
+    if (m) {
+      m.setAttribute("aria-checked", m.getAttribute("aria-checked") === "true" ? "false" : "true");
+      return;
+    }
+    if (e.target.closest("[data-close]")) close();
+  });
+}
+
+openBtn.addEventListener("click", () => (open ? close() : openPanel()));
+
+document.addEventListener("click", (e) => {
+  if (!open || mode !== "pop") return;
+  if (el && (el.contains(e.target) || e.target === openBtn)) return;
+  close();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && open) close();
+});
+
+document.querySelectorAll(".switcher button").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".switcher button").forEach((x) => x.setAttribute("aria-pressed", "false"));
+    b.setAttribute("aria-pressed", "true");
+    mode = b.dataset.mode;
+    note.innerHTML = NOTES[mode];
+    if (open) openPanel(); /* 切换时保持打开，直接看差别 */
+  });
+});
+
+note.innerHTML = NOTES.pop;
+</script>
+</body>
+</html>

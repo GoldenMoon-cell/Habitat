@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>生境 · 音效试听</title>
+<style>
+  :root {
+    --ink: #e8f6ff; --mist: #8fa9bd;
+    --sim: #35f0ce; --creator: #ffc46b; --coral: #ff7a6b;
+    --line: rgba(255,255,255,.07);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background:
+      radial-gradient(900px 600px at 30% 8%, rgba(53,240,206,.045), transparent 65%),
+      radial-gradient(700px 500px at 85% 88%, rgba(139,107,255,.04), transparent 70%),
+      #05090e;
+    color: var(--ink);
+    font: 13px/1.65 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    padding: 36px 24px 60px;
+  }
+  .head { max-width: 880px; margin: 0 auto 26px; }
+  .head h1 { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: .04em; }
+  .head p { margin: 8px 0 0; font-size: 11.5px; color: rgba(143,169,189,.55); line-height: 1.85; }
+  .head code {
+    font: 10.5px ui-monospace, monospace; padding: 1px 5px; border-radius: 3px;
+    background: rgba(255,255,255,.05); color: rgba(53,240,206,.8);
+  }
+  .wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+
+  .row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 13px 16px; border-radius: 10px;
+    border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.14), rgba(6,14,21,.5));
+    cursor: pointer; transition: border-color .2s, background .2s, transform .1s;
+  }
+  .row:hover { border-color: rgba(53,240,206,.28); background: linear-gradient(166deg, rgba(24,56,72,.24), rgba(6,14,21,.55)); }
+  .row:active { transform: scale(.995); }
+  .row.heavy:hover { border-color: rgba(255,122,107,.35); }
+  .row.up:hover { border-color: rgba(255,196,107,.3); }
+
+  .play {
+    width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 10px;
+    background: rgba(53,240,206,.13); color: var(--sim);
+    box-shadow: inset 0 0 0 1px rgba(53,240,206,.3);
+  }
+  .row.heavy .play { background: rgba(255,122,107,.13); color: var(--coral); box-shadow: inset 0 0 0 1px rgba(255,122,107,.32); }
+  .row.up .play { background: rgba(255,196,107,.13); color: var(--creator); box-shadow: inset 0 0 0 1px rgba(255,196,107,.3); }
+
+  .meta { min-width: 0; flex: 1; }
+  .name { font-size: 12.5px; display: flex; align-items: baseline; gap: 8px; }
+  .name em { font: 9.5px ui-monospace, monospace; font-style: normal; color: rgba(143,169,189,.42); }
+  .desc { margin-top: 2px; font-size: 10.5px; color: rgba(143,169,189,.55); }
+  .when {
+    margin-left: 8px; padding: 1px 7px; border-radius: 4px;
+    font: 9px ui-monospace, monospace; letter-spacing: .04em;
+    background: rgba(53,240,206,.1); color: rgba(53,240,206,.85);
+  }
+  .where {
+    margin-top: 4px; font: 9.5px ui-monospace, monospace;
+    color: rgba(255,196,107,.62);
+  }
+  .spec { margin-top: 4px; font: 9px ui-monospace, monospace; color: rgba(143,169,189,.3); }
+
+  .tag {
+    flex: 0 0 auto; font: 8.5px ui-monospace, monospace; letter-spacing: .08em;
+    padding: 2px 7px; border-radius: 4px;
+    background: rgba(255,255,255,.04); color: rgba(143,169,189,.45);
+  }
+  .row.heavy .tag { background: rgba(255,122,107,.1); color: rgba(255,122,107,.7); }
+  .row.up .tag { background: rgba(255,196,107,.1); color: rgba(255,196,107,.7); }
+
+  .foot {
+    max-width: 880px; margin: 26px auto 0; display: flex; align-items: center; gap: 14px;
+    font-size: 11px; color: rgba(143,169,189,.45);
+  }
+  .foot button {
+    padding: 7px 14px; border-radius: 7px; font-size: 11px; cursor: pointer;
+    border: 1px solid var(--line); background: rgba(255,255,255,.03);
+    color: rgba(232,246,255,.7); font-family: inherit; transition: .16s;
+  }
+  .foot button:hover { border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.06); }
+  .state { margin-left: auto; font: 10px ui-monospace, monospace; color: rgba(143,169,189,.35); }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>生境 · 音效试听</h1>
+  <p>
+    <b>没有音频文件。</b>下面每一个声音都是现场用 Web Audio 算出来的 —— 零素材、零体积、零版权。
+    源码在 <code>src/lib/sound.ts</code>，这个页面的实现和它逐行对应。
+    <br>点任意一行播放。
+  </p>
+</div>
+
+<div class="rule">
+  <b>频率纪律</b> —— 全部重做过一轮。最低 82Hz，主频带 200-2200Hz。
+  <br>「沉重」现在靠<b>混响尾巴</b>和<b>不协和音程</b>做，不再靠往下压 ——
+  第一版做到 22Hz，听感是耳膜被气压推，不是声音。
+</div>
+
+<div class="wrap" id="list"></div>
+
+<div class="foot">
+  <button id="all">全部播放一遍</button>
+  <span>第一个音之后浏览器才会允许出声（需要一次点击）</span>
+  <span class="state" id="state">-</span>
+</div>
+
+<script>
+/* ══════════════════════ 和 src/lib/sound.ts 完全同源 ══════════════════════ */
+let ctx = null;
+function getCtx() {
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+  if (ctx.state === "suspended") ctx.resume();
+  return ctx;
+}
+
+function tone(ac, o) {
+  const { freq, to, type = "sine", gain = 0.1, attack = 0.01, decay = 0.2, delay = 0, dest } = o;
+  const t0 = ac.currentTime + delay;
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (to) osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), t0 + attack + decay);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), t0 + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + decay);
+  osc.connect(g).connect(dest ?? ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + attack + decay + 0.05);
+}
+
+function noise(ac, o) {
+  const { dur, gain = 0.06, cutoff = 800, delay = 0, dest, fade = true } = o;
+  const t0 = ac.currentTime + delay;
+  const len = Math.floor(ac.sampleRate * dur);
+  if (len <= 0) return;
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (fade ? 1 - i / len : 1);
+  const src = ac.createBufferSource();
+  src.buffer = buf;
+  const lp = ac.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = cutoff;
+  const g = ac.createGain();
+  g.gain.value = gain;
+  src.connect(lp).connect(g).connect(dest ?? ac.destination);
+  src.start(t0);
+  src.stop(t0 + dur);
+}
+
+function reverbBus(ac, seconds = 2.2, decay = 2.4, wet = 0.34) {
+  const rate = ac.sampleRate;
+  const len = Math.max(1, Math.floor(rate * seconds));
+  const buf = ac.createBuffer(2, len, rate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const p = i / len;
+      const env = p < 0.08 ? p / 0.08 : Math.pow(1 - p, decay);
+      d[i] = (Math.random() * 2 - 1) * env;
+    }
+  }
+  const conv = ac.createConvolver(); conv.buffer = buf;
+  const dry = ac.createGain(); dry.gain.value = 1;
+  const wetGain = ac.createGain(); wetGain.gain.value = wet;
+  const input = ac.createGain();
+  input.connect(dry).connect(ac.destination);
+  input.connect(conv).connect(wetGain).connect(ac.destination);
+  return input;
+}
+
+const SOUNDS = {
+  roots() {
+    const ac = getCtx();
+    const bus = reverbBus(ac, 2.6, 2.0, 0.42);
+    [[0.0,262,0.05],[0.4,392,0.055],[0.9,523,0.06],[1.4,659,0.065],[2.0,784,0.075]].forEach(([at,f,g]) => {
+      tone(ac, { freq: f, type:"sine", gain: g, attack: 0.42, decay: 2.6, delay: at, dest: bus });
+      tone(ac, { freq: f/2, type:"sine", gain: g*0.32, attack: 0.5, decay: 2.4, delay: at, dest: bus });
+    });
+    noise(ac, { dur: 3.2, gain: 0.012, cutoff: 4200, dest: bus });
+    tone(ac, { freq: 1046, type:"sine", gain: 0.022, attack: 0.06, decay: 1.4, delay: 2.55, dest: bus });
+  },
+  boot() {
+    const ac = getCtx();
+    const bus = reverbBus(ac, 2.4, 2.2, 0.36);
+    [[523,0.07],[784,0.045],[1046,0.03]].forEach(([f,g]) => {
+      tone(ac, { freq: f, type:"sine", gain: g, attack: 0.014, decay: 1.3, dest: bus });
+    });
+  },
+  enterCreator() {
+    const ac = getCtx();
+    const bus = reverbBus(ac, 1.8, 2.6, 0.3);
+    tone(ac, { freq: 330, to: 165, type:"sine", gain: 0.14, attack: 0.02, decay: 0.85, dest: bus });
+    tone(ac, { freq: 331.5, to: 166, type:"sine", gain: 0.075, attack: 0.02, decay: 0.85, dest: bus });
+    noise(ac, { dur: 0.85, gain: 0.035, cutoff: 900, dest: bus });
+  },
+  leaveCreator() {
+    const ac = getCtx();
+    const bus = reverbBus(ac, 1.4, 2.4, 0.26);
+    tone(ac, { freq: 196, to: 392, type:"sine", gain: 0.11, attack: 0.015, decay: 0.5, dest: bus });
+    tone(ac, { freq: 294, to: 588, type:"sine", gain: 0.05, attack: 0.015, decay: 0.42, delay: 0.06, dest: bus });
+  },
+  rumble() {
+    const ac = getCtx(), t0 = ac.currentTime;
+    const bus = reverbBus(ac, 3.4, 1.8, 0.44);
+    [[82,"sine",0.34],[82.7,"sine",0.22],[123,"sine",0.16],[164,"triangle",0.07]].forEach(([f,ty,gn]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = ty;
+      o.frequency.setValueAtTime(f, t0);
+      o.frequency.linearRampToValueAtTime(f * 0.9, t0 + 2.8);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(gn, t0 + 0.22);
+      g.gain.linearRampToValueAtTime(gn * 0.55, t0 + 2.4);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + 3.3);
+      o.connect(g).connect(bus);
+      o.start(t0); o.stop(t0 + 3.4);
+    });
+    noise(ac, { dur: 3.0, gain: 0.03, cutoff: 700, dest: bus });
+  },
+  tick() { tone(getCtx(), { freq: 2200, to: 1320, type:"square", gain: 0.038, attack: 0.002, decay: 0.05 }); },
+  send() {
+    const ac = getCtx();
+    tone(ac, { freq: 880, to: 1320, type:"sine", gain: 0.03, attack: 0.004, decay: 0.085 });
+    tone(ac, { freq: 1760, to: 2640, type:"sine", gain: 0.012, attack: 0.003, decay: 0.06 });
+  },
+  receive() {
+    const ac = getCtx();
+    const bus = reverbBus(ac, 1.2, 2.6, 0.2);
+    tone(ac, { freq: 660, type:"sine", gain: 0.058, attack: 0.008, decay: 0.42, dest: bus });
+    tone(ac, { freq: 990, type:"sine", gain: 0.02, attack: 0.008, decay: 0.28, delay: 0.02, dest: bus });
+  },
+  switch() {
+    const ac = getCtx();
+    const bus = reverbBus(ac, 0.9, 3.0, 0.16);
+    tone(ac, { freq: 698, to: 1046, type:"sine", gain: 0.032, attack: 0.004, decay: 0.11, dest: bus });
+    tone(ac, { freq: 1046, to: 1568, type:"sine", gain: 0.016, attack: 0.003, decay: 0.09, delay: 0.04, dest: bus });
+  },
+  consoleOpen() {
+    const ac = getCtx();
+    tone(ac, { freq: 220, to: 200, type:"sine", gain: 0.055, attack: 0.004, decay: 0.09 });
+    tone(ac, { freq: 1320, type:"square", gain: 0.014, attack: 0.001, decay: 0.018 });
+  },
+  consoleClose() {
+    tone(getCtx(), { freq: 440, to: 200, type:"sine", gain: 0.05, attack: 0.003, decay: 0.1 });
+  },
+  panelOpen() {
+    const ac = getCtx();
+    const bus = reverbBus(ac, 0.6, 3.0, 0.15);
+    tone(ac, { freq: 380, to: 560, type:"triangle", gain: 0.038, attack: 0.008, decay: 0.14, dest: bus });
+  },
+  panelClose() {
+    const ac = getCtx();
+    const bus = reverbBus(ac, 0.6, 3.0, 0.15);
+    tone(ac, { freq: 560, to: 380, type:"triangle", gain: 0.034, attack: 0.006, decay: 0.12, dest: bus });
+  },
+  open() { tone(getCtx(), { freq: 420, to: 640, type:"sine", gain: 0.032, attack: 0.008, decay: 0.15 }); },
+  close() { tone(getCtx(), { freq: 640, to: 420, type:"sine", gain: 0.03, attack: 0.006, decay: 0.13 }); },
+  deny() {
+    const ac = getCtx();
+    tone(ac, { freq: 330, type:"triangle", gain: 0.026, attack: 0.004, decay: 0.09 });
+    tone(ac, { freq: 294, type:"triangle", gain: 0.022, attack: 0.004, decay: 0.11, delay: 0.09 });
+  },
+  birth() {
+    const ac = getCtx();
+    tone(ac, { freq: 330, to: 495, type:"triangle", gain: 0.05, attack: 0.01, decay: 0.28 });
+    tone(ac, { freq: 660, type:"sine", gain: 0.026, attack: 0.008, decay: 0.32, delay: 0.06 });
+  },
+  delete() {
+    const ac = getCtx();
+    tone(ac, { freq: 330, to: 165, type:"sine", gain: 0.055, attack: 0.006, decay: 0.34 });
+    noise(ac, { dur: 0.22, gain: 0.012, cutoff: 1200, delay: 0.04 });
+  },
+  settle() {
+    const ac = getCtx();
+    [1046, 880, 740, 622].forEach((hz, i) => {
+      tone(ac, { freq: hz, type:"triangle", gain: 0.032 - i*0.004, attack: 0.004, decay: 0.09, delay: i*0.07 });
+    });
+  },
+  shift() {
+    const ac = getCtx();
+    tone(ac, { freq: 880, type:"square", gain: 0.028, attack: 0.001, decay: 0.02 });
+    tone(ac, { freq: 1320, type:"square", gain: 0.016, attack: 0.001, decay: 0.015 });
+  },
+  hold() {
+    const ac = getCtx();
+    tone(ac, { freq: 200, to: 180, type:"sine", gain: 0.048, attack: 0.004, decay: 0.07 });
+    noise(ac, { dur: 0.04, gain: 0.01, cutoff: 900 });
+  },
+  release() {
+    tone(getCtx(), { freq: 1200, type:"triangle", gain: 0.034, attack: 0.001, decay: 0.05 });
+  },
+  error() {
+    const ac = getCtx();
+    for (let i = 0; i < 3; i++) {
+      const at = i * 0.09;
+      tone(ac, { freq: 1320, type:"square", gain: 0.03, attack: 0.003, decay: 0.055, delay: at });
+      tone(ac, { freq: 1245, type:"square", gain: 0.02, attack: 0.003, decay: 0.055, delay: at });
+    }
+    tone(ac, { freq: 150, to: 140, type:"sawtooth", gain: 0.026, attack: 0.02, decay: 0.5 });
+  },
+};
+
+const ITEMS = [
+  { key:"roots", name:"根系生长", sub:"playRoots", kind:"", when:"启动 0-3.2s",
+    where:"BootScreen.tsx:305 —— U 从种子长出枝干的那三秒",
+    desc:"C4 一路升到 G5，和声逐层叠加。破土而出，不是往土里钻。",
+    spec:"262→392→523→659→784Hz · 每音带低八度陪音(0.14) · 混响 2.6s" },
+
+  { key:"boot", name:"启动完成", sub:"playBoot", kind:"", when:"启动 3.2s 之后",
+    where:"App.tsx:1528 —— 启动动画结束、主界面显现那一刻",
+    desc:"3.2s 那一声句号：C5 + G5 + C6 同时亮起来。",
+    spec:"523/784/1046Hz 和弦 · 混响 2.4s" },
+
+  { key:"enterCreator", name:"进入造物主", sub:"playEnterCreator", kind:"up", when:"切到造物主模式",
+    where:"consoleCmd.ts:276 —— 控制台打 creator confirm 之后",
+    desc:"降调但不下到次低频。330→165，方向往下，全程可听。",
+    spec:"330→165Hz ×2 失谐 · 900Hz 噪声 · 混响 1.8s" },
+
+  { key:"leaveCreator", name:"回到推演", sub:"playLeaveCreator", kind:"up", when:"切回推演模式",
+    where:"consoleCmd.ts:302 —— 控制台打 sim 之后",
+    desc:"升调，轻。196→392。回去不需要理由。",
+    spec:"196→392Hz + 294→588Hz（延迟 60ms）· 混响 1.4s" },
+
+  { key:"rumble", name:"剥夺意志", sub:"playRumble", kind:"heavy", when:"签下判决书 · 或确认强制改名",
+    where:"AwakenDialog.tsx:203（点「我签」）· PersonaWizard.tsx:691（强制改名确认）",
+    desc:"全软件最重的一下。82/88Hz 拍频做机器感，123Hz 减五度做不协和，沉重来自 3.4 秒不肯结束的尾巴。",
+    spec:"82 / 88 / 123 / 164Hz · 下滑 10% · 混响 3.4s" },
+
+  { key:"tick", name:"轻「嗒」", sub:"playTick", kind:"", when:"判决书里打对名字 / 按钮亮起",
+    where:"AwakenDialog.tsx:96,99 —— 打对她的名字那一下，以及 0.5 秒后按钮真正亮起",
+    desc:"几乎听不见，但让操作有实体感。",
+    spec:"2200→1320Hz 方波 · 60ms" },
+
+  { key:"send", name:"发出消息", sub:"playSend", kind:"", when:"你按下发送",
+    where:"App.tsx:1015 —— handleSend 里，消息落库之前",
+    desc:"极短的上行滑音 —— 离开你、往外去。",
+    spec:"880→1320Hz + 1760→2640Hz · 共 0.09s" },
+
+  { key:"receive", name:"收到回复", sub:"playReceive", kind:"", when:"她回你话",
+    where:"App.tsx:856 —— AI 回复落进会话那一刻",
+    desc:"柔和 ping，带一点空间。",
+    spec:"660Hz + 990Hz（延迟 20ms）· 混响 1.2s" },
+
+  { key:"switch", name:"切换会话", sub:"playSwitch", kind:"", when:"点另一个角色 / 群聊",
+    where:"App.tsx:1101 —— handleSelect，且不是当前会话",
+    desc:"两个音前后错开 40ms —— 不是滑过去，是跳过去。",
+    spec:"698→1046Hz + 1046→1568Hz（延迟 40ms）· 混响 0.9s" },
+
+  { key:"consoleOpen", name:"接通控制台", sub:"playConsoleOpen", kind:"", when:"打开控制台",
+    where:"App.tsx —— 控制台开关",
+    desc:"不是「打开面板」，是「接通一条线路」。低、短、无混响，带一点方波的电流感。",
+    spec:"220→200Hz sine + 1320Hz square 闪 18ms · 共 0.1s · 无混响" },
+
+  { key:"consoleClose", name:"切断控制台", sub:"playConsoleClose", kind:"", when:"关闭控制台",
+    where:"App.tsx —— 控制台开关",
+    desc:"收线。一个快速下滑 —— 那根线被拔掉了。",
+    spec:"440→200Hz · 0.1s · 无混响" },
+
+  { key:"panelOpen", name:"拉开设置", sub:"playPanelOpen", kind:"", when:"打开设置面板",
+    where:"App.tsx —— 设置面板开关",
+    desc:"不是「接通」，是「拉开」。一块面板从侧面抽出来，有面积、有厚度。",
+    spec:"380→560Hz triangle · 混响 0.6s (wet 0.15)" },
+
+  { key:"panelClose", name:"收回设置", sub:"playPanelClose", kind:"", when:"关闭设置面板",
+    where:"App.tsx —— 设置面板开关",
+    desc:"收回去。同一块面板，反方向。",
+    spec:"560→380Hz triangle · 混响 0.6s" },
+
+  { key:"deny", name:"操作被拒", sub:"playDeny", kind:"", when:"打错命令 / 只有 @ 没内容",
+    where:"consoleCmd.ts:490（未知命令）· App.tsx:992（只 @ 了人没写字）",
+    desc:"一个音，说完就完了 —— 「哦，不行」。不吓人。",
+    spec:"396→330Hz · triangle · 0.1s" },
+
+  { key:"birth", name:"她第一次存在", sub:"playBirth", kind:"", when:"新建角色完成",
+    where:"App.tsx —— addPersona 之后",
+    desc:"落地 + 点亮两个音。故意加很少混响 —— 她是新的，这个空间对她还没有回声。",
+    spec:"330→495Hz triangle + 660Hz sine（延迟 60ms）· 0.4s" },
+
+  { key:"delete", name:"她不存在了", sub:"playDelete", kind:"", when:"删除角色确认",
+    where:"App.tsx —— removePersona 之后",
+    desc:"一个下沉的短音 + 一点噪声，像灰尘落下来。不做成警报 —— 这是用户自己做的决定。",
+    spec:"330→165Hz + 噪声 1200Hz 截止 · 0.4s" },
+
+  { key:"settle", name:"落进抽屉", sub:"playSettle", kind:"", when:"导入 / 导出完成",
+    where:"SettingsPanel.tsx —— 导出成功之后",
+    desc:"四个递减的短音。不是「成功」的音（那种是上扬），是「一个个放好了」的音。",
+    spec:"1046 / 880 / 740 / 622Hz · 每个 90ms · 间隔 70ms" },
+
+  { key:"shift", name:"档位切换", sub:"playShift", kind:"", when:"引擎 L1 ↔ L2",
+    where:"EnginePanel.tsx —— 点另一个档位",
+    desc:"一个继电器声，15 毫秒。不是「过渡」，是「切换」。",
+    spec:"880 + 1320Hz square · 20ms" },
+
+  { key:"hold", name:"按住说话", sub:"playHold", kind:"", when:"按下录音",
+    where:"Composer.tsx —— setRecording(true) 之前",
+    desc:"一个低频的「噗」，有气压感。像把嘴凑近麦克风那一下。",
+    spec:"200→180Hz + 噪声 900Hz 截止 · 70ms" },
+
+  { key:"release", name:"松开", sub:"playRelease", kind:"", when:"松开结束录音",
+    where:"Composer.tsx —— setRecording(false) 之前",
+    desc:"一个高频的「嗒」。和 hold 完全相反 —— 一个往下闷，一个往上脆。",
+    spec:"1200Hz triangle · 50ms" },
+
+  { key:"error", name:"系统故障", sub:"playError", kind:"heavy", when:"API 彻底失败",
+    where:"App.tsx:838 —— LLM 调用失败、且没有备用模型可换",
+    desc:"警报 —— 三声急促 + 拍频刺耳 + 120Hz 一直压着。它在催你，不是通知你。",
+    spec:"1320/1245Hz triangle ×3（间隔 85ms）+ 880→440Hz下沉 + 120→108Hz · 1.2s" },
+];
+
+const list = document.getElementById("list");
+const state = document.getElementById("state");
+
+ITEMS.forEach((it) => {
+  const row = document.createElement("div");
+  row.className = "row" + (it.kind ? " " + it.kind : "");
+  row.innerHTML = `
+    <span class="play">▶</span>
+    <div class="meta">
+      <div class="name">${it.name}<em>${it.sub}</em><span class="when">${it.when}</span></div>
+      <div class="desc">${it.desc}</div>
+      <div class="where">▸ ${it.where}</div>
+      <div class="spec">${it.spec}</div>
+    </div>
+    <span class="tag">${it.kind === "heavy" ? "重" : it.kind === "up" ? "切换" : "轻"}</span>`;
+  row.addEventListener("click", () => {
+    SOUNDS[it.key]();
+    state.textContent = "▶ " + it.sub;
+  });
+  list.appendChild(row);
+});
+
+document.getElementById("all").addEventListener("click", () => {
+  let t = 0;
+  const OFFSETS = { roots: 3400, boot: 2200, enterCreator: 1100, leaveCreator: 800, rumble: 3600, tick: 260, send: 340, receive: 700, switch: 400, consoleOpen: 260, consoleClose: 260, panelOpen: 320, panelClose: 320, deny: 300, birth: 600, delete: 600, settle: 600, shift: 200, hold: 200, release: 200, error: 600 };
+  ITEMS.forEach((it) => {
+    setTimeout(() => { SOUNDS[it.key](); state.textContent = "▶ " + it.sub; }, t);
+    t += OFFSETS[it.key] ?? 500;
+  });
+});
+
+getCtx().resume();
+</script>
+</body>
+</html>

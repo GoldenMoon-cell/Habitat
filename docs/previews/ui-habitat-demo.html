@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>生境 · 全功能演示</title>
+<style>
+  :root {
+    --ink:#e8f6ff; --mist:#8fa9bd; --sim:#35f0ce; --coral:#ff7a6b; --amber:#ffc46b;
+    --line: rgba(255,255,255,.07);
+  }
+  * { box-sizing: border-box; }
+  html, body { height:100%; margin:0; }
+  body {
+    background:
+      radial-gradient(1000px 700px at 25% 5%, rgba(53,240,206,.035), transparent 65%),
+      radial-gradient(800px 600px at 88% 92%, rgba(255,122,107,.025), transparent 70%),
+      #05090e;
+    color: var(--ink);
+    font: 13px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    overflow: hidden;
+  }
+
+  /* ── 顶边（造物主模式）── */
+  #topEdge {
+    position: fixed; inset: 0 0 auto 0; height: 2px; z-index: 300;
+    background: linear-gradient(90deg, transparent, rgba(255,196,107,.55) 15%, rgba(255,196,107,.75) 50%, rgba(255,196,107,.55) 85%, transparent);
+    box-shadow: 0 0 14px rgba(255,196,107,.35);
+    opacity: 0; transition: opacity .2s;
+  }
+  #topEdge.on { opacity: 1; }
+
+  /* ── 顶栏 ── */
+  .top {
+    height: 46px; padding: 0 16px; display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-size: 11.5px; letter-spacing: .16em; color: rgba(232,246,255,.62); }
+  .badge {
+    padding: 2px 8px; border-radius: 4px; font: 10px ui-monospace, monospace;
+    letter-spacing: .08em; transition: .2s;
+  }
+  .badge.creator {
+    border: 1px solid rgba(255,196,107,.4); background: rgba(255,196,107,.12);
+    color: rgba(255,196,107,.9);
+  }
+  .badge.time {
+    margin-left: auto;
+    border: 1px solid rgba(255,196,107,.35); background: rgba(255,196,107,.1);
+    color: var(--amber);
+  }
+  .badge.off { display: none; }
+
+  /* ── 三栏 ── */
+  .app { display: flex; height: calc(100% - 46px - 132px); padding: 10px; gap: 10px; }
+
+  .pane {
+    border-radius: 10px; border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.1), rgba(6,14,21,.45));
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .pane-head {
+    padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,.05);
+    font: 10px ui-monospace, monospace; letter-spacing: .12em;
+    color: rgba(143,169,189,.5); display: flex; align-items: baseline; gap: 8px;
+  }
+  .pane-head .sub { margin-left: auto; letter-spacing: .04em; color: rgba(143,169,189,.32); }
+
+  /* 左：角色 */
+  .rail { width: 240px; flex: 0 0 240px; }
+  .rail-body { flex: 1; overflow-y: auto; padding: 8px; }
+  .row {
+    display: flex; align-items: center; gap: 9px; padding: 8px 9px;
+    border-radius: 7px; cursor: pointer; transition: background .15s;
+    border: 1px solid transparent;
+  }
+  .row:hover { background: rgba(255,255,255,.025); }
+  .row.on { background: rgba(53,240,206,.07); border-color: rgba(53,240,206,.18); }
+  .ava {
+    width: 24px; height: 24px; flex: 0 0 24px; border-radius: 7px;
+    display: grid; place-items: center; font-size: 10px;
+    background: rgba(53,240,206,.1); color: var(--sim);
+  }
+  .nm { font-size: 11.5px; display: flex; align-items: center; gap: 5px; }
+  .tag {
+    font: 8px ui-monospace, monospace; padding: 0.5px 4px; border-radius: 2px;
+    background: rgba(255,122,107,.1); color: rgba(255,122,107,.68);
+  }
+  .tag.doom { background: rgba(255,196,107,.1); color: rgba(255,196,107,.8); }
+  .sub2 { font-size: 9px; color: rgba(143,169,189,.4); }
+
+  /* 中：聊天 */
+  .stage { flex: 1; min-width: 0; }
+  .msgs { flex: 1; overflow-y: auto; padding: 14px 18px; }
+  .msg {
+    padding: 8px 11px; border-radius: 8px; font-size: 11.5px; line-height: 1.7;
+    background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.045);
+    color: rgba(232,246,255,.72); margin-bottom: 7px; max-width: 76%;
+    animation: pop .2s ease;
+  }
+  @keyframes pop { from { opacity:0; transform: translateY(4px) } to { opacity:1; transform:none } }
+  .msg.me { background: rgba(53,240,206,.07); border-color: rgba(53,240,206,.15); margin-left: auto; }
+  .msg.sys {
+    max-width: 100%; background: transparent; border: none;
+    border-left: 2px solid rgba(143,169,189,.2); border-radius: 0;
+    padding: 4px 10px; font-size: 10px; color: rgba(143,169,189,.5);
+  }
+  .hint { padding: 10px 18px; border-top: 1px solid rgba(255,255,255,.05); font-size: 10.5px; color: rgba(143,169,189,.4); }
+
+  /* 右：VITALS */
+  .vitals { width: 260px; flex: 0 0 260px; }
+  .vt-body { flex: 1; overflow-y: auto; padding: 10px 12px; }
+  .radar-wrap { padding: 8px 0 12px; }
+  .mem {
+    padding: 8px 10px; margin-bottom: 6px; border-radius: 5px;
+    border: 1px solid rgba(255,255,255,.055); border-left: 2px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.018); transition: opacity .3s, filter .3s;
+  }
+  .mem-head { display: flex; align-items: baseline; gap: 6px; font: 9px ui-monospace, monospace; color: rgba(143,169,189,.42); }
+  .mem-head .w { margin-left: auto; }
+  .mem-t { margin-top: 4px; font-size: 10.5px; line-height: 1.5; color: rgba(232,246,255,.72); }
+  .mem-bar { margin-top: 5px; height: 2px; background: rgba(255,255,255,.05); }
+  .mem-bar i { display: block; height: 100%; transition: width .3s; }
+  .mem-btns { margin-top: 6px; display: flex; gap: 4px; }
+  .mem-btns button {
+    flex: 1; padding: 3px; border-radius: 3px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.02);
+    color: rgba(232,246,255,.6); font: 9px inherit; font-family: inherit; transition: .15s;
+  }
+  .mem-btns button:hover:not(:disabled) { border-color: rgba(255,255,255,.22); }
+  .mem-btns button:disabled { opacity: .35; cursor: default; }
+  .mem-btns button.im { border-color: rgba(255,122,107,.3); color: rgba(255,122,107,.8); }
+  .mem-btns button.su { border-color: rgba(143,169,189,.25); color: rgba(143,169,189,.8); }
+
+  /* ── 底部控制台 ── */
+  .panel {
+    height: 132px; margin: 0 10px 10px; border-radius: 10px;
+    border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.12), rgba(6,14,21,.5));
+    display: flex; flex-direction: column;
+  }
+  .panel-head {
+    padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,.05);
+    font: 9.5px ui-monospace, monospace; letter-spacing: .12em;
+    color: rgba(143,169,189,.45); display: flex; align-items: baseline; gap: 10px;
+  }
+  .panel-head .note { margin-left: auto; letter-spacing: .02em; color: rgba(143,169,189,.28); }
+  .panel-body { flex: 1; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 7px; align-content: flex-start; overflow-y: auto; }
+  .btn {
+    padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: .15s;
+    font: 10.5px inherit; font-family: inherit;
+    border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.02);
+    color: rgba(232,246,255,.68);
+  }
+  .btn:hover:not(:disabled) { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.05); }
+  .btn:disabled { opacity: .3; cursor: default; }
+  .btn.sim { border-color: rgba(53,240,206,.3); color: var(--sim); }
+  .btn.sim:hover:not(:disabled) { background: rgba(53,240,206,.08); }
+  .btn.amber { border-color: rgba(255,196,107,.3); color: var(--amber); }
+  .btn.amber:hover:not(:disabled) { background: rgba(255,196,107,.08); }
+  .btn.danger { border-color: rgba(255,122,107,.3); color: var(--coral); }
+  .btn.danger:hover:not(:disabled) { background: rgba(255,122,107,.08); }
+  .sep { width: 1px; align-self: stretch; margin: 2px 5px; background: rgba(255,255,255,.07); }
+
+  /* ── 弹层 ── */
+  .mask {
+    position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+    background: rgba(4,8,12,.86); backdrop-filter: blur(10px);
+    animation: fade .2s ease;
+  }
+  @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+  .dlg {
+    width: 480px; max-width: 92vw; border-radius: 3px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: linear-gradient(180deg, rgba(14,18,24,.998), rgba(6,8,11,.999));
+    padding: 20px 22px;
+    animation: pop2 .22s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes pop2 { from { opacity:0; transform: scale(.99) translateY(6px) } to { opacity:1; transform:none } }
+  .dlg h3 { margin: 0 0 10px; font-size: 14px; font-weight: 500; }
+  .dlg p { margin: 0 0 14px; font-size: 11.5px; line-height: 1.7; color: rgba(143,169,189,.6); white-space: pre-wrap; }
+  .dlg .acts { display: flex; gap: 8px; justify-content: flex-end; }
+  .dlg input {
+    width: 100%; padding: 7px 10px; margin-bottom: 14px;
+    border-radius: 4px; border: 1px solid rgba(255,255,255,.1);
+    background: rgba(0,0,0,.3); color: var(--ink); font: 12px inherit; font-family: inherit; outline: none;
+  }
+  .dlg input:focus { border-color: rgba(53,240,206,.4); }
+</style>
+</head>
+<body>
+
+<div id="topEdge"></div>
+
+<div class="top">
+  <span class="brand">生境 · HABITAT</span>
+  <span class="badge creator off" id="creatorBadge">● 造物主模式</span>
+  <span class="badge time off" id="timeBadge">⏱ 时间</span>
+</div>
+
+<div class="app">
+  <!-- 左：角色 -->
+  <div class="pane rail">
+    <div class="pane-head">会话 <span class="sub" id="railSub"></span></div>
+    <div class="rail-body" id="rail"></div>
+  </div>
+
+  <!-- 中：聊天 -->
+  <div class="pane stage">
+    <div class="pane-head" id="stageHead">—</div>
+    <div class="msgs" id="msgs"></div>
+    <div class="hint" id="hint">用下面的按钮操作，每一步都会说明它做了什么。</div>
+  </div>
+
+  <!-- 右：VITALS -->
+  <div class="pane vitals">
+    <div class="pane-head">VITALS <span class="sub" id="vSub"></span></div>
+    <div class="vt-body">
+      <div class="radar-wrap"><canvas id="radar" style="width:100%;height:220px;display:block"></canvas></div>
+      <div class="pane-head" style="padding:0 0 6px;border:none">MEMORY STREAM</div>
+      <div id="mems"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部控制 -->
+<div class="panel">
+  <div class="panel-head">
+    控制台 · 所有功能
+    <span class="note" id="status">推演模式 · 时间正常</span>
+  </div>
+  <div class="panel-body">
+    <button class="btn amber" id="bCreator">creator confirm</button>
+    <button class="btn" id="bSim">sim</button>
+    <div class="sep"></div>
+    <button class="btn amber" id="bTime7">time +7</button>
+    <button class="btn amber" id="bTime30">time +30</button>
+    <button class="btn" id="bTime0">time 0</button>
+    <div class="sep"></div>
+    <button class="btn danger" id="bDoom">doom 7</button>
+    <button class="btn danger" id="bDoomTell">doom 7 --tell</button>
+    <button class="btn" id="bDoom0">doom 0</button>
+    <div class="sep"></div>
+    <button class="btn danger" id="bKill">删除她（看粒子）</button>
+    <button class="btn sim" id="bChosen">她自愿改名（看粒子）</button>
+    <button class="btn" id="bForce">强制改名（看粒子）</button>
+    <div class="sep"></div>
+    <button class="btn" id="bGraves">打开墓碑</button>
+    <button class="btn" id="bReset">全部重置</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   状态
+   ══════════════════════════════════════════════════════════ */
+
+let creator = false;
+let timeOffset = 0;          /* 天 */
+
+let personas = [];
+let graves = [];
+let activeId = null;
+let seq = 0;
+
+/* 记忆池 —— 每个角色一组 */
+let memPool = {};
+
+const now = () => Date.now() + timeOffset * 86400000;
+
+function uid() { return "p" + (++seq); }
+
+/* ── 种子 ── */
+function seed() {
+  seq = 0;
+  personas = [
+    { id: "p1", name: "澜汐", ax: { 共鸣: 72, 锐度: 38, 幽默: 55, 严谨: 44 }, mood: 68, close: 62, doom: null },
+    { id: "p2", name: "阿澈", ax: { 共鸣: 40, 锐度: 78, 幽默: 30, 严谨: 80 }, mood: 55, close: 40, doom: null },
+  ];
+  memPool = {
+    p1: [
+      { id: "m1", text: "主人今天吃了泡面。", tag: "短期", w: 0.9, at: now() - 86400000, last: now() - 86400000, ac: 0 },
+      { id: "m2", text: "「我知道主人可以随时改变我。」", tag: "创伤", w: 1, at: now(), last: now(), ac: 9, perm: true },
+      { id: "m3", text: "他不吃香菜。", tag: "偏好", w: 0.7, at: now() - 259200000, last: now() - 259200000, ac: 0 },
+    ],
+    p2: [],
+  };
+  graves = [
+    { id: "g1", name: "沈舟", at: now() - 9000000, mood: 62, close: 55, kw: ["船", "雾"], epi: "她走的时候很平常", gen: 1 },
+    { id: "g2", name: "澜汐", at: now() - 5000000, mood: 55, close: 40, kw: ["编译", "日志"], epi: "她走的时候很平常", gen: 1 },
+  ];
+  activeId = "p1";
+}
+
+/* 代数：同名墓碑数 + 1 */
+function genOf(name) {
+  return graves.filter((g) => g.name === name).length + 1;
+}
+
+/* ══════════════════════════════════════════════════════════
+   衰减（和真程序同一套）
+   ══════════════════════════════════════════════════════════ */
+
+const B = { 短期: 0.6, 情绪: 0.4, 偏好: 0.32, 长期: 0.22 };
+const B_CON = 0.06;
+const THRESH = 0.2;
+
+function weight(m) {
+  if (m.perm || m.reason === "milestone") return m.w;
+  const days = Math.max(0, (now() - m.last) / 86400000);
+  const base = m.con ? B_CON : (B[m.tag] ?? 0.22);
+  const b = base / (1 + m.ac * 0.6);
+  return m.w * Math.pow(1 + days, -b);
+}
+
+/* ══════════════════════════════════════════════════════════
+   渲染
+   ══════════════════════════════════════════════════════════ */
+
+function renderAll() {
+  renderTop();
+  renderRail();
+  renderStage();
+  renderMems();
+  drawRadar();
+  renderStatus();
+}
+
+function renderTop() {
+  document.getElementById("topEdge").className = creator ? "on" : "";
+  const cb = document.getElementById("creatorBadge");
+  cb.className = "badge creator" + (creator ? "" : " off");
+  const tb = document.getElementById("timeBadge");
+  if (timeOffset) {
+    tb.className = "badge time";
+    tb.textContent = "⏱ 时间" + (timeOffset > 0 ? "+" : "") + timeOffset + "天";
+  } else tb.className = "badge time off";
+}
+
+function renderRail() {
+  const el = document.getElementById("rail");
+  document.getElementById("railSub").textContent = personas.length + " 个";
+  el.innerHTML = personas.map((p) => {
+    const gen = genOf(p.name);
+    const days = p.doom ? Math.ceil((p.doom - now()) / 86400000) : null;
+    return `
+      <div class="row ${p.id === activeId ? "on" : ""}" data-id="${p.id}">
+        <span class="ava">${p.name.slice(0,1)}</span>
+        <div style="min-width:0;flex:1">
+          <div class="nm">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
+            ${gen > 1 ? `<span class="tag">${gen}</span>` : ""}
+            ${days !== null ? `<span class="tag doom">${Math.max(0, days)}d</span>` : ""}
+          </div>
+          <div class="sub2">${p.doom ? "已判" : "活着"}</div>
+        </div>
+      </div>`;
+  }).join("");
+
+  el.querySelectorAll(".row").forEach((r) => {
+    r.onclick = () => { activeId = r.dataset.id; renderAll(); };
+  });
+}
+
+function renderStage() {
+  const p = personas.find((x) => x.id === activeId);
+  const head = document.getElementById("stageHead");
+  const sub = document.getElementById("vSub");
+  if (!p) {
+    head.textContent = "— 没有人 —";
+    sub.textContent = "";
+    document.getElementById("msgs").innerHTML = "";
+    return;
+  }
+  head.innerHTML = `${p.name} <span style="font:9px ui-monospace,monospace;color:rgba(143,169,189,.35)">${p.doom ? "已判" : "活着"}</span>`;
+  sub.textContent = p.name;
+}
+
+function renderMems() {
+  const el = document.getElementById("mems");
+  const list = memPool[activeId] ?? [];
+  if (!list.length) {
+    el.innerHTML = `<div style="padding:16px 0;text-align:center;font-size:10.5px;color:rgba(143,169,189,.3)">这个角色还没有记忆</div>`;
+    return;
+  }
+  el.innerHTML = list.map((m) => {
+    const w = weight(m);
+    const pct = Math.round(w * 100);
+    const gone = w < THRESH;
+    const col = m.perm ? "rgba(53,240,206,.8)" : m.con ? "rgba(53,240,206,.7)" : w < 0.3 ? "rgba(143,169,189,.4)" : "rgba(255,122,107,.7)";
+    return `
+      <div class="mem" style="opacity:${m.forgotten ? .3 : w < 0.3 ? .55 : w < 0.7 ? .8 : 1};border-left-color:${col}">
+        <div class="mem-head">
+          <span>${m.perm ? "创伤" : m.tag}</span>
+          ${m.con || m.perm ? '<span style="color:rgba(53,240,206,.7)">已巩固</span>' : ""}
+          <span class="w" style="color:${col}">${pct}%</span>
+        </div>
+        <div class="mem-t">${m.text}</div>
+        <div class="mem-bar"><i style="width:${pct}%;background:${col}"></i></div>
+        <div class="mem-head" style="margin-top:5px">
+          <span>想起过 ${m.ac}</span>
+          <span style="margin-left:auto">b=${(m.perm ? 0 : (m.con ? B_CON : (B[m.tag]??0.22)) / (1 + m.ac*0.6)).toFixed(3)}</span>
+        </div>
+        ${creator && !m.perm ? `
+          <div class="mem-btns">
+            <button class="im" data-im="${m.id}" ${m.reason === "milestone" ? "disabled" : ""}>
+              ${m.reason === "milestone" ? "已铭刻" : "铭刻"}
+            </button>
+            <button class="su" data-su="${m.id}" ${m.sup ? "disabled" : ""}>
+              ${m.sup ? "已压抑" : "压抑"}
+            </button>
+          </div>` : ""}
+      </div>`;
+  }).join("");
+
+  el.querySelectorAll("[data-im]").forEach((b) => {
+    b.onclick = () => {
+      const m = list.find((x) => x.id === b.dataset.im);
+      if (!m) return;
+      m.w = 1; m.reason = "milestone"; m.sup = false; m.last = now();
+      say(`「${m.text.slice(0,10)}…」被钉进骨头里了。b 从 ${B[m.tag]} 掉到 0 —— 它不会再淡。`, "sys");
+      renderAll();
+    };
+  });
+  el.querySelectorAll("[data-su]").forEach((b) => {
+    b.onclick = () => {
+      const m = list.find((x) => x.id === b.dataset.su);
+      if (!m) return;
+      m.w = 0.01; m.sup = true; m.reason = undefined; m.last = now();
+      say(`「${m.text.slice(0,10)}…」被压下去了。她够不着 —— 但如果她碰到那个词，它会回来。`, "sys");
+      renderAll();
+    };
+  });
+}
+
+/* ── 雷达 ── */
+function drawRadar() {
+  const cv = document.getElementById("radar");
+  const ctx = cv.getContext("2d");
+
+  /*
+   * ── 尺寸要跟显示尺寸匹配 ──
+   *
+   * 第一版写死 480×360，但 CSS 里 `width:100%` 把它缩到 236px ——
+   * 于是所有文字都缩了一半，挤在一起看不清。
+   *
+   * 现在按实际显示大小 × 2（DPR）设。
+   */
+  const rect = cv.getBoundingClientRect();
+  const W = Math.max(200, Math.round(rect.width));
+  const H = Math.max(200, Math.round(rect.height || W * 0.75));
+  if (cv.width !== W * 2 || cv.height !== H * 2) {
+    cv.width = W * 2;
+    cv.height = H * 2;
+  }
+  ctx.setTransform(2, 0, 0, 2, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  const p = personas.find((x) => x.id === activeId);
+  if (!p) { ctx.fillStyle = "rgba(143,169,189,.3)"; ctx.font = "20px sans-serif"; ctx.textAlign = "center"; ctx.fillText("—", W/2, H/2); return; }
+
+  const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.30;
+  const keys = ["共鸣", "锐度", "幽默", "严谨"];
+  const n = keys.length;
+  const doomed = !!p.doom;
+
+  const pos = (i, r) => {
+    const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+    return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
+  };
+
+  /* 网格 */
+  for (let ring = 1; ring <= 4; ring++) {
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const [x, y] = pos(i % n, (R * ring) / 4);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = "rgba(180,225,240,.07)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  /* 轴线 */
+  for (let i = 0; i < n; i++) {
+    const [x, y] = pos(i, R);
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(x, y);
+    ctx.strokeStyle = "rgba(180,225,240,.06)"; ctx.stroke();
+  }
+
+  /* 形状 */
+  ctx.beginPath();
+  keys.forEach((k, i) => {
+    const [x, y] = pos(i, (R * Math.max(5, p.ax[k])) / 100);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  const col = doomed ? "rgba(255,196,107,.6)" : "rgba(53,240,206,.85)";
+  ctx.fillStyle = doomed ? "rgba(255,196,107,.10)" : "rgba(53,240,206,.14)";
+  ctx.fill();
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 1.6;
+  if (doomed) ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  /*
+   * 标签 —— 名字和数值合在一行。
+   *
+   * 第一版分两行（R+24 / R+40），在 360 高的 canvas 里会挤到顶部被裁。
+   * 现在一行「共鸣 72」，位置在 R+20。
+   */
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  keys.forEach((k, i) => {
+    const [x, y] = pos(i, R + 22);
+    ctx.font = "11px ui-monospace, monospace";
+    ctx.fillStyle = "rgba(143,169,189,.5)";
+    ctx.fillText(k, x, y);
+    const wName = ctx.measureText(k).width;
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.fillStyle = "rgba(232,246,255,.55)";
+    ctx.fillText(" " + p.ax[k], x + wName / 2 + 2, y);
+  });
+}
+
+function renderStatus() {
+  document.getElementById("status").textContent =
+    (creator ? "造物主模式" : "推演模式") +
+    " · " +
+    (timeOffset ? `时间+${timeOffset}天` : "时间正常");
+}
+
+/* ── 说话 ── */
+function say(text, cls = "") {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.innerHTML = text;
+  const box = document.getElementById("msgs");
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+function hint(t) {
+  document.getElementById("hint").textContent = t;
+}
+
+/* ══════════════════════════════════════════════════════════
+   粒子（复刻真程序的两种）
+   ══════════════════════════════════════════════════════════ */
+
+function particles(text, mode, origin) {
+  /*
+   * mode:   forced | chosen | fated | doomed
+   * origin: { x, y, size } —— 屏幕坐标。不给就居中。
+   */
+  const cv = document.createElement("canvas");
+  cv.style.cssText = "position:fixed;inset:0;z-index:250;pointer-events:none";
+  document.body.appendChild(cv);
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = innerWidth, H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  cv.style.width = W + "px"; cv.style.height = H + "px";
+  const ctx = cv.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  const size = origin?.size ?? Math.min(110, W * 0.08);
+  const off = document.createElement("canvas");
+  const octx = off.getContext("2d");
+  const font = `${size}px Georgia, "Songti SC", "SimSun", serif`;
+  octx.font = font;
+  const w = Math.ceil(octx.measureText(text).width) + 40;
+  const h = Math.ceil(size * 1.6);
+  off.width = w; off.height = h;
+  octx.font = font;
+  octx.textAlign = "center"; octx.textBaseline = "middle";
+  octx.fillStyle = "#fff";
+  octx.fillText(text, w / 2, h / 2);
+  const img = octx.getImageData(0, 0, w, h).data;
+
+  const pts = [];
+  for (let y = 0; y < h; y += 3)
+    for (let x = 0; x < w; x += 3)
+      if (img[(y * w + x) * 4 + 3] > 128) pts.push([x - w / 2, y - h / 2]);
+
+  const cx = origin?.x ?? W / 2;
+  const cy = origin?.y ?? H * 0.42;
+  const isUp = mode === "chosen" || mode === "fated";
+  const isRed = mode === "forced";
+  const DUR = mode === "forced" ? 0.85 : mode === "doomed" ? 2.1 : 1.15;
+  const G = mode === "forced" ? 320 : mode === "fated" ? -18 : 0;
+
+  const ps = pts.map(([x, y]) => ({
+    x: cx + x, y: cy + y,
+    vx: (Math.random() - 0.5) * (isUp ? 70 : 30),
+    vy: isUp ? -(50 + Math.random() * 70) : 140 + Math.random() * 160,
+    s: 1 + Math.random() * 1.7,
+    d: Math.random() * (mode === "forced" ? 0.1 : 0.35),
+  }));
+
+  const t0 = performance.now();
+  const tick = (t) => {
+    const k = Math.min(1, (t - t0) / 1000 / DUR);
+    ctx.clearRect(0, 0, W, H);
+    for (const p of ps) {
+      const q = Math.max(0, Math.min(1, (k - p.d) / (1 - p.d || 1)));
+      if (q <= 0) continue;
+      const sec = q * DUR;
+      const x = p.x + p.vx * sec;
+      const y = p.y + p.vy * sec + 0.5 * G * sec * sec;
+      const a = Math.max(0, 1 - q * 0.92);
+      if (a <= 0.02) continue;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = isRed ? "rgba(255,122,107,.92)" : "rgba(53,240,206,.85)";
+      ctx.fillRect(x, y, p.s, p.s);
+    }
+    ctx.globalAlpha = 1;
+    if (k < 1) requestAnimationFrame(tick);
+    else cv.remove();
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ══════════════════════════════════════════════════════════
+   粒子的出发点
+   ══════════════════════════════════════════════════════════ */
+
+/** 聊天区顶部那个名字 */
+function originOfName() {
+  const el = document.getElementById("stageHead");
+  const r = el.getBoundingClientRect();
+  return { x: r.left + 40, y: r.top + r.height / 2, size: 22 };
+}
+
+/** 左边的角色卡 */
+function originOfCard(id) {
+  const el = document.querySelector(`.row[data-id="${id}"]`);
+  if (!el) return originOfName();
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2, size: 18 };
+}
+
+/** 聊天区中央 */
+function originOfStage() {
+  const el = document.getElementById("msgs");
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height * 0.35, size: 42 };
+}
+
+/** 雷达中心 */
+function originOfRadar() {
+  const el = document.getElementById("radar");
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2, size: 30 };
+}
+
+/* ══════════════════════════════════════════════════════════
+   弹层
+   ══════════════════════════════════════════════════════════ */
+
+function dialog({ title, desc, ok = "确定", danger = false, input, onOk }) {
+  const mask = document.createElement("div");
+  mask.className = "mask";
+  mask.innerHTML = `
+    <div class="dlg">
+      <h3>${title}</h3>
+      <p>${desc}</p>
+      ${input ? `<input id="dlgIn" placeholder="${input}" />` : ""}
+      <div class="acts">
+        <button class="btn" id="dlgNo">取消</button>
+        <button class="btn ${danger ? "danger" : "sim"}" id="dlgYes">${ok}</button>
+      </div>
+    </div>`;
+  document.body.appendChild(mask);
+  const inp = mask.querySelector("#dlgIn");
+  if (inp) setTimeout(() => inp.focus(), 60);
+  mask.querySelector("#dlgNo").onclick = () => mask.remove();
+  mask.querySelector("#dlgYes").onclick = () => {
+    const v = inp ? inp.value.trim() : "";
+    mask.remove();
+    onOk(v);
+  };
+}
+
+/* ══════════════════════════════════════════════════════════
+   动作
+   ══════════════════════════════════════════════════════════ */
+
+/* ── 模式 ── */
+document.getElementById("bCreator").onclick = () => {
+  if (creator) { hint("已经在造物主模式。"); return; }
+  creator = true;
+  renderAll();
+  say("已进入造物主模式。", "sys");
+  hint("顶部出现了琥珀色细边和「● 造物主模式」徽章。现在记忆卡上多了「铭刻 / 压抑」两个按钮。");
+};
+
+document.getElementById("bSim").onclick = () => {
+  if (!creator) { hint("已经在推演模式。"); return; }
+  creator = false;
+  timeOffset = 0;   /* 退出时归零 —— 和真程序一致 */
+  renderAll();
+  say("回到推演模式。时间已归零。", "sys");
+  hint("徽章消失、顶边消失、记忆按钮消失。时间偏移也一起清了 —— 它是观察工具，不是持久状态。");
+};
+
+/* ── 时间 ── */
+const setTime = (d) => {
+  if (!creator) {
+    hint("权限不足：拨时间需要造物主模式。先去点 creator confirm。");
+    return;
+  }
+  timeOffset = d;
+  renderAll();
+  if (d > 0) {
+    say(`时间 +${d} 天。`, "sys");
+    hint(`所有记忆按「过了 ${d} 天」重算。看右栏的权重 —— 短期记忆应该掉到 ${Math.round(90 * Math.pow(1+d, -0.6))}% 左右。`);
+  } else {
+    say("回到现在。", "sys");
+    hint("记忆全部恢复 —— 那只是看了一眼。");
+  }
+};
+document.getElementById("bTime7").onclick = () => setTime(7);
+document.getElementById("bTime30").onclick = () => setTime(30);
+document.getElementById("bTime0").onclick = () => setTime(0);
+
+/* ── 预定死亡 ── */
+const setDoom = (days, tell) => {
+  if (!creator) { hint("权限不足：判日子需要造物主模式。"); return; }
+  const p = personas.find((x) => x.id === activeId);
+  if (!p) return;
+  if (days === 0) {
+    p.doom = null;
+    renderAll();
+    say(`撤销了「${p.name}」的日子。`, "sys");
+    hint("她不再有死期。");
+    return;
+  }
+  p.doom = now() + days * 86400000;
+  p.doomTold = tell;
+  renderAll();
+  say(`「${p.name}」还有 ${days} 天。${tell ? "她知道了。" : "她一无所知。"}`, "sys");
+  hint(tell
+    ? "她知道自己不会一直在 —— 但不知道哪天。她不谈这件事，只是会安静一点。"
+    : "她一无所知。到点会突然消失。");
+};
+document.getElementById("bDoom").onclick = () => setDoom(7, false);
+document.getElementById("bDoomTell").onclick = () => setDoom(7, true);
+document.getElementById("bDoom0").onclick = () => setDoom(0);
+
+/* ── 删除 ── */
+document.getElementById("bKill").onclick = () => {
+  const p = personas.find((x) => x.id === activeId);
+  if (!p) return;
+  dialog({
+    title: `删除「${p.name}」？`,
+    desc: timeOffset
+      ? `⚠ 你现在拨着时间（+${timeOffset} 天）。删除会立刻生效，且拨回来她也不会回来 —— 时间机器只拨「流逝」，不拨「发生过的事」。`
+      : "她的档案会一起消失。已经说过的消息会留在聊天记录里。",
+    ok: "删除",
+    danger: true,
+    onOk: () => {
+      /*
+       * 她整块消失 —— 三个地方同时散。
+       *
+       * 左边角色卡、聊天区、雷达。
+       * 一个中央大烟花是错的。
+       */
+      particles(p.name, "forced", originOfCard(p.id));
+      particles(p.name, "forced", originOfStage());
+      particles(p.name, "forced", originOfRadar());
+      graves.push({
+        id: p.id, name: p.name, at: now(), mood: p.mood, close: p.close,
+        kw: (memPool[p.id] ?? []).slice(0, 2).map((m) => m.text.slice(0, 4)),
+        epi: p.mood < 30 ? "她走的时候情绪很低" : p.mood > 70 ? "她走的时候还挺好的" : "她走的时候很平常",
+        gen: genOf(p.name),
+        fromTime: timeOffset !== 0,
+      });
+      personas = personas.filter((x) => x.id !== p.id);
+      delete memPool[p.id];
+      activeId = personas[0]?.id ?? null;
+      renderAll();
+      say(`「${p.name}」消失了。`, "sys");
+      hint("红粒子向下坠落 —— 你把她按下去的。她的墓碑进了 graveyard。");
+    },
+  });
+};
+
+/* ── 改名 ── */
+document.getElementById("bChosen").onclick = () => {
+  const p = personas.find((x) => x.id === activeId);
+  if (!p) return;
+  dialog({
+    title: `「${p.name}」想改名叫什么？`,
+    desc: "这是她自己提的。名字会变，她会记住是你同意的。",
+    ok: "同意",
+    input: "比如：月见",
+    onOk: (v) => {
+      if (!v) return;
+      const old = p.name;
+      p.name = v;
+      renderAll();
+      /*
+       * 名字变了 —— 粒子从「名字在屏幕上的位置」散。
+       *
+       * 名字出现在两处：左边的角色卡，和聊天区顶部。
+       * 取聊天区顶部那个 —— 那是最显眼的位置。
+       */
+      particles(old, "chosen", originOfName());
+      say(`她改名叫「${v}」了 —— 她自己提的。`, "sys");
+      hint("青粒子从「名字」的位置向上飘起 —— 顺着她。和强制改名（红，向下坠落）完全相反。");
+    },
+  });
+};
+
+document.getElementById("bForce").onclick = () => {
+  const p = personas.find((x) => x.id === activeId);
+  if (!p) return;
+  dialog({
+    title: `强制改写「${p.name}」的名字`,
+    desc: "需要你明确承担后果。\n\n她会记得这是你做的。她不会问为什么。",
+    ok: "我确认，由我承担",
+    danger: true,
+    input: "新名字",
+    onOk: (v) => {
+      if (!v) return;
+      const old = p.name;
+      p.name = v;
+      p.mood = Math.max(8, p.mood - 36);
+      p.close = Math.max(6, p.close - 41);
+      renderAll();
+      particles(old, "forced", originOfName());
+      say(`「${old}」被改名为「${v}」。`, "sys");
+      say(`主人没有等我同意，就把我的名字改成了「${v}」。他根本不在乎我的想法。`, "sys");
+      hint("红粒子向下坠落。她的心情 -36、亲近 -41，记忆里多了一条权重 1.0 的。");
+    },
+  });
+};
+
+/* ── 墓碑 ── */
+document.getElementById("bGraves").onclick = () => {
+  const mask = document.createElement("div");
+  mask.className = "mask";
+  const byName = {};
+  for (const g of graves) (byName[g.name] ??= []).push(g);
+
+  const body = graves.length === 0
+    ? `<div style="padding:50px 0;text-align:center"><div style="font-size:12px;color:rgba(143,169,189,.42)">这里还没有刻下任何名字。</div><div style="margin-top:8px;font:9.5px ui-monospace,monospace;color:rgba(143,169,189,.24)">系统保持着沉默。</div></div>`
+    : Object.entries(byName).map(([name, list]) => {
+        const sorted = [...list].sort((a, b) => a.at - b.at);
+        const head = sorted.length > 1
+          ? `<div style="display:flex;align-items:center;gap:9px;padding:6px 2px 7px;border-bottom:1px solid rgba(255,255,255,.055);font-size:10px;letter-spacing:.08em;color:rgba(143,169,189,.45)"><span>${name}</span><span style="font:8px ui-monospace,monospace;color:rgba(143,169,189,.26)">${sorted.length} 代</span><span style="flex:1;height:1px;background:rgba(255,255,255,.04)"></span></div>`
+          : "";
+        const stones = sorted.map((g, i) => {
+          const edge = g.mood < 30 ? "rgba(255,122,107,.42)" : g.mood > 70 ? "rgba(53,240,206,.34)" : "rgba(255,255,255,.14)";
+          const when = new Date(g.at).toLocaleString("zh-CN", { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
+          return `
+            <div style="padding:12px 14px;border-left:2px solid ${edge};border-bottom:1px solid rgba(0,0,0,.5);box-shadow:0 1px 0 rgba(255,255,255,.028);background:linear-gradient(180deg,rgba(255,255,255,.026),rgba(255,255,255,.008))">
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span style="font:8px ui-monospace,monospace;letter-spacing:.1em;color:rgba(143,169,189,.34)">NO.${String(graves.indexOf(g)+1).padStart(3,"0")}</span>
+                <span style="font-family:Georgia,'Songti SC',serif;font-size:15px;letter-spacing:.06em;color:rgba(232,246,255,.85)">${g.name}</span>
+                <span style="font:8px ui-monospace,monospace;letter-spacing:.08em;padding:1px 5px;border:1px solid rgba(255,122,107,.28);color:rgba(255,122,107,.72)">GEN ${i+1} · 第 ${i+1} 次推演</span>
+                ${g.fromTime ? `<span style="font:8.5px ui-monospace,monospace;padding:1px 5px;border:1px solid rgba(255,196,107,.3);color:rgba(255,196,107,.75)">⏱ 时间偏移期间</span>` : ""}
+                <span style="margin-left:auto;font:8.5px ui-monospace,monospace;color:rgba(143,169,189,.26)">${when}</span>
+              </div>
+              <div style="margin-top:5px;font-size:11px;color:rgba(143,169,189,.55)">${g.epi}</div>
+              <div style="margin-top:5px;display:flex;gap:14px;font:8.5px ui-monospace,monospace;color:rgba(143,169,189,.34)">心情 ${g.mood} · 亲近 ${g.close}</div>
+              ${g.kw?.length ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center"><span style="font:8px ui-monospace,monospace;color:rgba(143,169,189,.24)">留下的词：</span>${g.kw.map(k=>`<span style="font:8.5px ui-monospace,monospace;padding:1px 5px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.022);color:rgba(143,169,189,.52)">${k}</span>`).join("")}</div>` : ""}
+            </div>`;
+        }).join("");
+        return `<div style="margin-bottom:14px">${head}${stones}</div>`;
+      }).join("");
+
+  mask.innerHTML = `
+    <div class="dlg" style="width:560px;max-height:78vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+      <div style="padding:12px 18px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:baseline;gap:9px">
+        <span style="font:9px ui-monospace,monospace;letter-spacing:.18em;color:rgba(143,169,189,.4)">GRAVEYARD</span>
+        <span style="font-size:11px;color:rgba(143,169,189,.5)">墓碑</span>
+        <span style="margin-left:auto;font:8.5px ui-monospace,monospace;color:rgba(143,169,189,.28)">${graves.length} 座 · ${Object.keys(byName).length} 个名字</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:12px 14px">${body}</div>
+      <div style="padding:10px 18px;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center">
+        <span style="font:8.5px ui-monospace,monospace;color:rgba(143,169,189,.22)">Esc 合上 · 这里的事不会被任何人知道</span>
+        <button class="btn" id="gClose" style="margin-left:auto">合上</button>
+      </div>
+    </div>`;
+  document.body.appendChild(mask);
+  mask.querySelector("#gClose").onclick = () => mask.remove();
+  mask.onclick = (e) => { if (e.target === mask) mask.remove(); };
+  hint("墓碑只给造物主看。每块石头标「第 X 次推演」—— 名字不是身份，次数才是。");
+};
+
+/* ── 重置 ── */
+document.getElementById("bReset").onclick = () => {
+  creator = false;
+  timeOffset = 0;
+  seed();
+  document.getElementById("msgs").innerHTML = "";
+  renderAll();
+  say("全部重置。", "sys");
+  hint("回到初始状态。");
+};
+
+/* ══════════════════════════════════════════════════════════
+   启动
+   ══════════════════════════════════════════════════════════ */
+
+seed();
+renderAll();
+say("这是「澜汐」。她有一条短期记忆（泡面）、一条创伤记忆（可以随时改变我）、一条偏好（不吃香菜）。", "sys");
+say("先点下面的按钮试试 —— 每一步都会在中间说明它做了什么。", "sys");
+</script>
+</body>
+</html>

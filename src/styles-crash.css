@@ -1,0 +1,473 @@
+/* ═══════════════════════════════════════════════════════════
+   区块崩溃形态（crash block）
+   由 BlockBoundary 在捕获到渲染异常时渲染，kind 决定形态。
+
+   前缀 cb- 避免和现有类冲突。
+   配色沿用全局：珊瑚红 #ff7a6b、青 #35f0ce、雾灰 #8fa9bd。
+   ═══════════════════════════════════════════════════════════ */
+
+.cb {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 42px;
+  padding: 8px 10px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+/* canvas 斜纹层：垫在内容之下 */
+.cb > canvas.cb-stripe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+.cb > *:not(canvas) {
+  position: relative;
+  z-index: 1;
+}
+
+/* 通用重试：任何层级都要小、要灰 */
+.cb .cb-retry {
+  font-family: ui-monospace, monospace;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  color: rgba(143, 169, 189, 0.32);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.cb .cb-retry:hover {
+  color: rgba(53, 240, 206, 0.65);
+}
+
+/* ── 入场：从扁到正常，不硬切 ── */
+@keyframes cbIn {
+  from { opacity: 0; transform: scaleY(0.7); }
+  to   { opacity: 1; transform: none; }
+}
+.cb {
+  animation: cbIn 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ═══ ① IDENTITY —— 字母逐个错位成数字 ═══ */
+.cb-ident .cb-corrupt {
+  font-size: 12.5px;
+  letter-spacing: 0.22em;
+  color: rgba(255, 122, 107, 0.72);
+  text-shadow: 1px 0 rgba(78, 140, 255, 0.5), -1px 0 rgba(53, 240, 206, 0.35);
+  animation: cbIdentGlitch 2.4s steps(1) infinite;
+}
+@keyframes cbIdentGlitch {
+  0%, 92%, 100% { transform: translate(0); filter: none; }
+  93% { transform: translate(-1px, 1px); filter: brightness(1.6); }
+  95% { transform: translate(1px, -1px); }
+}
+.cb-ident .cb-sub {
+  font-size: 7.5px;
+  letter-spacing: 0.16em;
+  color: rgba(255, 122, 107, 0.42);
+}
+
+/* ═══ ② API LINKS —— 四行状态塌成破折号 ═══ */
+.cb-api {
+  align-items: stretch;
+  gap: 5px;
+  min-height: 74px;
+  font-size: 9px;
+}
+.cb-api .cb-ar {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: rgba(255, 122, 107, 0.55);
+  animation: cbApiDie 320ms both;
+}
+.cb-api .cb-ar:nth-child(1) { animation-delay: 0ms; }
+.cb-api .cb-ar:nth-child(2) { animation-delay: 60ms; }
+.cb-api .cb-ar:nth-child(3) { animation-delay: 120ms; }
+.cb-api .cb-ar:nth-child(4) { animation-delay: 180ms; }
+.cb-api .cb-ar .cb-nm { min-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cb-api .cb-ar .cb-st { margin-left: auto; color: rgba(255, 122, 107, 0.85); letter-spacing: 0.12em; }
+@keyframes cbApiDie {
+  0% { opacity: 1; transform: translateX(0); }
+  40% { transform: translateX(3px); filter: brightness(2); }
+  100% { opacity: 0.85; transform: translateX(0); }
+}
+
+/* ═══ ③ EVENT STREAM —— 加速滚动后冻结 ═══ */
+.cb-freeze {
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 3px;
+  min-height: 76px;
+  padding-bottom: 8px;
+}
+.cb-freeze .cb-noise {
+  font-size: 8px;
+  line-height: 1.5;
+  color: rgba(255, 122, 107, 0.22);
+  white-space: nowrap;
+  overflow: hidden;
+  animation: cbScrollUp 260ms linear infinite;
+}
+@keyframes cbScrollUp {
+  from { transform: translateY(0); }
+  to { transform: translateY(-12px); }
+}
+.cb-freeze .cb-halt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 122, 107, 0.18);
+  font-size: 8.5px;
+  color: rgba(255, 122, 107, 0.8);
+}
+.cb-freeze .cb-cur {
+  display: inline-block;
+  width: 5px;
+  height: 9px;
+  background: rgba(255, 122, 107, 0.8);
+  animation: cbCurBlink 1.05s steps(1) infinite;
+}
+@keyframes cbCurBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* ═══ ④ GROUPS —— 折叠成虚线空框 ═══ */
+.cb-tomb .cb-box {
+  width: 100%;
+  min-height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 4px 8px;
+  border: 1px dashed rgba(255, 122, 107, 0.28);
+  border-radius: 5px;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  color: rgba(255, 122, 107, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ═══ ⑤ CORE —— 头像打叉，名字被腐蚀 ═══ */
+.cb-lost {
+  align-items: stretch;
+  gap: 6px;
+  min-height: 92px;
+}
+.cb-lost .cb-lr {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  animation: cbRowFade 260ms both;
+}
+.cb-lost .cb-lr:nth-child(1) { animation-delay: 0ms; }
+.cb-lost .cb-lr:nth-child(2) { animation-delay: 70ms; }
+.cb-lost .cb-lr:nth-child(3) { animation-delay: 140ms; }
+.cb-lost .cb-lr:nth-child(4) { animation-delay: 210ms; }
+.cb-lost .cb-av {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 122, 107, 0.3);
+  background: rgba(255, 122, 107, 0.04);
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  color: rgba(255, 122, 107, 0.75);
+  flex-shrink: 0;
+}
+.cb-lost .cb-q {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 122, 107, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@keyframes cbRowFade {
+  0% { opacity: 1; transform: translateX(0); }
+  50% { opacity: 0.5; transform: translateX(-3px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+/* ═══ ⑥ HEADER —— 标题被红色遮罩条盖住 ═══ */
+.cb-void {
+  align-items: stretch;
+  gap: 6px;
+  min-height: 50px;
+}
+.cb-void .cb-bar {
+  height: 9px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 122, 107, 0.42), rgba(255, 122, 107, 0.13));
+  transform-origin: left;
+  animation: cbVoidSweep 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes cbVoidSweep {
+  from { transform: scaleX(0); opacity: 0.2; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+.cb-void .cb-tag {
+  font-size: 7.5px;
+  letter-spacing: 0.2em;
+  color: rgba(255, 122, 107, 0.55);
+}
+
+/* ═══ ⑦ COMPOSER —— 输入通道关闭 ═══ */
+.cb-inputlock {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid rgba(255, 122, 107, 0.18);
+  border-radius: 6px;
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  color: rgba(255, 122, 107, 0.62);
+  background: rgba(255, 122, 107, 0.03);
+}
+.cb-inputlock .cb-lock { font-size: 9px; }
+
+/* ═══ ⑧ MEMORY STREAM —— 卡片翻面成 SEALED ═══ */
+.cb-sealed {
+  align-items: stretch;
+  gap: 6px;
+  min-height: 76px;
+  perspective: 400px;
+}
+.cb-sealed .cb-cd {
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 122, 107, 0.22);
+  border-radius: 3px;
+  background: rgba(255, 122, 107, 0.05);
+  font-size: 7px;
+  letter-spacing: 0.22em;
+  color: rgba(255, 122, 107, 0.6);
+  transform-origin: left center;
+  animation: cbSeal 520ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+.cb-sealed .cb-cd:nth-child(1) { animation-delay: 0ms; }
+.cb-sealed .cb-cd:nth-child(2) { animation-delay: 110ms; }
+.cb-sealed .cb-cd:nth-child(3) { animation-delay: 220ms; }
+@keyframes cbSeal {
+  0% { transform: rotateY(0deg); opacity: 1; }
+  55% { transform: rotateY(90deg); opacity: 0.6; }
+  100% { transform: rotateY(0deg); opacity: 1; }
+}
+
+/* ═══ ⑨ QUICK COMMANDS —— 逐条划掉 ═══ */
+.cb-strike {
+  align-items: stretch;
+  gap: 6px;
+  min-height: 72px;
+  font-size: 9px;
+}
+.cb-strike .cb-sr {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: rgba(255, 122, 107, 0.45);
+}
+.cb-strike .cb-sr .cb-v { margin-left: auto; }
+.cb-strike .cb-sr::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 122, 107, 0.55);
+  transform-origin: left;
+  animation: cbStrikeLine 320ms ease-out both;
+}
+.cb-strike .cb-sr:nth-child(1)::after { animation-delay: 0ms; }
+.cb-strike .cb-sr:nth-child(2)::after { animation-delay: 90ms; }
+.cb-strike .cb-sr:nth-child(3)::after { animation-delay: 180ms; }
+@keyframes cbStrikeLine {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* ═══ ⑩ AFFECT RADAR —— 六边形塌成一条线 ═══ */
+.cb-radar {
+  min-height: 100px;
+  gap: 0;
+}
+.cb-radar .cb-poly {
+  width: 78px;
+  height: 78px;
+  animation: cbRadarCollapse 520ms cubic-bezier(0.4, 0, 0.7, 1) forwards;
+  transform-origin: center;
+}
+.cb-radar .cb-poly polygon {
+  fill: rgba(255, 122, 107, 0.1);
+  stroke: rgba(255, 122, 107, 0.6);
+  stroke-width: 1;
+}
+@keyframes cbRadarCollapse {
+  0% { transform: scale(1); opacity: 1; }
+  35% { transform: scale(1.18); filter: brightness(2.2); }
+  70% { transform: scale(0.06); opacity: 0.9; }
+  100% { transform: scale(0.06, 0.004); opacity: 0.45; }
+}
+.cb-radar .cb-flat {
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  top: 50%;
+  height: 1.5px;
+  background: rgba(255, 122, 107, 0.55);
+  box-shadow: 0 0 10px rgba(255, 122, 107, 0.6);
+  animation: cbFlatIn 320ms 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes cbFlatIn {
+  from { transform: scaleX(0); opacity: 0; }
+  to { transform: scaleX(1); opacity: 1; }
+}
+.cb-radar .cb-axes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  animation: cbFlatIn 320ms 420ms both;
+}
+.cb-radar .cb-axes span {
+  position: absolute;
+  font-size: 7px;
+  color: rgba(255, 122, 107, 0.5);
+  white-space: nowrap;
+}
+.cb-radar .cb-axes .a1 { left: 50%; top: 4%; transform: translateX(-50%); }
+.cb-radar .cb-axes .a2 { right: 2%; top: 28%; }
+.cb-radar .cb-axes .a3 { right: 6%; bottom: 20%; }
+.cb-radar .cb-axes .a4 { left: 50%; bottom: 2%; transform: translateX(-50%); }
+.cb-radar .cb-axes .a5 { left: 6%; bottom: 20%; }
+.cb-radar .cb-axes .a6 { left: 2%; top: 28%; }
+
+/* ═══ ⑪ SYSTEM —— 心电图变平直 ═══ */
+.cb-spark {
+  align-items: stretch;
+  justify-content: center;
+  gap: 6px;
+  min-height: 62px;
+}
+.cb-spark canvas.cb-ecg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+.cb-spark .cb-lbl {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  font-size: 8px;
+  color: rgba(255, 122, 107, 0.65);
+}
+.cb-spark .cb-lbl .cb-d {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #ff7a6b;
+  box-shadow: 0 0 6px #ff7a6b;
+  animation: cbMoss 1.1s steps(1) infinite;
+}
+@keyframes cbMoss {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.15; }
+}
+
+/* ═══ ⑫ MESSAGES —— 文字横向切断错位 ═══ */
+.cb-tear {
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  min-height: 120px;
+  padding: 12px 14px;
+}
+.cb-tear .cb-seg { position: relative; }
+.cb-tear .cb-up,
+.cb-tear .cb-dn {
+  font-size: 10.5px;
+  line-height: 1.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cb-tear .cb-up {
+  color: rgba(200, 210, 220, 0.55);
+  clip-path: inset(0 0 52% 0);
+}
+.cb-tear .cb-dn {
+  color: rgba(200, 210, 220, 0.26);
+  clip-path: inset(48% 0 0 0);
+  transform: translateX(11px);
+  margin-top: -20px;
+}
+.cb-tear .cb-hex {
+  display: inline-block;
+  padding: 0 3px;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 122, 107, 0.9);
+  background: rgba(255, 122, 107, 0.12);
+  animation: cbHex 0.9s steps(1) infinite;
+}
+@keyframes cbHex {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.35; }
+}
+.cb-tear .cb-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 7.5px;
+  color: rgba(143, 169, 189, 0.28);
+}
+.cb-tear .cb-meta b {
+  color: rgba(255, 122, 107, 0.7);
+  font-weight: 400;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   正常 → 崩溃的过渡由 BlockBoundary 用 Web Animations 驱动，
+   这里只提供 keyframes 供 JS 调用。
+   ═══════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  .cb,
+  .cb-ident .cb-corrupt,
+  .cb-freeze .cb-noise,
+  .cb-freeze .cb-cur,
+  .cb-api .cb-ar,
+  .cb-lost .cb-lr,
+  .cb-void .cb-bar,
+  .cb-sealed .cb-cd,
+  .cb-strike .cb-sr::after,
+  .cb-radar .cb-poly,
+  .cb-radar .cb-flat,
+  .cb-radar .cb-axes,
+  .cb-tear .cb-hex,
+  .cb-spark .cb-lbl .cb-d {
+    animation: none !important;
+  }
+}

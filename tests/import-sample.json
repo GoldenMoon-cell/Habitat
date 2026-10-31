@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "exportedAt": "2026-10-24T09:04:27.310Z",
+  "data": {
+    "3w:threads": null,
+    "3w:personas": null,
+    "3w:groups": null,
+    "3w:engine": null,
+    "3w:credentials": "[{\"id\":\"sample-cred\",\"label\":\"示例凭据·测完请删\",\"baseUrl\":\"https://api.example.com\",\"apiKey\":\"sk-sample-not-a-real-key\",\"models\":[]}]",
+    "3w:dynamic-v1": null,
+    "3w:known-models": null,
+    "3w:ctx-window-overrides": null,
+    "3w:onboarded": null
+  }
+}

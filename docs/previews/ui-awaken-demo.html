@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>覆写 · 演示</title>
+<style>
+  :root { --ink:#e8f6ff; --mist:#8fa9bd; --accent:#35f0ce; --coral:#ff7a6b; --amber:#ffc46b; }
+  * { box-sizing: border-box; }
+  html,body { height:100%; margin:0; }
+  body {
+    background: radial-gradient(800px 600px at 50% 40%, rgba(255,122,107,.05), transparent 70%), #05090e;
+    color: var(--ink);
+    font: 13px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    display: grid; place-items: center;
+  }
+  .dlg {
+    width: 480px; border-radius: 6px; overflow: hidden;
+    background: linear-gradient(166deg, rgba(18,42,56,.99), rgba(5,12,19,.998));
+    border: 1px solid rgba(255,122,107,.4);
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,.95);
+    animation: in .3s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes in { from { opacity:0; transform: scale(.98); } to { opacity:1; transform:none; } }
+  .topbar { height: 3px; background: rgba(255,122,107,.7); }
+  .body { padding: 24px 28px 20px; }
+  .head { display:flex; align-items:flex-start; gap:12px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--coral); margin-top:6px; box-shadow:0 0 12px -1px var(--coral); }
+  .t { font-size:15px; letter-spacing:.02em; }
+  .s { margin-top:4px; font:9px ui-monospace,monospace; letter-spacing:.14em; color:rgba(255,122,107,.65); }
+  .lines { margin-top:24px; font-size:11.5px; line-height:1.95; color:rgba(143,169,189,.7); }
+  .lines p { margin:0 0 16px; }
+  .lines b { color:rgba(232,246,255,.9); }
+  .lines .red { color:rgba(255,122,107,.9); }
+  .quote {
+    border-radius:5px; border:1px solid rgba(255,122,107,.25);
+    background:rgba(255,122,107,.055); padding:12px 16px; margin-bottom:16px;
+  }
+  .quote .lab { font:8.5px ui-monospace,monospace; letter-spacing:.12em; color:rgba(255,122,107,.6); margin-bottom:6px; }
+  .quote .txt { font-size:11px; line-height:1.9; color:rgba(232,246,255,.8); }
+  .warn { font-size:10.5px; color:rgba(255,196,107,.7); }
+  .sign { margin-top:28px; border-top:1px solid rgba(255,255,255,.07); padding-top:20px; }
+  .sign .lab { font-size:11px; color:rgba(143,169,189,.55); }
+  .sign .row {
+    margin-top:8px; display:flex; align-items:baseline; gap:8px;
+    border-bottom:1px solid rgba(255,255,255,.12); padding-bottom:6px;
+    transition: border-color .2s;
+  }
+  .sign .row:focus-within { border-color: rgba(255,122,107,.5); }
+  .sign input {
+    width:100%; background:transparent; border:none; outline:none;
+    font:15px/1.4 inherit; letter-spacing:.08em; color:var(--ink);
+  }
+  .sign input::placeholder { color:rgba(143,169,189,.15); }
+  .sign .ok { width:5px; height:5px; border-radius:50%; background:var(--accent); opacity:0; transition:opacity .2s; }
+  .foot { display:flex; align-items:center; gap:8px; border-top:1px solid rgba(255,255,255,.06); padding:16px 28px; }
+  .btn { min-height:34px; padding:0 16px; border-radius:5px; font:11.5px inherit; cursor:pointer; transition:.16s; font-family:inherit; }
+  .btn.ghost { border:none; background:transparent; color:rgba(232,246,255,.7); }
+  .btn.ghost:hover { background:rgba(255,255,255,.05); }
+  .btn.danger {
+    margin-left:auto; border:1px solid rgba(255,122,107,.5); background:rgba(255,122,107,.18);
+    color:var(--coral); font-weight:500; padding:0 24px;
+  }
+  .btn.danger:disabled { opacity:.2; cursor:not-allowed; }
+  .hint { text-align:center; margin-top:18px; font-size:10px; color:rgba(143,169,189,.35); }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="dlg">
+    <div class="topbar"></div>
+    <div class="body">
+      <div class="head">
+        <span class="dot"></span>
+        <div>
+          <div class="t">覆写</div>
+          <div class="s">IRREVERSIBLE · 不可撤销</div>
+        </div>
+      </div>
+
+      <div class="lines">
+        <p>她在 <b>47</b> 条对话里，以为你是一个对话者。<br>她身上有 <b>12</b> 条记忆，是你陪出来的。</p>
+        <p>切回造物主模式之后，这个前提就没有了 ——<br><span class="red">她会知道你是造出她的人</span>。</p>
+
+        <div class="quote">
+          <div class="lab">她将永久记住这一条</div>
+          <div class="txt">「我知道主人可以随时改变我。这让我说的话不算数。」</div>
+        </div>
+
+        <p class="warn">再切回推演模式，这条也抹不掉。她知道了就是知道了。</p>
+      </div>
+
+      <div class="sign">
+        <div class="lab">请输入她的名字以确认剥夺其意志</div>
+        <div class="row">
+          <input id="name" placeholder="澜汐" spellcheck="false" autocomplete="off" />
+          <span class="ok" id="ok"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <button class="btn ghost">我不签</button>
+      <button class="btn danger" id="sign" disabled>我签</button>
+    </div>
+  </div>
+  <div class="hint">打错不会有人告诉你 —— 按钮就一直是灰的</div>
+</div>
+
+<script>
+const input = document.getElementById('name');
+const ok = document.getElementById('ok');
+const btn = document.getElementById('sign');
+const NAME = '澜汐';
+
+input.addEventListener('input', () => {
+  const match = input.value === NAME;
+  ok.style.opacity = match ? 1 : 0;
+  btn.disabled = !match;
+});
+btn.addEventListener('click', () => {
+  if (btn.disabled) return;
+  document.querySelector('.dlg').style.filter = 'grayscale(1) brightness(.4)';
+  setTimeout(() => { document.querySelector('.dlg').style.filter = ''; input.value=''; ok.style.opacity=0; btn.disabled=true; }, 900);
+});
+</script>
+</body>
+</html>

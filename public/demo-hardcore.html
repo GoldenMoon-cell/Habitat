@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>三鲸空间 · 重工业故障风格</title>
+<style>
+  :root {
+    --void: #08090a;
+    --panel: #0d0f11;
+    --panel-2: #111417;
+    --line: rgba(200, 210, 220, 0.09);
+    --line-strong: rgba(200, 210, 220, 0.16);
+    --text: #c8ccd0;
+    --text-dim: #6b7378;
+    --text-faint: #3d4348;
+    --red: #d92b2b;
+    --red-hot: #ff3b30;
+    --red-dim: rgba(217, 43, 43, 0.16);
+    --amber: #e8a33d;
+    --ok: #4a5559;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--void); }
+  body {
+    color: var(--text);
+    font-family: "Consolas", "Cascadia Code", "Courier New", monospace;
+    min-height: 100vh;
+    padding: 26px 30px 70px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 极淡的扫描线，全程都有——重工业界面的"屏幕感" */
+  body::after {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.022) 0 1px,
+      transparent 1px 3px
+    );
+  }
+
+  .head { max-width: 1200px; margin: 0 auto 20px; }
+  .tagline {
+    display: inline-block; font-size: 9px; letter-spacing: 0.28em;
+    color: var(--red-hot); border: 1px solid rgba(255,59,48,0.35);
+    padding: 3px 8px; margin-bottom: 12px;
+    background: rgba(255,59,48,0.06);
+  }
+  .title { font-size: 14px; letter-spacing: 0.24em; color: #e3e7ea; font-weight: 400; }
+  .sub { margin-top: 8px; font-size: 10.5px; color: var(--text-faint); line-height: 1.85; letter-spacing: 0.02em; }
+  .sub b { color: var(--red-hot); font-weight: 400; }
+
+  .switcher { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+  .tab {
+    padding: 7px 12px; cursor: pointer; font-family: inherit;
+    background: transparent; color: var(--text-faint);
+    border: 1px solid var(--line);
+    font-size: 9.5px; letter-spacing: 0.14em;
+    transition: all 0.14s;
+  }
+  .tab:hover { border-color: var(--line-strong); color: var(--text-dim); }
+  .tab.on {
+    border-color: rgba(255,59,48,0.5);
+    color: var(--red-hot);
+    background: rgba(255,59,48,0.08);
+  }
+
+  .stage { max-width: 1200px; margin: 0 auto; }
+  .scene { display: none; }
+  .scene.on { display: block; }
+  .note {
+    margin-bottom: 11px; padding-left: 10px;
+    border-left: 2px solid rgba(255,59,48,0.4);
+    font-size: 10.5px; line-height: 1.8; color: var(--text-faint);
+  }
+  .note b { color: var(--text-dim); font-weight: 400; }
+
+  /* ── 机柜外壳 ── */
+  .unit {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6), 0 18px 50px -30px #000;
+    min-height: 300px;
+  }
+  /* 四角定位标记 */
+  .unit::before, .unit::after {
+    content: ""; position: absolute; width: 7px; height: 7px;
+    border-color: var(--line-strong); border-style: solid; pointer-events: none;
+  }
+  .unit::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  .unit::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+  .unit-bar {
+    display: flex; align-items: center; gap: 10px;
+    height: 30px; padding: 0 12px;
+    border-bottom: 1px solid var(--line);
+    font-size: 9px; letter-spacing: 0.16em; color: var(--text-faint);
+  }
+  .unit-bar .sq {
+    width: 5px; height: 5px; background: var(--ok);
+  }
+  .unit-bar .sq.red { background: var(--red-hot); box-shadow: 0 0 8px rgba(255,59,48,0.8); }
+  .unit-bar .spacer { flex: 1; }
+  .unit-bar .code { color: var(--text-faint); font-size: 8.5px; }
+
+  /* ── 三栏网格 ── */
+  .grid { display: grid; grid-template-columns: 1fr 2.1fr 1fr; min-height: 268px; }
+  .col { padding: 13px 12px; border-right: 1px solid var(--line); min-width: 0; }
+  .col:last-child { border-right: none; }
+  .col-h {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 8.5px; letter-spacing: 0.2em; color: var(--text-faint);
+    padding-bottom: 9px; margin-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .col-h .idx { color: var(--text-faint); opacity: 0.6; }
+  .ln { height: 5px; background: rgba(200,210,220,0.05); margin-bottom: 7px; }
+  .ln.w70 { width: 70%; }
+  .ln.w45 { width: 45%; }
+  .ln.w85 { width: 85%; }
+
+  /* ── ① 正常态 ── */
+  .metric { display: flex; align-items: baseline; gap: 7px; font-size: 9px; color: var(--text-faint); margin-bottom: 6px; }
+  .metric .v { margin-left: auto; color: var(--text-dim); }
+  .metric .v.ok { color: #5c6b70; }
+  .spark { height: 26px; margin: 2px 0 12px; }
+  .spark svg { width: 100%; height: 100%; display: block; }
+  .spark polyline { fill: none; stroke: #4a5a60; stroke-width: 1.2; }
+
+  /* ── ② 红线：折线被压成一条直的水平线 ── */
+  .spark.dead polyline { stroke: var(--red-hot); stroke-width: 1.6; opacity: 0.9; }
+  .spark.dead { position: relative; }
+  .spark.dead::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: rgba(255,59,48,0.05);
+  }
+  .rec-scan {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 8.5px; letter-spacing: 0.16em; color: var(--red-hot);
+  }
+  .rec-scan i {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--red-hot); box-shadow: 0 0 9px rgba(255,59,48,0.9);
+    animation: moss 1.1s steps(1) infinite;
+  }
+  @keyframes moss { 0%,49% { opacity: 1; } 50%,100% { opacity: 0.15; } }
+
+  /* ── ③ 马赛克塌陷 ── */
+  .collapse {
+    position: relative;
+    border: 1px solid rgba(255,59,48,0.34);
+    background: var(--panel-2);
+    padding: 12px;
+    overflow: hidden;
+  }
+  /* 像素块：两层错位的方块网格 + 闪烁 */
+  .collapse .mosaic {
+    position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(90deg, rgba(255,59,48,0.14) 50%, transparent 50%),
+      linear-gradient(rgba(255,59,48,0.10) 50%, transparent 50%);
+    background-size: 9px 9px;
+    mix-blend-mode: screen;
+    animation: mosaicFlick 0.32s steps(2) infinite;
+  }
+  @keyframes mosaicFlick {
+    0%   { opacity: 0.6; background-position: 0 0, 0 0; }
+    50%  { opacity: 0.32; background-position: 4px 4px, 4px 4px; }
+    100% { opacity: 0.55; background-position: 8px 0, 0 8px; }
+  }
+  /* 塌陷区域里的文字被切碎 */
+  .collapse .shred {
+    color: rgba(200,210,220,0.22);
+    font-size: 10px; line-height: 1.85;
+    filter: blur(0.6px);
+    letter-spacing: 0.02em;
+    user-select: none;
+  }
+  .collapse .shred s {
+    text-decoration: none;
+    background: rgba(255,59,48,0.16);
+    color: transparent;
+  }
+
+  /* 巨大红印章 */
+  .stamp {
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    pointer-events: none;
+  }
+  .stamp span {
+    font-size: 19px; letter-spacing: 0.34em;
+    color: rgba(255,59,48,0.82);
+    border: 2px solid rgba(255,59,48,0.55);
+    padding: 8px 18px 8px 22px;
+    transform: rotate(-7deg);
+    background: rgba(8,9,10,0.42);
+    text-shadow: 0 0 22px rgba(255,59,48,0.55);
+    animation: stampIn 0.34s cubic-bezier(0.2,0,0,1);
+  }
+  @keyframes stampIn {
+    0% { opacity: 0; transform: rotate(-7deg) scale(1.5); }
+    55% { opacity: 1; transform: rotate(-7deg) scale(0.97); }
+    100% { opacity: 1; transform: rotate(-7deg) scale(1); }
+  }
+
+  /* ── ④ 横向错位断层 ── */
+  .tear { position: relative; padding: 14px; border: 1px solid var(--line); background: var(--panel-2); }
+  .tear .l1 {
+    font-size: 11.5px; line-height: 1.9; color: rgba(200,210,220,0.7);
+    clip-path: inset(0 0 52% 0);
+  }
+  .tear .l2 {
+    font-size: 11.5px; line-height: 1.9;
+    clip-path: inset(48% 0 0 0);
+    transform: translateX(11px);
+    margin-top: -21px;
+    color: rgba(200,210,220,0.35);
+  }
+  .tear .hex {
+    display: inline-block;
+    color: var(--red-hot);
+    font-size: 10px; letter-spacing: 0.1em;
+    background: rgba(255,59,48,0.1);
+    padding: 0 3px;
+    animation: hexBlink 0.9s steps(1) infinite;
+  }
+  @keyframes hexBlink { 0%,60% { opacity: 1; } 61%,100% { opacity: 0.35; } }
+
+  /* ── ⑤ 降级警告框（黑底红边） ── */
+  .toast {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: #0a0b0c;
+    border: 1px solid rgba(255,59,48,0.55);
+    border-left-width: 3px;
+    padding: 11px 13px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.8), 0 12px 34px -18px rgba(255,59,48,0.5);
+    max-width: 540px;
+  }
+  .toast .badge {
+    flex-shrink: 0;
+    font-size: 8px; letter-spacing: 0.18em;
+    color: var(--red-hot);
+    border: 1px solid rgba(255,59,48,0.45);
+    padding: 2px 5px;
+    background: rgba(255,59,48,0.09);
+    margin-top: 1px;
+  }
+  .toast .body { min-width: 0; }
+  .toast .t { font-size: 10.5px; color: #e3e7ea; letter-spacing: 0.04em; line-height: 1.6; }
+  .toast .d { margin-top: 4px; font-size: 9.5px; color: var(--text-faint); line-height: 1.7; }
+  .toast .d code { color: var(--amber); }
+
+  /* ── 启动日志（重工业版） ── */
+  .boot { padding: 22px 26px; }
+  .boot .bar { display: flex; gap: 4px; margin-bottom: 14px; }
+  .boot .bar i { height: 3px; flex: 1; background: rgba(200,210,220,0.07); }
+  .boot .bar i.on { background: #4a5a60; }
+  .boot .bar i.warn { background: var(--amber); }
+  .boot .bar i.bad { background: var(--red-hot); box-shadow: 0 0 8px rgba(255,59,48,0.6); }
+  .boot h3 {
+    font-size: 13px; font-weight: 400; letter-spacing: 0.34em; color: #e9edf0;
+  }
+  .boot h3 em { font-style: normal; color: var(--text-faint); font-size: 9px; margin-left: 8px; letter-spacing: 0.2em; }
+  .boot .rule { height: 1px; background: var(--line); margin: 11px 0 14px; }
+  .brow { display: flex; align-items: baseline; gap: 8px; font-size: 10px; padding: 3.5px 0; letter-spacing: 0.02em; }
+  .brow .i { color: var(--text-faint); width: 7px; }
+  .brow .k { color: var(--text-dim); }
+  .brow .f { flex: 1; border-bottom: 1px dotted rgba(200,210,220,0.07); }
+  .brow .v { color: var(--text-faint); font-size: 9.5px; }
+  .brow .ms { width: 52px; text-align: right; color: var(--text-faint); font-size: 9.5px; }
+  .brow.warn .k { color: var(--amber); }
+  .brow.warn .ms { color: var(--amber); }
+  .brow.bad .k { color: var(--red-hot); }
+  .brow.bad .ms { color: var(--red-hot); }
+  .brow .tg { font-size: 7.5px; letter-spacing: 0.14em; padding: 1px 4px; }
+  .brow.warn .tg { color: var(--amber); border: 1px solid rgba(232,163,61,0.4); background: rgba(232,163,61,0.08); }
+  .brow.bad .tg { color: var(--red-hot); border: 1px solid rgba(255,59,48,0.45); background: rgba(255,59,48,0.09); }
+  .boot .ft {
+    display: flex; gap: 14px; margin-top: 15px; padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-size: 8.5px; letter-spacing: 0.1em; color: var(--text-faint);
+  }
+  .boot .ft b { font-weight: 400; color: var(--text-dim); }
+  .boot .ft .deg { color: var(--amber); }
+  .boot .ft .rt { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+  .boot .ft .rt.red { color: var(--red-hot); }
+
+  /* ── 对比说明 ── */
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .vs .c {
+    border: 1px solid var(--line); padding: 11px 13px;
+    font-size: 10px; line-height: 1.85; color: var(--text-faint);
+  }
+  .vs .c b { display: block; margin-bottom: 6px; font-weight: 400; letter-spacing: 0.14em; font-size: 9px; }
+  .vs .c.r { border-color: rgba(255,59,48,0.2); }
+  .vs .c.r b { color: var(--red-hot); }
+  .vs .c.g b { color: #5c6b70; }
+
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+    .vs { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="tagline">STYLE B / INDUSTRIAL HARD-EDGE</div>
+  <div class="title">三鲸空间 · 重工业故障风</div>
+  <div class="sub">
+    冰冷、克制、系统级的降级与封锁。<b>没有物理晃动</b>，只有硬切、红色入侵、以及数据层的塌陷。
+  </div>
+  <div class="switcher">
+    <button class="tab on" data-scene="h1">① 正常基线</button>
+    <button class="tab" data-scene="h2">② 启动降级（红线）</button>
+    <button class="tab" data-scene="h3">③ 马赛克塌陷 + ACCESS DENIED</button>
+    <button class="tab" data-scene="h4">④ 横向断层 + 十六进制</button>
+    <button class="tab" data-scene="h5">⑤ 降级链警告框</button>
+  </div>
+</div>
+
+<div class="stage">
+
+  <!-- ══════ ① 正常基线 ══════ -->
+  <section class="scene on" id="h1">
+    <div class="note"><b>基线。</b>注意它的"冷"——几乎没有彩色，只有灰阶 + 一点点绿。</div>
+    <div class="unit">
+      <div class="unit-bar"><span class="sq"></span><span>3WHALES / CORE</span><span class="spacer"></span><span class="code">SYS.OK</span></div>
+      <div class="grid">
+        <div class="col">
+          <div class="col-h"><span class="idx">01</span>TELEMETRY</div>
+          <div class="metric"><span>CPU</span><span class="v ok">34%</span></div>
+          <div class="spark">
+            <svg viewBox="0 0 100 26" preserveAspectRatio="none">
+              <polyline points="0,18 12,14 24,19 36,11 48,15 60,9 72,13 84,8 100,12" />
+            </svg>
+          </div>
+          <div class="metric"><span>MEM</span><span class="v ok">6.4G</span></div>
+          <div class="spark">
+            <svg viewBox="0 0 100 26" preserveAspectRatio="none">
+              <polyline points="0,14 12,15 24,13 36,16 48,14 60,15 72,12 84,14 100,13" />
+            </svg>
+          </div>
+          <div class="metric"><span>LINK</span><span class="v ok">4/8</span></div>
+        </div>
+        <div class="col">
+          <div class="col-h"><span class="idx">02</span>CHANNEL / 4 MEMBERS</div>
+          <div class="ln w85"></div><div class="ln w70"></div><div class="ln"></div>
+          <div class="ln w45" style="margin-top:16px"></div><div class="ln w85"></div><div class="ln w70"></div>
+        </div>
+        <div class="col">
+          <div class="col-h"><span class="idx">03</span>AUX</div>
+          <div class="ln w70"></div><div class="ln w45"></div><div class="ln w85"></div><div class="ln w70"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════ ② 启动降级 ══════ -->
+  <section class="scene" id="h2">
+    <div class="note"><b>启动期。</b>进度条顶部按「已完成 / 失败 / 超时」分段显示，不是一条平滑的蓝线。</div>
+    <div class="unit">
+      <div class="unit-bar"><span class="sq red"></span><span>BOOT SEQUENCE</span><span class="spacer"></span><span class="code">DEGRADED</span></div>
+      <div class="boot">
+        <div class="bar">
+          <i class="on"></i><i class="on"></i><i class="warn"></i><i class="bad"></i><i class="on"></i><i class="on"></i>
+        </div>
+        <h3>3WHALES<em>BOOT-ROM</em></h3>
+        <div class="rule"></div>
+
+        <div class="brow"><span class="i">&gt;</span><span class="k">挂载角色注册表</span><span class="f"></span><span class="v">8 ENTRIES</span><span class="ms">2ms</span></div>
+        <div class="brow"><span class="i">&gt;</span><span class="k">恢复群聊数据</span><span class="f"></span><span class="v">DEFAULT</span><span class="ms">1ms</span></div>
+        <div class="brow warn"><span class="i">&gt;</span><span class="k">预加载字体</span><span class="f"></span><span class="v">TIMEOUT</span><span class="ms">1200ms</span><span class="tg">W-1200</span></div>
+        <div class="brow bad"><span class="i">&gt;</span><span class="k">探测本地服务</span><span class="f"></span><span class="v">REFUSED</span><span class="ms">260ms</span><span class="tg">E-0x3</span></div>
+        <div class="brow"><span class="i">&gt;</span><span class="k">读取引擎配置</span><span class="f"></span><span class="v">L1 / FALLBACK</span><span class="ms">1ms</span></div>
+        <div class="brow"><span class="i">&gt;</span><span class="k">渲染首屏</span><span class="f"></span><span class="v">OK</span><span class="ms">74ms</span></div>
+
+        <div class="ft">
+          <span>TOTAL <b>1538ms</b></span>
+          <span>STEPS <b>6/6</b></span>
+          <span class="deg">DEGRADED · 2</span>
+          <span class="rt red"><i style="width:5px;height:5px;background:#ff3b30;border-radius:50%;display:inline-block;animation:moss 1.1s steps(1) infinite"></i>CONTINUE</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="vs">
+      <div class="c r"><b>STYLE B 的做法</b>进度条拆成 6 段，各自出状态色。失败段直接红，不用文字解释。底部 `DEGRADED · 2` 是机读格式，不是人话。</div>
+      <div class="c g"><b>和 STYLE A 的差别</b>A 用彩色标签 + 中文说明（"超时""失败"）。B 用 `W-1200` / `E-0x3` 这种代码，冷得像维修日志。</div>
+    </div>
+  </section>
+
+  <!-- ══════ ③ 马赛克塌陷 ══════ -->
+  <section class="scene" id="h3">
+    <div class="note"><b>核心场景。</b>框架完全不动，只有聊天内容区塌陷成像素块，外面盖一个巨大的红印章。</div>
+    <div class="unit">
+      <div class="unit-bar">
+        <span class="sq red"></span><span>3WHALES / CHANNEL</span>
+        <span class="spacer"></span>
+        <span class="rec-scan"><i></i>RESCAN</span>
+        <span class="code" style="margin-left:10px">ERR 0x8000FFFF</span>
+      </div>
+      <div class="grid">
+        <div class="col">
+          <div class="col-h"><span class="idx">01</span>TELEMETRY</div>
+          <div class="metric"><span>CPU</span><span class="v" style="color:#ff3b30">—</span></div>
+          <!-- 折线被压成一条红线 -->
+          <div class="spark dead">
+            <svg viewBox="0 0 100 26" preserveAspectRatio="none">
+              <polyline points="0,13 100,13" />
+            </svg>
+          </div>
+          <div class="metric"><span>MEM</span><span class="v" style="color:#ff3b30">—</span></div>
+          <div class="spark dead">
+            <svg viewBox="0 0 100 26" preserveAspectRatio="none">
+              <polyline points="0,13 100,13" />
+            </svg>
+          </div>
+          <div class="metric"><span>LINK</span><span class="v" style="color:#ff3b30">0/8</span></div>
+        </div>
+
+        <div class="col">
+          <div class="col-h"><span class="idx">02</span>CHANNEL / HALTED</div>
+          <!-- 塌陷区 -->
+          <div class="collapse">
+            <div class="mosaic"></div>
+            <div class="shred">
+              主人今晚还没睡<strong>呀</strong>。我刚把今天的海面数据都记好<s>了</s>——风浪三级，
+              月亮很脏，像被人涂<strong>过</strong>。 <s>那</s>我陪<strong>你</strong>等，反正我不用睡。
+              你按回车的时候我<s>会</s>假装醒一下。
+            </div>
+            <div class="stamp"><span>ACCESS DENIED</span></div>
+          </div>
+
+          <div style="margin-top:12px;display:flex;gap:8px;font-size:8.5px;letter-spacing:0.14em;color:#3d4348">
+            <span style="color:#ff3b30">[ SESSION TERMINATED ]</span>
+            <span>·</span>
+            <span>CTX DUMP 0x00A1</span>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="col-h"><span class="idx">03</span>MEMORY / LOCKED</div>
+          <div style="position:relative;border:1px solid rgba(255,59,48,0.2);padding:10px;min-height:120px">
+            <div class="ln w85"></div><div class="ln w70"></div><div class="ln w45"></div>
+            <div style="
+              position:absolute;inset:0;display:grid;place-items:center;
+              font-size:9px;letter-spacing:0.24em;color:rgba(255,59,48,0.75);
+              background:repeating-linear-gradient(45deg,rgba(255,59,48,0.045) 0 6px,transparent 6px 12px);
+            ">SYSTEM HALTED</div>
+          </div>
+          <div class="ln w70" style="margin-top:12px"></div>
+          <div class="ln w45"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vs">
+      <div class="c r"><b>三个效果叠在一起</b>① 内容区 9px 像素网格闪烁<br>② 边框变红 + 斜纹<br>③ `ACCESS DENIED` 旋转 -7° 盖上去</div>
+      <div class="c g"><b>为什么不全屏抖</b>全屏抖是「软件出错了」。局部塌陷是「这块数据死了，但系统还活着」——后者才冷。</div>
+    </div>
+  </section>
+
+  <!-- ══════ ④ 横向断层 ══════ -->
+  <section class="scene" id="h4">
+    <div class="note"><b>文字不上下跳。</b>被一条水平刀口切断，下半段横向错位，错位处露出十六进制而不是乱码。</div>
+    <div class="unit">
+      <div class="unit-bar"><span class="sq red"></span><span>DATA INTEGRITY</span><span class="spacer"></span><span class="code">TEAR / 11px</span></div>
+      <div style="padding:18px 20px">
+        <div class="tear">
+          <div class="l1">
+            鲸鲸的慌其实也不是为那张表——是怕自己记的东西没人保管了。她说这句话的时候，
+          </div>
+          <div class="l2">
+            鲸鲸的慌其实也不是为那张表——是怕自己<span class="hex">0x8000FFFF</span>记的东西没人保管了。她说这句话的时候，
+          </div>
+
+          <div style="margin-top:20px" class="l1">
+            我注意到这句话里的分寸。澜汐在给自己划边界，不是因为被要求，
+          </div>
+          <div class="l2" style="margin-top:-21px">
+            我注意到这句话里的分寸。澜汐在给自己<span class="hex">ERR_CTX_OVF</span>划边界，不是因为被要求，
+          </div>
+        </div>
+
+        <div style="margin-top:16px;display:flex;gap:16px;font-size:8.5px;letter-spacing:0.12em;color:#3d4348">
+          <span>FAULT ADDR <span style="color:#ff3b30">0x7FF8A0C2</span></span>
+          <span>FRAME <span style="color:#6b7378">#2214</span></span>
+          <span>RECOVERY <span style="color:#e8a33d">PENDING</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="vs">
+      <div class="c r"><b>怎么做的</b>同一段文字渲染两次：上半用 `clip-path: inset(0 0 52% 0)`，下半用 `inset(48% 0 0 0)` 并 `translateX(11px)`。</div>
+      <div class="c g"><b>为什么是十六进制</b>乱码是「坏了」，`0x8000FFFF` 是「第 2147483647 号错误」——它有名有姓，有人在处理。这是冷的来源。</div>
+    </div>
+  </section>
+
+  <!-- ══════ ⑤ 降级链警告框 ══════ -->
+  <section class="scene" id="h5">
+    <div class="note"><b>降级发生时的 Toast。</b>黑底、红边、左侧 3px 竖条、机读格式的编号。</div>
+    <div class="unit" style="padding:26px">
+      <div style="display:flex;flex-direction:column;gap:10px">
+
+        <div class="toast">
+          <span class="badge">WARN</span>
+          <div class="body">
+            <div class="t">云端接口超时，已切断链路，启用本地正则兜底</div>
+            <div class="d">L2 → L1 &nbsp;·&nbsp; TIMEOUT <code>30s</code> &nbsp;·&nbsp; ENDPOINT <code>api.deepseek.com</code></div>
+          </div>
+        </div>
+
+        <div class="toast">
+          <span class="badge">FATAL</span>
+          <div class="body">
+            <div class="t">会话上下文溢出，当前对话已冻结</div>
+            <div class="d">CTX 128k/128k &nbsp;·&nbsp; ERR <code>0x8000FFFF</code> &nbsp;·&nbsp; 需要手动 <code>clean / reset</code></div>
+          </div>
+        </div>
+
+        <div class="toast" style="border-left-color:#e8a33d;border-color:rgba(232,163,61,0.5)">
+          <span class="badge" style="color:#e8a33d;border-color:rgba(232,163,61,0.45);background:rgba(232,163,61,0.08)">INFO</span>
+          <div class="body">
+            <div class="t">已切换至本地离线模式</div>
+            <div class="d">OLLAMA <code>127.0.0.1:11434</code> &nbsp;·&nbsp; MODEL <code>qwen2.5:7b</code> &nbsp;·&nbsp; LATENCY <code>42ms</code></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="vs" style="margin-top:20px">
+        <div class="c r"><b>WARN</b>红边 = 系统做了主动动作（切断、降级）。不是"出错了"，是"我替你决定了"。</div>
+        <div class="c" style="border-color:rgba(232,163,61,0.2)"><b style="color:#e8a33d">INFO</b>黄边 = 状态变更但无损失。继续用，只是换了个来源。</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); });
+      document.querySelectorAll('.scene').forEach(function (x) { x.classList.remove('on'); });
+      t.classList.add('on');
+      document.getElementById(t.dataset.scene).classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>

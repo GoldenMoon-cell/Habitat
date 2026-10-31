@@ -1,0 +1,53 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+
+# 本地临时目录
+.npm-cache
+.shots
+.smoke
+.chrome-tmp*
+*.tmpdir
+.tmp
+
+# Rust / Tauri
+src-tauri/target
+src-tauri/gen
+
+# 本机受限环境的 Rust 工具链（不进仓库）
+.toolchain
+.tools
+
+# 排查 WebView2 时用过的 Fixed Version 运行时（约 670 MB，不进仓库）
+.wv2
+.wv2data
+# ── 构建产物（11 GB，绝不能进仓库）──
+release/
+
+# ── 根目录的开发过程截图（147 张 / 98 MB）──
+# 保留在本地，不进仓库。/ *.png 只匹配根目录，public/ build/ 里的图标不受影响
+/*.png
+
+# ── Tauri 时代残留 ──
+src-tauri/
+
+# ── 环境变量 ──
+.env
+.env.*
+# ── 用户数据备份（整套 Electron 用户目录，含凭据/对话/记忆）──
+docs/backup/
+
+# ── 调试日志 ──
+*.log
+*.err
+
+# ── 生成的发布清单 ──
+release-manifest.txt
+
+
+# ── 测试截图 ──
+ob-*.png
+

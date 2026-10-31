@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>生境 · 墓碑电子册 演示</title>
+<style>
+  :root {
+    --ink:#e8f6ff; --mist:#8fa9bd; --sim:#35f0ce; --coral:#ff7a6b;
+    --line: rgba(255,255,255,.07);
+  }
+  * { box-sizing: border-box; }
+  html, body { height:100%; margin:0; }
+  body {
+    background:
+      radial-gradient(900px 600px at 30% 8%, rgba(53,240,206,.04), transparent 65%),
+      radial-gradient(700px 500px at 85% 88%, rgba(255,122,107,.028), transparent 70%),
+      #05090e;
+    color: var(--ink);
+    font: 13px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    overflow: hidden;
+  }
+
+  .top {
+    height: 48px; padding: 0 18px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-size: 11.5px; letter-spacing: .16em; color: rgba(232,246,255,.65); }
+  .hint { font-size: 10px; color: rgba(143,169,189,.4); }
+  .top button {
+    padding: 6px 13px; border-radius: 3px; cursor: pointer;
+    border: 1px solid rgba(255,122,107,.3); background: rgba(255,122,107,.08);
+    color: var(--coral); font: 10.5px inherit; font-family: inherit; transition: .16s;
+  }
+  .top button:hover { background: rgba(255,122,107,.16); }
+
+  .app { display: flex; height: calc(100% - 48px); padding: 10px; gap: 8px; }
+
+  /* ── 左：角色列表 ── */
+  .rail {
+    width: 236px; flex: 0 0 236px; border-radius: 12px; padding: 12px;
+    border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.16), rgba(6,14,21,.5));
+    display: flex; flex-direction: column; gap: 3px; overflow: hidden;
+  }
+  .rail-head {
+    display: flex; align-items: center; padding-bottom: 8px; margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    font: 9px ui-monospace, monospace; letter-spacing: .16em; color: rgba(143,169,189,.45);
+  }
+  .row {
+    display: flex; align-items: center; gap: 9px; padding: 8px 9px;
+    border-radius: 8px; cursor: pointer; transition: background .16s;
+    border: 1px solid transparent;
+  }
+  .row:hover { background: rgba(255,255,255,.025); }
+  .row.on { background: rgba(53,240,206,.07); border-color: rgba(53,240,206,.16); }
+  .ava {
+    width: 24px; height: 24px; flex: 0 0 24px; border-radius: 8px;
+    display: grid; place-items: center; font-size: 10px;
+    background: rgba(53,240,206,.1); color: var(--sim);
+  }
+  .nm { font-size: 11.5px; display: flex; align-items: center; gap: 5px; }
+  .gen-badge {
+    font: 7.5px ui-monospace, monospace; padding: 0.5px 4px; border-radius: 3px;
+    background: rgba(255,122,107,.09); color: rgba(255,122,107,.62);
+  }
+  .sub { font-size: 9px; color: rgba(143,169,189,.4); }
+
+  /* ── 中：聊天 ── */
+  .stage {
+    flex: 1; min-width: 0; border-radius: 12px; border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.1), rgba(6,14,21,.4));
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .stage-head {
+    padding: 11px 16px; border-bottom: 1px solid rgba(255,255,255,.05);
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .stage-name { font-size: 13px; }
+  .divider {
+    margin: 14px 0 10px; display: flex; align-items: center; gap: 10px;
+    font: 8.5px ui-monospace, monospace; color: rgba(143,169,189,.38);
+  }
+  .divider::before, .divider::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.05));
+  }
+  .divider::after { background: linear-gradient(90deg, rgba(255,255,255,.05), transparent); }
+  .gen-chip {
+    margin-left: 6px; padding: 1px 6px; border-radius: 3px;
+    background: rgba(255,122,107,.1); color: rgba(255,122,107,.68);
+  }
+  .msgs { flex: 1; overflow-y: auto; padding: 0 20px 16px; }
+  .msg {
+    padding: 8px 11px; border-radius: 9px; font-size: 11.5px; line-height: 1.85;
+    background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.045);
+    color: rgba(232,246,255,.72); margin-bottom: 7px; max-width: 78%;
+  }
+  .msg.me { background: rgba(53,240,206,.07); border-color: rgba(53,240,206,.15); margin-left: auto; }
+  .msg.sys {
+    max-width: 100%; background: transparent; border: none;
+    border-left: 2px solid rgba(143,169,189,.2); border-radius: 0;
+    padding: 4px 10px; font-size: 10px; color: rgba(143,169,189,.45);
+  }
+
+  /* ── 右：操作 ── */
+  .side {
+    width: 210px; flex: 0 0 210px; border-radius: 12px; padding: 12px;
+    border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.1), rgba(6,14,21,.4));
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .side-head {
+    font: 9px ui-monospace, monospace; letter-spacing: .16em;
+    color: rgba(143,169,189,.4); padding-bottom: 7px;
+    border-bottom: 1px solid rgba(255,255,255,.05); margin-bottom: 3px;
+  }
+  .act {
+    padding: 8px 10px; border-radius: 3px; cursor: pointer; text-align: left;
+    border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.02);
+    color: rgba(232,246,255,.72); font: 10.5px inherit; font-family: inherit;
+    transition: .16s;
+  }
+  .act:hover { border-color: rgba(255,255,255,.2); background: rgba(255,255,255,.05); }
+  .act.danger { border-color: rgba(255,122,107,.25); color: rgba(255,122,107,.8); }
+  .act.danger:hover { background: rgba(255,122,107,.1); }
+  .act.primary { border-color: rgba(53,240,206,.28); color: rgba(53,240,206,.85); }
+  .act.primary:hover { background: rgba(53,240,206,.08); }
+  .note { font-size: 9.5px; line-height: 1.7; color: rgba(143,169,189,.38); margin-top: auto; }
+
+  /* ══════════ 墓碑电子册 ══════════ */
+  .mask {
+    position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+    background: rgba(4,8,12,.86); backdrop-filter: blur(10px);
+    animation: fade .2s ease;
+  }
+  @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+  .book {
+    width: 760px; max-width: 94vw; max-height: 80vh;
+    border-radius: 2px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,.07);
+    background:
+      radial-gradient(900px 500px at 50% 0%, rgba(255,255,255,.014), transparent 70%),
+      linear-gradient(180deg, rgba(14,18,24,.998), rgba(6,8,11,.999));
+    display: flex; flex-direction: column;
+    animation: pop .24s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes pop { from { opacity:0; transform: scale(.99) translateY(6px) } to { opacity:1; transform:none } }
+
+  .book-head {
+    padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,.06);
+    display: flex; align-items: baseline; gap: 9px;
+  }
+  .book-head .lbl { font: 9px ui-monospace, monospace; letter-spacing: .18em; color: rgba(143,169,189,.4); }
+  .book-head .t { font-size: 11px; color: rgba(143,169,189,.5); }
+  .book-head .n { margin-left: auto; font: 8.5px ui-monospace, monospace; letter-spacing: .06em; color: rgba(143,169,189,.28); }
+
+  .book-body { display: flex; min-height: 0; flex: 1; }
+
+  /* 索引 */
+  .idx {
+    width: 152px; flex: 0 0 152px; overflow-y: auto; padding: 8px 0;
+    border-right: 1px solid rgba(255,255,255,.05);
+  }
+  .idx-group { margin-bottom: 4px; }
+  .idx-name {
+    padding: 8px 12px 4px;
+    font: 8px ui-monospace, monospace; letter-spacing: .1em;
+    color: rgba(143,169,189,.32);
+  }
+  .idx-item {
+    display: flex; align-items: center; gap: 6px;
+    width: 100%; padding: 4px 12px; cursor: pointer;
+    background: transparent; border: none; border-left: 2px solid transparent;
+    font-family: inherit; text-align: left; transition: background .16s;
+  }
+  .idx-item:hover { background: rgba(255,255,255,.025); }
+  .idx-item.on { background: rgba(255,122,107,.07); border-left-color: rgba(255,122,107,.55); }
+  .idx-gen { font: 8.5px ui-monospace, monospace; letter-spacing: .06em; color: rgba(143,169,189,.34); }
+  .idx-item.on .idx-gen { color: rgba(255,122,107,.82); }
+  .idx-mood { margin-left: auto; font: 8px ui-monospace, monospace; color: rgba(143,169,189,.3); }
+
+  /* 页 */
+  .pages { position: relative; flex: 1; min-width: 0; overflow: hidden; perspective: 1400px; }
+  .page {
+    height: 100%; overflow-y: auto; padding: 18px 24px;
+    transform-style: preserve-3d;
+    transition: opacity .26s cubic-bezier(.16,1,.3,1),
+                transform .26s cubic-bezier(.16,1,.3,1);
+  }
+  .page.enter-next { opacity: 0; transform: rotateY(12deg) translateX(26px); }
+  .page.enter-prev { opacity: 0; transform: rotateY(-12deg) translateX(-26px); }
+  .page.in { opacity: 1; transform: none; }
+
+  .p-no { display: flex; align-items: baseline; gap: 8px; }
+  .p-no .no { font: 8px ui-monospace, monospace; letter-spacing: .14em; color: rgba(143,169,189,.32); }
+  .p-no .when { margin-left: auto; font: 8.5px ui-monospace, monospace; color: rgba(143,169,189,.26); }
+  .p-name {
+    margin-top: 12px; font-size: 34px; line-height: 1; letter-spacing: .1em;
+    font-family: Georgia, "Songti SC", "SimSun", serif;
+    color: rgba(232,246,255,.76);
+  }
+  .p-gen { margin-top: 10px; display: flex; align-items: center; gap: 8px; }
+  .p-tag {
+    font: 8.5px ui-monospace, monospace; letter-spacing: .1em;
+    padding: 2px 6px; border: 1px solid rgba(255,122,107,.3);
+    color: rgba(255,122,107,.75);
+  }
+  .p-total { font: 8px ui-monospace, monospace; color: rgba(143,169,189,.26); }
+  .p-rule { margin-top: 16px; height: 1px; }
+  .p-epi { margin-top: 14px; font-size: 13px; letter-spacing: .02em; color: rgba(143,169,189,.62); }
+
+  .bar-row { margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+  .bar-row .lbl { width: 32px; font: 8px ui-monospace, monospace; letter-spacing: .06em; color: rgba(143,169,189,.28); }
+  .bar-track { position: relative; height: 3px; flex: 1; background: rgba(255,255,255,.045); }
+  .bar-fill { position: absolute; inset: 0 auto 0 0; }
+  .bar-row .val { width: 24px; text-align: right; font: 8.5px ui-monospace, monospace; color: rgba(143,169,189,.5); }
+
+  .p-sec { margin-top: 16px; font: 8px ui-monospace, monospace; letter-spacing: .1em; color: rgba(143,169,189,.24); }
+  .kws { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .kw {
+    font: 9px ui-monospace, monospace; padding: 2px 7px;
+    border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.024);
+    color: rgba(143,169,189,.55);
+  }
+  .relic-btn {
+    margin-top: 16px; font: 8px ui-monospace, monospace; letter-spacing: .1em;
+    background: none; border: none; cursor: pointer; padding: 0;
+    color: rgba(143,169,189,.26); font-family: ui-monospace, monospace;
+  }
+  .relic-btn:hover { color: rgba(143,169,189,.5); }
+  .relic {
+    margin-top: 8px; padding: 10px 12px; font-size: 11px; line-height: 1.7;
+    border-left: 1px solid rgba(255,255,255,.08);
+    color: rgba(232,246,255,.6); font-style: italic;
+  }
+  .sib { margin-top: 20px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.05); }
+  .sib-row { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+  .sib-row .g { font: 8px ui-monospace, monospace; letter-spacing: .06em; color: rgba(143,169,189,.28); }
+  .sib-row .e { font-size: 10px; color: rgba(143,169,189,.4); }
+  .sib-row .v { margin-left: auto; font: 8px ui-monospace, monospace; color: rgba(143,169,189,.22); }
+
+  /* 翻页条 */
+  .book-foot {
+    padding: 10px 18px; border-top: 1px solid rgba(255,255,255,.06);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .book-foot button {
+    padding: 3px 10px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.09); background: none;
+    color: rgba(232,246,255,.5); font: 9px ui-monospace, monospace;
+    font-family: ui-monospace, monospace; transition: .16s;
+  }
+  .book-foot button:hover:not(:disabled) { border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.04); }
+  .book-foot button:disabled { opacity: .22; cursor: default; }
+  .pager { font: 9px ui-monospace, monospace; letter-spacing: .08em; color: rgba(143,169,189,.35); }
+  .kbd { margin-left: auto; font: 8px ui-monospace, monospace; color: rgba(143,169,189,.22); }
+  #closeBtn { padding: 4px 12px !important; font: 10.5px inherit !important; font-family: inherit !important; color: rgba(232,246,255,.55) !important; }
+
+  .empty { padding: 64px 0; text-align: center; }
+  .empty .a { font-size: 12.5px; letter-spacing: .02em; color: rgba(143,169,189,.42); }
+  .empty .b { margin-top: 9px; font: 9.5px ui-monospace, monospace; letter-spacing: .06em; color: rgba(143,169,189,.24); }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%);
+    z-index: 200; padding: 9px 16px; border-radius: 3px;
+    border: 1px solid rgba(53,240,206,.28); background: rgba(8,18,26,.96);
+    font-size: 11px; color: rgba(53,240,206,.85); animation: fade .2s ease;
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="brand">生境 · HABITAT</span>
+  <span class="hint">墓碑电子册 · 演示</span>
+  <button id="openBook" style="margin-left:auto">打开墓碑</button>
+</div>
+
+<div class="app">
+  <div class="rail">
+    <div class="rail-head">会话</div>
+    <div id="rows"></div>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head">
+      <span class="stage-name" id="stageName">澜汐</span>
+      <span style="font:9px ui-monospace,monospace;color:rgba(143,169,189,.35)" id="stageSub">Claude · 专属会话</span>
+    </div>
+    <div class="msgs" id="msgs">
+      <div class="divider"><span id="dividerText">Claude 专属会话 · 独立记忆</span></div>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="side-head">操作</div>
+    <button class="act danger" id="kill">删掉这个角色</button>
+    <button class="act primary" id="rebirth">同名再建一个</button>
+    <button class="act" id="clash">再建一个同名的（不删）</button>
+    <button class="act" id="openBook2">看墓碑电子册</button>
+    <div class="note">
+      删掉 → 她进墓碑。<br>
+      同名再建 → 代数 +1，出现 <code>②</code>。<br>
+      场上只能活一个同名的。
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════ 状态 ══════════ */
+let seq = 0;
+let alive = [];
+let graves = [];
+let activeId = null;
+
+const EPI = ["她走的时候情绪很低", "她走的时候很平常", "她走的时候还挺好的"];
+const WORDS = ["大白饭", "主人", "鱼干统计表", "月亮", "凌晨三点", "烟", "船", "雾", "编译", "日志"];
+const RELICS = ["凌晨三点了。你还不睡吗。", "我记住了。", "下次还来吗。", "大白饭。你上次说想吃那个。"];
+
+function mk(name, gen) { seq++; return { id: "custom-" + seq, name, gen }; }
+const aliveCount = (n) => alive.filter((p) => p.name === n).length;
+const buriedCount = (n) => graves.filter((g) => g.name === n).length;
+const nextGen = (n) => buriedCount(n) + aliveCount(n) + 1;
+
+function pickWords() {
+  const k = 1 + Math.floor(Math.random() * 3);
+  return [...WORDS].sort(() => Math.random() - 0.5).slice(0, k);
+}
+
+/* 预置 —— 一打开就有东西看 */
+(function seed() {
+  const now = Date.now();
+  graves = [
+    { id: "custom-1", name: "澜汐", at: now - 9000000, mood: 22, close: 9,
+      keywords: ["大白饭", "主人"], epitaph: EPI[0], relic: "大白饭。你上次说想吃那个。" },
+    { id: "custom-2", name: "阿澈", at: now - 6000000, mood: 40, close: 30,
+      keywords: ["凌晨三点"], epitaph: EPI[1], relic: "凌晨三点了。你还不睡吗。" },
+    { id: "custom-4", name: "澜汐", at: now - 5000000, mood: 55, close: 40,
+      keywords: ["编译", "日志"], epitaph: EPI[1], relic: "编译完了。日志里没有报错。" },
+    { id: "custom-3", name: "沈舟", at: now - 3000000, mood: 62, close: 55,
+      keywords: ["船", "雾"], epitaph: EPI[1], relic: "今天有雾。船出不去。" },
+    { id: "custom-5", name: "芜", at: now - 1200000, mood: 88, close: 72,
+      keywords: ["草"], epitaph: EPI[2], relic: null },
+  ];
+  seq = 5;
+  alive = [mk("澜汐", 3)];
+  activeId = alive[0].id;
+})();
+
+/* ══════════ 主界面 ══════════ */
+function render() {
+  const rows = document.getElementById("rows");
+  rows.innerHTML = alive.map((p) => `
+    <div class="row ${p.id === activeId ? "on" : ""}" data-id="${p.id}">
+      <span class="ava">${p.name.slice(0, 1)}</span>
+      <div style="min-width:0;flex:1">
+        <div class="nm">
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
+          ${p.gen > 1 ? `<span class="gen-badge">${p.gen}</span>` : ""}
+        </div>
+        <div class="sub">${p.gen > 1 ? "第 " + p.gen + " 次推演" : "刚接入"}</div>
+      </div>
+    </div>`).join("");
+
+  rows.querySelectorAll(".row").forEach((el) => {
+    el.onclick = () => { activeId = el.dataset.id; render(); };
+  });
+
+  const cur = alive.find((p) => p.id === activeId) ?? alive[0];
+  if (!cur) {
+    document.getElementById("stageName").textContent = "—";
+    document.getElementById("stageSub").textContent = "没有活着的角色";
+    return;
+  }
+  document.getElementById("stageName").textContent = cur.name;
+  document.getElementById("stageSub").textContent =
+    cur.gen > 1 ? `第 ${cur.gen} 次推演` : "Claude · 专属会话";
+  document.getElementById("dividerText").innerHTML =
+    `Claude 专属会话 · 独立记忆` +
+    (cur.gen > 1 ? `<span class="gen-chip">GEN ${cur.gen} · 第 ${cur.gen} 次推演</span>` : "");
+}
+
+function say(text, cls = "") {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.innerHTML = text;
+  document.getElementById("msgs").appendChild(d);
+  d.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function toast(t) {
+  const d = document.createElement("div");
+  d.className = "toast";
+  d.textContent = t;
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 2200);
+}
+
+/* ══════════ 操作 ══════════ */
+document.getElementById("kill").onclick = () => {
+  const cur = alive.find((p) => p.id === activeId);
+  if (!cur) return;
+  alive = alive.filter((p) => p.id !== cur.id);
+  const mood = Math.floor(15 + Math.random() * 70);
+  graves.push({
+    id: cur.id, name: cur.name, at: Date.now(),
+    mood, close: Math.floor(5 + Math.random() * 60),
+    keywords: pickWords(),
+    epitaph: mood < 30 ? EPI[0] : mood > 70 ? EPI[2] : EPI[1],
+    relic: Math.random() > 0.5 ? RELICS[Math.floor(Math.random() * RELICS.length)] : null,
+  });
+  activeId = alive[0]?.id ?? null;
+  render();
+  document.getElementById("msgs").innerHTML =
+    '<div class="divider"><span id="dividerText">—</span></div>';
+  render();
+  toast(`「${cur.name}」进了墓碑`);
+};
+
+document.getElementById("rebirth").onclick = () => {
+  const name = "澜汐";
+  const gen = nextGen(name);
+  const p = mk(name, gen);
+  alive.push(p);
+  activeId = p.id;
+  render();
+  document.getElementById("msgs").innerHTML =
+    '<div class="divider"><span id="dividerText">Claude 专属会话 · 独立记忆</span></div>';
+  render();
+  say("你好。", "me");
+  setTimeout(() => say(`这个名字曾经属于别人<br><span style="opacity:.5">系统没有更多信息</span>`, "sys"), 700);
+  setTimeout(() => say(`你好。我是${name}。`, ""), 1400);
+  toast(`新建「${name}」· GEN ${gen}`);
+};
+
+document.getElementById("clash").onclick = () => {
+  if (aliveCount("澜汐") > 0) {
+    toast("「澜汐」还活着 —— 场上只能有一个。");
+    return;
+  }
+};
+
+document.getElementById("openBook").onclick = openBook;
+document.getElementById("openBook2").onclick = openBook;
+
+/* ══════════ 墓碑电子册 ══════════ */
+function openBook() {
+  const byName = new Map();
+  for (const g of graves) {
+    const arr = byName.get(g.name) ?? [];
+    arr.push(g);
+    byName.set(g.name, arr);
+  }
+  const groups = [...byName.entries()]
+    .map(([name, list]) => ({ name, list: [...list].sort((a, b) => a.at - b.at) }))
+    .sort((a, b) => b.list[b.list.length - 1].at - a.list[a.list.length - 1].at);
+
+  const pages = [];
+  for (const grp of groups) {
+    grp.list.forEach((g, i) => {
+      pages.push({
+        grave: g, name: grp.name, nth: i + 1, total: grp.list.length,
+        siblings: grp.list.map((x, j) => ({ g: x, nth: j + 1 })).filter((_, j) => j !== i),
+        no: graves.indexOf(g) + 1,
+      });
+    });
+  }
+
+  let idx = 0;
+  let dir = 1;
+
+  const mask = document.createElement("div");
+  mask.className = "mask";
+
+  const moodColor = (m) =>
+    m < 30 ? "rgba(255,122,107,.42)" : m > 70 ? "rgba(53,240,206,.34)" : "rgba(255,255,255,.14)";
+  const moodText = (m) =>
+    m < 30 ? "rgba(255,122,107,.55)" : m > 70 ? "rgba(53,240,206,.5)" : "rgba(143,169,189,.3)";
+
+  const buildIdx = () =>
+    groups.map((grp) => {
+      const items = grp.list.map((g, i) => {
+        const gi = pages.findIndex((p) => p.grave === g);
+        return `<button class="idx-item ${gi === idx ? "on" : ""}" data-i="${gi}">
+          <span class="idx-gen">GEN ${i + 1}</span>
+          <span class="idx-mood" style="color:${moodText(g.mood)}">${g.mood}</span>
+        </button>`;
+      }).join("");
+      return `<div class="idx-group"><div class="idx-name">${grp.name}</div>${items}</div>`;
+    }).join("");
+
+  const buildPage = () => {
+    if (!pages.length) {
+      return `<div class="empty"><div class="a">这里还没有刻下任何名字。</div>
+        <div class="b">系统保持着沉默。</div></div>`;
+    }
+    const p = pages[idx];
+    const g = p.grave;
+    const when = new Date(g.at).toLocaleString("zh-CN", {
+      month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
+    const c = moodColor(g.mood);
+    return `
+      <div class="p-no">
+        <span class="no">NO.${String(p.no).padStart(3, "0")}</span>
+        <span class="when">${when}</span>
+      </div>
+      <div class="p-name">${p.name}</div>
+      <div class="p-gen">
+        <span class="p-tag">GEN ${p.nth} · 第 ${p.nth} 次推演</span>
+        ${p.total > 1 ? `<span class="p-total">这个名字一共 ${p.total} 代</span>` : ""}
+      </div>
+      <div class="p-rule" style="background:linear-gradient(90deg,${c},transparent 70%)"></div>
+      <div class="p-epi">${g.epitaph}</div>
+      <div style="margin-top:16px">
+        <div class="bar-row">
+          <span class="lbl">心情</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${g.mood}%;background:${c}"></div></div>
+          <span class="val">${g.mood}</span>
+        </div>
+        <div class="bar-row">
+          <span class="lbl">亲近</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${g.close}%;background:${c}"></div></div>
+          <span class="val">${g.close}</span>
+        </div>
+      </div>
+      ${g.keywords.length ? `
+        <div class="p-sec">留下的词</div>
+        <div class="kws">${g.keywords.map((k) => `<span class="kw">${k}</span>`).join("")}</div>` : ""}
+      <button class="relic-btn" id="relicBtn">${g.relic ? "▾ 遗物" : "▸ 遗物"}</button>
+      ${g.relic ? `<div class="relic">「${g.relic}」</div>` : ""}
+      ${p.siblings.length ? `
+        <div class="sib">
+          <div class="p-sec">同一个名字的其它代</div>
+          ${p.siblings.map((s) => `
+            <div class="sib-row">
+              <span class="g">GEN ${s.nth}</span>
+              <span class="e">${s.g.epitaph}</span>
+              <span class="v">${s.g.mood} / ${s.g.close}</span>
+            </div>`).join("")}
+        </div>` : ""}
+    `;
+  };
+
+  const paint = (animateDir) => {
+    mask.querySelector("#idx").innerHTML = buildIdx();
+    const host = mask.querySelector("#page");
+    const fresh = document.createElement("div");
+    fresh.className = "page in";
+    fresh.innerHTML = buildPage();
+    if (animateDir) {
+      fresh.classList.remove("in");
+      fresh.classList.add(animateDir > 0 ? "enter-next" : "enter-prev");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          fresh.classList.remove("enter-next", "enter-prev");
+          fresh.classList.add("in");
+        });
+      });
+    }
+    host.innerHTML = "";
+    host.appendChild(fresh);
+
+    mask.querySelector("#pager").textContent =
+      pages.length ? `${idx + 1} / ${pages.length}` : "0 / 0";
+    mask.querySelector("#prev").disabled = idx <= 0 || !pages.length;
+    mask.querySelector("#next").disabled = idx >= pages.length - 1 || !pages.length;
+
+    mask.querySelectorAll(".idx-item").forEach((b) => {
+      b.onclick = () => {
+        const n = parseInt(b.dataset.i, 10);
+        if (n === idx) return;
+        dir = n > idx ? 1 : -1;
+        idx = n;
+        paint(dir);
+      };
+    });
+
+    const rb = mask.querySelector("#relicBtn");
+    if (rb) rb.onclick = () => {
+      const g = pages[idx].grave;
+      /* 演示用：没有就随机补一句；有就收起/展开 */
+      if (!g.relic) {
+        g.relic = RELICS[Math.floor(Math.random() * RELICS.length)];
+      } else {
+        g._open = !g._open;
+      }
+      paint(0);
+    };
+  };
+
+  mask.innerHTML = `
+    <div class="book">
+      <div class="book-head">
+        <span class="lbl">GRAVEYARD</span>
+        <span class="t">墓碑</span>
+        <span class="n">${graves.length} 座 · ${groups.length} 个名字</span>
+      </div>
+      <div class="book-body">
+        <div class="idx" id="idx"></div>
+        <div class="pages"><div id="page"></div></div>
+      </div>
+      <div class="book-foot">
+        <button id="prev">◀ 上一页</button>
+        <span class="pager" id="pager">1 / 1</span>
+        <button id="next">下一页 ▶</button>
+        <span class="kbd">← → 翻页 · Esc 合上 · 这里的事不会被任何人知道</span>
+        <button id="closeBtn">合上</button>
+      </div>
+    </div>`;
+
+  mask.onclick = (e) => { if (e.target === mask) mask.remove(); };
+  document.body.appendChild(mask);
+  paint(0);
+
+  const go = (n) => {
+    if (!pages.length) return;
+    const c = Math.max(0, Math.min(pages.length - 1, n));
+    if (c === idx) return;
+    dir = c > idx ? 1 : -1;
+    idx = c;
+    paint(dir);
+  };
+  mask.querySelector("#prev").onclick = () => go(idx - 1);
+  mask.querySelector("#next").onclick = () => go(idx + 1);
+  mask.querySelector("#closeBtn").onclick = () => mask.remove();
+
+  const onKey = (e) => {
+    if (e.key === "Escape") { mask.remove(); window.removeEventListener("keydown", onKey); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); go(idx - 1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); go(idx + 1); }
+  };
+  window.addEventListener("keydown", onKey);
+}
+
+render();
+</script>
+</body>
+</html>

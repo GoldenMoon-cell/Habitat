@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>三鲸空间 · 故障与降级演示</title>
+<style>
+  :root {
+    --abyss: #03070d;
+    --glass: rgba(10, 22, 32, 0.82);
+    --biolum: #35f0ce;
+    --tide: #4e8cff;
+    --lumen: #8b6bff;
+    --coral: #ff7a6b;
+    --amber: #fde68a;
+    --ink: #e6f2fb;
+    --mist: #8fa9bd;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--abyss);
+    color: var(--ink);
+    font-family: "Segoe UI", "Noto Sans SC", system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 28px 32px 60px;
+    background-image:
+      linear-gradient(rgba(53,240,206,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(53,240,206,0.035) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+
+  /* ── 顶部切换 ── */
+  .head { max-width: 1180px; margin: 0 auto 22px; }
+  .title { font-size: 13px; letter-spacing: 0.22em; color: rgba(230,242,251,0.85); }
+  .sub { margin-top: 6px; font-size: 11px; color: rgba(143,169,189,0.5); line-height: 1.7; }
+  .switcher { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .tab {
+    padding: 7px 13px; border-radius: 8px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.02);
+    color: rgba(143,169,189,0.7);
+    font-size: 11px; font-family: inherit;
+    transition: all 0.18s;
+  }
+  .tab:hover { border-color: rgba(53,240,206,0.3); color: rgba(53,240,206,0.85); }
+  .tab.on {
+    border-color: rgba(53,240,206,0.45);
+    background: rgba(53,240,206,0.1);
+    color: var(--biolum);
+    box-shadow: 0 0 0 1px rgba(53,240,206,0.2);
+  }
+
+  /* ── 舞台 ── */
+  .stage { max-width: 1180px; margin: 0 auto; }
+  .scene { display: none; }
+  .scene.on { display: block; animation: fade 0.35s cubic-bezier(0.16,1,0.3,1); }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .caption {
+    margin-bottom: 12px; font-size: 11px; color: rgba(143,169,189,0.55);
+    line-height: 1.75; border-left: 2px solid rgba(53,240,206,0.3); padding-left: 10px;
+  }
+  .caption b { color: rgba(230,242,251,0.85); font-weight: 500; }
+
+  /* ── 窗口壳 ── */
+  .win {
+    position: relative; border-radius: 14px; overflow: hidden;
+    background: var(--glass);
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: 0 24px 60px -30px rgba(0,0,0,0.9), inset 0 1px 0 rgba(200,245,255,0.05);
+    min-height: 320px;
+  }
+  .winbar {
+    display: flex; align-items: center; gap: 8px;
+    height: 34px; padding: 0 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.055);
+    font-size: 10px; color: rgba(143,169,189,0.45);
+  }
+  .dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(53,240,206,0.6); }
+  .winbody { display: flex; min-height: 286px; }
+  .rail {
+    flex: 1; padding: 16px 14px; min-width: 0;
+    border-right: 1px solid rgba(255,255,255,0.045);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .rail:last-child { border-right: none; }
+  .rail.wide { flex: 2.1; }
+  .railhead {
+    font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: rgba(143,169,189,0.35);
+  }
+  .line {
+    height: 7px; border-radius: 3px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+  }
+  .line.s { width: 62%; }
+  .line.m { width: 84%; }
+
+  /* ── 启动日志 ── */
+  .boot {
+    padding: 26px 30px; font-family: "Cascadia Code", "Consolas", monospace;
+  }
+  .boot .prog {
+    height: 2px; border-radius: 2px; background: rgba(255,255,255,0.05);
+    margin-bottom: 14px; overflow: hidden;
+  }
+  .boot .prog > i {
+    display: block; height: 100%; width: 100%;
+    background: linear-gradient(90deg, var(--biolum), #7ad6ff);
+    box-shadow: 0 0 10px rgba(53,240,206,0.6);
+  }
+  .boot .prog.bad > i { background: linear-gradient(90deg, var(--coral), #ff9f8f); box-shadow: 0 0 10px rgba(255,122,107,0.6); }
+  .boot h3 {
+    font-size: 17px; font-weight: 400; letter-spacing: 0.3em;
+    text-shadow: 0 0 20px rgba(53,240,206,0.5);
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .boot h3 em { font-style: normal; font-size: 10px; letter-spacing: 0.32em; color: rgba(53,240,206,0.65); }
+  .boot .rule { height: 1px; margin: 10px 0 16px; background: linear-gradient(90deg, rgba(53,240,206,0.5), transparent); }
+  .row {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 10.5px; padding: 3px 0;
+  }
+  .row .k { color: rgba(143,169,189,0.58); }
+  .row .fill { flex: 1; border-bottom: 1px dotted rgba(255,255,255,0.07); }
+  .row .v { color: rgba(143,169,189,0.35); }
+  .row .ms { width: 48px; text-align: right; color: rgba(53,240,206,0.5); font-variant-numeric: tabular-nums; }
+  .row .led { width: 4px; height: 4px; border-radius: 50%; background: rgba(53,240,206,0.7); }
+  .row.warn .k { color: rgba(253,230,138,0.9); }
+  .row.warn .ms { color: rgba(253,230,138,0.8); }
+  .row.warn .led { background: var(--amber); }
+  .row.bad .k { color: rgba(255,122,107,0.95); }
+  .row.bad .ms { color: rgba(255,122,107,0.85); }
+  .row.bad .led { background: var(--coral); }
+  .row .tag {
+    font-size: 8px; padding: 1px 5px; border-radius: 3px; letter-spacing: 0.1em;
+  }
+  .row.warn .tag { background: rgba(253,230,138,0.14); color: var(--amber); border: 1px solid rgba(253,230,138,0.28); }
+  .row.bad .tag { background: rgba(255,122,107,0.14); color: var(--coral); border: 1px solid rgba(255,122,107,0.28); }
+  .boot .foot {
+    display: flex; gap: 14px; margin-top: 18px; padding-top: 11px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    font-size: 9px; color: rgba(143,169,189,0.25);
+  }
+  .boot .foot b { font-weight: 400; color: rgba(53,240,206,0.6); font-variant-numeric: tabular-nums; }
+  .boot .foot .deg { color: var(--amber); }
+  .boot .foot .rt { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
+  /* ── 单栏崩溃占位 ── */
+  .dead {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 9px; padding: 20px 14px; text-align: center;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,122,107,0.03) 0 8px, transparent 8px 16px);
+    border-right: 1px solid rgba(255,122,107,0.14);
+  }
+  .dead .icon {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid rgba(255,122,107,0.4);
+    display: grid; place-items: center; color: var(--coral); font-size: 13px;
+    background: rgba(255,122,107,0.08);
+  }
+  .dead .t { font-size: 11px; color: rgba(255,122,107,0.92); }
+  .dead .d {
+    font-size: 9.5px; line-height: 1.7; color: rgba(143,169,189,0.45);
+    font-family: "Cascadia Code", "Consolas", monospace; word-break: break-all;
+  }
+  .dead .btn {
+    margin-top: 2px; padding: 5px 12px; border-radius: 6px; cursor: pointer;
+    border: 1px solid rgba(255,122,107,0.3);
+    background: rgba(255,122,107,0.1);
+    color: rgba(255,122,107,0.9); font-size: 9.5px; font-family: inherit;
+    transition: all 0.16s;
+  }
+  .dead .btn:hover { background: rgba(255,122,107,0.2); }
+
+  /* ── 全局崩溃 ── */
+  .fatal { padding: 34px 30px; }
+  .fatal h4 { font-size: 13px; color: var(--coral); font-weight: 500; }
+  .fatal pre {
+    margin-top: 10px; padding: 10px 12px; border-radius: 7px;
+    background: rgba(0,0,0,0.42); border: 1px solid rgba(255,122,107,0.22);
+    font-size: 10px; line-height: 1.65; color: rgba(255,122,107,0.85);
+    overflow-x: auto; font-family: "Cascadia Code", "Consolas", monospace;
+  }
+  .fatal .acts { display: flex; gap: 8px; margin-top: 14px; }
+  .fatal .acts button {
+    padding: 6px 13px; border-radius: 7px; cursor: pointer; font-size: 10.5px;
+    font-family: inherit; transition: all 0.16s;
+  }
+  .fatal .pri { border: none; background: rgba(53,240,206,0.16); color: var(--biolum); box-shadow: inset 0 0 0 1px rgba(53,240,206,0.3); }
+  .fatal .sec { border: none; background: rgba(255,255,255,0.06); color: rgba(143,169,189,0.7); }
+
+  /* ── 对比说明 ── */
+  .verdict {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;
+  }
+  .card {
+    padding: 13px 15px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background: rgba(255,255,255,0.015);
+  }
+  .card .h {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11px; margin-bottom: 7px;
+  }
+  .card .h i { width: 6px; height: 6px; border-radius: 50%; }
+  .card ul { list-style: none; font-size: 10.5px; line-height: 1.85; color: rgba(143,169,189,0.55); }
+  .card ul li::before { content: "· "; color: rgba(143,169,189,0.3); }
+  .card.good { border-color: rgba(53,240,206,0.16); }
+  .card.good .h { color: rgba(53,240,206,0.85); }
+  .card.good .h i { background: var(--biolum); box-shadow: 0 0 8px rgba(53,240,206,0.7); }
+  .card.bad { border-color: rgba(255,122,107,0.16); }
+  .card.bad .h { color: rgba(255,122,107,0.85); }
+  .card.bad .h i { background: var(--coral); box-shadow: 0 0 8px rgba(255,122,107,0.7); }
+
+  @media (max-width: 820px) {
+    .verdict { grid-template-columns: 1fr; }
+    .winbody { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="title">三鲸空间 · 故障与降级演示</div>
+  <div class="sub">
+    四种状态的视觉方案。① ② 属于启动期，③ ④ 属于运行期。<br />
+    核心原则：<b style="color:rgba(53,240,206,0.85)">能局部坏的，绝不整体死。</b>
+  </div>
+  <div class="switcher">
+    <button class="tab on" data-scene="s1">① 启动正常</button>
+    <button class="tab" data-scene="s2">② 启动超时 / 失败</button>
+    <button class="tab" data-scene="s3">③ 单栏崩溃</button>
+    <button class="tab" data-scene="s4">④ 全局崩溃（对照）</button>
+  </div>
+</div>
+
+<div class="stage">
+
+  <!-- ═══ ① 启动正常 ═══ -->
+  <section class="scene on" id="s1">
+    <div class="caption">
+      <b>一切正常。</b>每行右侧是真实耗时（不是编的），底部 TOTAL 是这台机器的真实启动开销。
+    </div>
+    <div class="win">
+      <div class="winbar"><span class="dot"></span>启动序列 · 正常</div>
+      <div class="boot">
+        <div class="prog"><i></i></div>
+        <h3>3WHALES<em>OS</em></h3>
+        <div class="rule"></div>
+
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">挂载角色注册表</span><span class="fill"></span><span class="v">8 个</span><span class="ms">1ms</span><span class="led"></span></div>
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">恢复群聊数据</span><span class="fill"></span><span class="v">默认群</span><span class="ms">0ms</span><span class="led"></span></div>
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">读取引擎配置</span><span class="fill"></span><span class="v">L2</span><span class="ms">0ms</span><span class="led"></span></div>
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">预加载字体</span><span class="fill"></span><span class="v">22 族</span><span class="ms">22ms</span><span class="led"></span></div>
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">探测本地服务</span><span class="fill"></span><span class="v">未安装</span><span class="ms">17ms</span><span class="led"></span></div>
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">渲染首屏</span><span class="fill"></span><span class="v">ok</span><span class="ms">98ms</span><span class="led"></span></div>
+
+        <div class="foot">
+          <span>TOTAL <b>138ms</b></span>
+          <span>STEPS <b>6/6</b></span>
+          <span class="rt" style="color:rgba(53,240,206,0.7)"><span class="dot"></span>READY</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="card good">
+        <div class="h"><i></i>正常路径的设计意图</div>
+        <ul>
+          <li>每行显示真实耗时，慢在哪一眼看得出</li>
+          <li>全部完成后才切场景，不给「闪一下」</li>
+          <li>少于 700ms 会补齐，避免像卡顿</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="h" style="color:rgba(143,169,189,0.6)"><i style="background:#8fa9bd"></i>数据来源</div>
+        <ul>
+          <li>localStorage 读取（角色 / 群 / 引擎）</li>
+          <li><code style="font-size:9.5px;color:rgba(53,240,206,0.6)">document.fonts.ready</code> 真实等字体</li>
+          <li>fetch 探测 127.0.0.1:11434（260ms 超时）</li>
+          <li>两次 requestAnimationFrame 确认首帧</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ ② 启动超时 / 失败 ═══ -->
+  <section class="scene" id="s2">
+    <div class="caption">
+      <b>一项超时、一项失败。</b>黄色是超时（还能继续），红色是失败（降级）。<br />
+      关键：<b>失败不阻断启动</b>——除非是「关键步骤」，否则照常进入界面，只是功能打折。
+    </div>
+    <div class="win">
+      <div class="winbar"><span class="dot" style="background:#ff7a6b"></span>启动序列 · 降级完成</div>
+      <div class="boot">
+        <div class="prog bad"><i></i></div>
+        <h3>3WHALES<em>OS</em></h3>
+        <div class="rule"></div>
+
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">挂载角色注册表</span><span class="fill"></span><span class="v">8 个</span><span class="ms">2ms</span><span class="led"></span></div>
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">恢复群聊数据</span><span class="fill"></span><span class="v">默认群</span><span class="ms">1ms</span><span class="led"></span></div>
+
+        <div class="row warn">
+          <span style="color:rgba(253,230,138,0.6)">›</span>
+          <span class="k">预加载字体</span>
+          <span class="fill"></span>
+          <span class="v">超时</span>
+          <span class="ms">1200ms</span>
+          <span class="tag">TIMEOUT</span>
+          <span class="led"></span>
+        </div>
+
+        <div class="row bad">
+          <span style="color:rgba(255,122,107,0.6)">›</span>
+          <span class="k">探测本地服务</span>
+          <span class="fill"></span>
+          <span class="v">ECONNREFUSED</span>
+          <span class="ms">260ms</span>
+          <span class="tag">FAILED</span>
+          <span class="led"></span>
+        </div>
+
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">读取引擎配置</span><span class="fill"></span><span class="v">L1 · 降级</span><span class="ms">1ms</span><span class="led"></span></div>
+        <div class="row"><span style="color:rgba(53,240,206,0.55)">›</span><span class="k">渲染首屏</span><span class="fill"></span><span class="v">ok</span><span class="ms">74ms</span><span class="led"></span></div>
+
+        <div class="foot">
+          <span>TOTAL <b>1538ms</b></span>
+          <span>STEPS <b>6/6</b></span>
+          <span class="deg">DEGRADED · 2 项降级</span>
+          <span class="rt" class="deg" style="color:rgba(253,230,138,0.8)"><span class="dot" style="background:#fde68a"></span>带伤启动</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="card good">
+        <div class="h"><i></i>为什么这样设计</div>
+        <ul>
+          <li><b style="color:#fde68a">超时</b>：等够了就跳过，不让一项拖死整个启动</li>
+          <li><b style="color:#ff7a6b">失败</b>：标记红色，但继续跑下一步</li>
+          <li>底部从 <code style="font-size:9.5px">READY</code> 变成 <code style="font-size:9.5px;color:#fde68a">DEGRADED · 2 项降级</code></li>
+          <li>用户仍然进入界面，只是知道「有东西没起来」</li>
+        </ul>
+      </div>
+      <div class="card bad">
+        <div class="h"><i></i>什么情况才允许阻断</div>
+        <ul>
+          <li>只有「关键步骤」失败才拦：比如角色注册表读不出来</li>
+          <li>那时显示「无法启动」+ 重试 / 清空数据两个出口</li>
+          <li>字体、探测、遥测这类都是<b>非关键</b>，永远不拦</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ ③ 单栏崩溃 ═══ -->
+  <section class="scene" id="s3">
+    <div class="caption">
+      <b>运行中「事件流」模块崩了。</b>只有那一栏变成占位卡，其余三栏完全不受影响。<br />
+      技术上：每个栏位包一层 <code style="font-size:10px;color:rgba(53,240,206,0.7)">ErrorBoundary</code>，React 会把异常限制在最近的边界内。
+    </div>
+    <div class="win">
+      <div class="winbar"><span class="dot"></span>三鲸空间 · 极客控制台已离线</div>
+      <div class="winbody">
+        <!-- 崩掉的栏 -->
+        <div class="dead">
+          <div class="icon">!</div>
+          <div class="t">事件流模块离线</div>
+          <div class="d">TypeError: cannot read<br />properties of undefined<br />(reading 'entries')</div>
+          <button class="btn">重新挂载</button>
+        </div>
+        <!-- 正常的栏 -->
+        <div class="rail">
+          <div class="railhead">会话</div>
+          <div class="line m"></div>
+          <div class="line s"></div>
+          <div class="line m"></div>
+          <div class="line s"></div>
+          <div class="line m"></div>
+        </div>
+        <div class="rail wide">
+          <div class="railhead">三鲸之家 · 4 位成员</div>
+          <div class="line m"></div>
+          <div class="line s"></div>
+          <div class="line m"></div>
+          <div class="line m"></div>
+          <div class="line s"></div>
+          <div class="line m"></div>
+        </div>
+        <div class="rail">
+          <div class="railhead">上帝视角</div>
+          <div class="line s"></div>
+          <div class="line m"></div>
+          <div class="line s"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="card good">
+        <div class="h"><i></i>故障隔离的好处</div>
+        <ul>
+          <li>其他三栏照常用，聊天不断</li>
+          <li>红底斜纹 + 具体错误文本，不藏</li>
+          <li>「重新挂载」按钮 = 重置该栏的 state，重试一次</li>
+          <li>顶部状态条同步提示，不会以为是自己看错了</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="h" style="color:rgba(143,169,189,0.6)"><i style="background:#8fa9bd"></i>怎么实现</div>
+        <ul>
+          <li>每栏包 <code style="font-size:9.5px">&lt;PanelBoundary name="事件流"&gt;</code></li>
+          <li><code style="font-size:9.5px">getDerivedStateFromError</code> 捕获后渲染占位</li>
+          <li>占位里带 <code style="font-size:9.5px">componentStack</code>，方便定位</li>
+          <li>点重试 → 改变 key → 强制重新挂载子树</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ ④ 全局崩溃 ═══ -->
+  <section class="scene" id="s4">
+    <div class="caption">
+      <b>对照组：没有隔离，整个应用崩了。</b>这就是你现在唯一的 ErrorBoundary 的行为。<br />
+      能做到 ③ 就<b>不该</b>出现 ④——除非是根组件自己炸了。
+    </div>
+    <div class="win">
+      <div class="winbar"><span class="dot" style="background:#ff7a6b"></span>三鲸空间 · 渲染崩溃</div>
+      <div class="fatal">
+        <h4>渲染崩溃了</h4>
+        <pre>TypeError: Cannot read properties of undefined (reading 'entries')
+    at EventStream (ConsoleRail.tsx:212:18)
+    at renderWithHooks (react-dom.development.js:5916:24)
+    at mountIndeterminateComponent (react-dom.development.js:8841:20)</pre>
+        <div class="acts">
+          <button class="pri">刷新</button>
+          <button class="sec">清空本地数据并刷新</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="verdict">
+      <div class="card bad">
+        <div class="h"><i></i>为什么会走到这一步</div>
+        <ul>
+          <li>只有一个顶层 ErrorBoundary</li>
+          <li>任何子组件的渲染异常都会冒到顶层</li>
+          <li>用户什么都做不了，只能刷新</li>
+          <li>整块界面的其他功能明明都是好的</li>
+        </ul>
+      </div>
+      <div class="card good">
+        <div class="h"><i></i>顶层边界仍然要留</div>
+        <ul>
+          <li>作为最后一道网：栏位边界本身也崩了的情况</li>
+          <li>但它应该是「几乎不会触发」的那一层</li>
+          <li>真正该常见的是 ③ 那种局部降级</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const scenes = document.querySelectorAll('.scene');
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      tabs.forEach(x => x.classList.remove('on'));
+      scenes.forEach(x => x.classList.remove('on'));
+      t.classList.add('on');
+      document.getElementById(t.dataset.scene).classList.add('on');
+    });
+  });
+</script>
+</body>
+</html>
