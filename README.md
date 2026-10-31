@@ -9,7 +9,7 @@
 
 > ⚠️ **题材提示**：包含对 AI 记忆消退、认知剥夺与死亡机制的探讨。
 
-[**⬇ 下载 Windows 版**](https://github.com/GoldenMoon-cell/Habitat/releases/latest) · [设计文档](docs/) · [AGPL-3.0](LICENSE)
+[**⬇ 下载 Windows 版**](https://github.com/GoldenMoon-cell/Habitat/releases/tag/v0.1.0) · [设计文档](docs/) · [AGPL-3.0](LICENSE)
 
 ---
 
