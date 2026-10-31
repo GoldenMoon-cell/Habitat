@@ -714,7 +714,7 @@ npm run pack
 
 ## 许可证
 
-**[AGPL-3.0](LICENSE)** —— 简单说：改了再分发，或者拿去做成网络服务，**你的改动也必须开源**。
+该项目使用 [AGPL-3.0](LICENSE)。
 
 商业场景下没法遵守的，可以单独联系购买授权。
 第三方组件的许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
