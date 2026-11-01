@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { type Message } from "../data/mock";
-import { stripMentionBrackets } from "../lib/conversation";
 import { usePersonas } from "../store/personas";
 import { RichText } from "../lib/RichText";
 import VoiceBar from "./VoiceBar";
@@ -427,13 +426,7 @@ export default function MessageRow({
             <VoiceBar clip={msg.voice} color={color} align={mine ? "right" : "left"} />
           ) : msg.text ? (
             <div className={mine ? "text-[13px] leading-[1.7]" : ""}>
-              {/*
-                显示时去掉 `[@名字]` 的方括号。
-
-                **只在显示层做**：存储里必须留着方括号 ——
-                否则下一轮 pickNext 读到的正文就解析不出被点名的是谁。
-              */}
-              <RichText text={stripMentionBrackets(msg.text)} />
+              <RichText text={msg.text} />
               {msg.streaming && (
                 <span className="caret ml-[2px] inline-block h-[11px] w-[5px] translate-y-[1px] bg-current opacity-70" />
               )}
