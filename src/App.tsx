@@ -135,6 +135,21 @@ const peaks = (n = 22) =>
   );
 
 /* 原型阶段的固定回应池 —— 纯 UI 演示，不经过任何模型 */
+/**
+ * 演示模式的通用回应 —— 给**没有专属文案**的角色用。
+ *
+ * 「还没配 API」的时候，用户新建的角色也得会说点什么。
+ * 否则她永远是哑的，而那看起来就像软件坏了。
+ *
+ * 刻意写得中性：这里不是在演某个角色的人设，
+ * 只是占住那个位置，让对话不至于断掉。
+ */
+const DEMO_FALLBACK_REPLIES = [
+  "（演示模式：还没接入模型，这里只能说点占位的话。）",
+  "（配好 API 之后，这里才会有真的回答。）",
+  "（这句是本地预置的，不经过任何模型。）",
+];
+
 const REPLIES: Record<AgentId, string[]> = {
   jingjing: [
     "收到收到 🌊 我把它记在最亮的那一层，你一叫就浮上来。",
@@ -1531,7 +1546,19 @@ export default function App() {
         return;
       }
 
-      const poolTexts = REPLIES[responder];
+      /*
+       * ── 演示模式的兜底 ──
+       *
+       * `REPLIES` 只有 8 个**出厂角色**的文案。
+       * 用户自建的角色不在里面 —— 原来这里会 `undefined.length` 崩掉，
+       * 而且是在 setTimeout 里崩，**连报错都看不见**：
+       * 她永远不回话，用户以为是软件坏了。
+       *
+       * 现在：没有专属文案就用通用池。起码有人应声。
+       */
+      const own = REPLIES[responder];
+      const poolTexts =
+        own && own.length > 0 ? own : DEMO_FALLBACK_REPLIES;
       const text = poolTexts[Math.floor(Math.random() * poolTexts.length)];
 
       timers.current.push(
