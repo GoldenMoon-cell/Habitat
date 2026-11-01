@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { generationOf } from "../lib/graveyard";
 import { AnimatePresence, motion } from "motion/react";
-import { isGroupId, type AgentId, type ConvId, type Message } from "../data/mock";
+import { AGENT_MAP, isGroupId, type AgentId, type ConvId, type Message } from "../data/mock";
 import { avatarMark } from "../lib/avatar";
 import { usePersonas } from "../store/personas";
 import { useGroups } from "../store/groups";
@@ -75,7 +75,47 @@ function GroupStack() {
   );
 }
 
-export default function ChatStage({
+/*
+ * ══ 为什么外面要套一层 ══
+ *
+ * 里面那个组件在 hooks 之后做过一次早退：
+ *
+ *   const { get } = useGroups();   ← 已经用了一个 hook
+ *   if (!isGroup && !agent) return <「这个角色已经不在了」/>;
+ *   useMemo(...) useRef(...) ...   ← 这些就不执行了
+ *
+ * 于是当「这个 conv 到底算什么」在两次渲染之间变了，
+ * React 会看到 hooks 数量对不上，整个聊天区崩成：
+ *
+ *   Rendered fewer hooks than expected.
+ *
+ * 什么时候会变？旧版本存档、手动改过的 localStorage、
+ * 导入了 id 不是 `grp-*` 的群 —— 都算。
+ *
+ * 修法：**把判断挪到一个不带任何 hook 的组件里**。
+ * 零 hook 的组件怎么早退，hook 数量都是 0，不会对不上。
+ */
+export default function ChatStage(props: Parameters<typeof ChatStageInner>[0]) {
+  const isGroup = isGroupId(props.conv);
+  const agent = isGroup ? null : AGENT_MAP[props.conv as AgentId];
+
+  if (!isGroup && !agent) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+        <span className="text-[16px] text-mist/46">◌</span>
+        <span className="text-[11px] text-mist/45">这个角色已经不在了</span>
+        <span className="max-w-full truncate font-mono text-[10px] text-mist/35">
+          {props.conv}
+        </span>
+        <span className="mt-1 text-[10px] text-mist/50">回到群聊，或重新接入一个角色</span>
+      </div>
+    );
+  }
+
+  return <ChatStageInner {...props} />;
+}
+
+function ChatStageInner({
   conv,
   messages,
   typing,
