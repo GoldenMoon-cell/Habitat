@@ -17,6 +17,8 @@ import {
   bandOf,
   bumpRound,
   heatOf,
+  idleMinutesOf,
+  markSpoke,
   markWaitingForMe,
   maxRoundOf,
   parseMentions,
@@ -1587,11 +1589,23 @@ export default function App() {
    */
   const afterAiTurn = useCallback(
     (target: ConvId, text: string, speakerId: string) => {
+      /*
+       * ── 为什么整段包 try/catch ──
+       *
+       * 这段是在 setTimeout 里跑的。**在里面抛异常 = 没人接，静默死掉。**
+       *
+       * 表现就是「她说完一句，群突然安静了」—— 用户以为 AI 没兴趣，
+       * 实际是调度器崩了。第一版就是这样，查了很久。
+       *
+       * 所以：出什么事都记下来，但**不能让它把对话掐死**。
+       */
+      try {
       /* ① 有 AI 点名找用户 → 记一笔「在等你」，但**不阻塞别人** */
       const who = ownerName();
       if (parseMentions(text).some((n) => n === who)) markWaitingForMe(String(target));
 
-      /* ② 轮次 +1 */
+      /* ② 记「她开口了」+ 轮次 +1 */
+      markSpoke(String(target), speakerId);
       const rt = bumpRound(String(target));
 
       /* ③ 只有群聊接 */
@@ -1609,6 +1623,7 @@ export default function App() {
       const scheduledAt = Date.now();
       autoTimer.current = window.setTimeout(() => {
         autoTimer.current = null;
+        try {
 
         /*
          * 等待期间你说话了 → 这一轮作废。
@@ -1640,10 +1655,7 @@ export default function App() {
            *
            * 没记录 → Infinity（从没说过话的人最想开口）。
            */
-          idleMinutes: (id) => {
-            const d = readDynamic(id);
-            return d?.lastAt ? (Date.now() - d.lastAt) / 60_000 : Infinity;
-          },
+          idleMinutes: (id) => idleMinutesOf(latest, id),
           dynamicOf: (id) => {
             const d = readDynamic(id);
             return d ? { 心情: d.心情, 亲近: d.亲近 } : undefined;
@@ -1656,12 +1668,27 @@ export default function App() {
         });
 
         if (picked.kind !== "speak") {
-          /* 没人想说了 —— 群自然安静。这是对的，不是错误 */
+          /*
+           * 没人想说了 —— 群自然安静。这是对的，不是错误。
+           * 但记一笔，否则「为什么没人接」永远查不出来。
+           */
+          console.debug("[3W] 这一轮到此为止:", picked.reason,
+            `round=${latest.round} heat=${heatOf(latest)}`);
           return;
         }
 
-        void scheduleReply(target, String(picked.persona.id) as never);
+          void scheduleReply(target, String(picked.persona.id) as never);
+        } catch (e) {
+          /*
+           * 定时器里单独包一层：这一段的异常最容易消失 ——
+           * 它不在 React 的渲染栈上，错误边界接不住。
+           */
+          console.error("[3W] 下一轮调度时出错:", e);
+        }
       }, 900 + Math.random() * 500);
+      } catch (e) {
+        console.error("[3W] 对话循环调度失败（群不会因此停下）:", e);
+      }
     },
     [getGroup, personaMap, threads, scheduleReply]
   );

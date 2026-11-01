@@ -33,6 +33,20 @@ export interface ConvRuntime {
   waitingFor?: "me";
   /** 私聊「安静台词」上次出现的时间 —— 一天最多一条 */
   quietShownAt?: number;
+  /**
+   * 每个人**最后一次开口**的时间。
+   *
+   * ── 为什么不能复用 DynamicState.lastAt ──
+   *
+   * `lastAt` 是「这个角色最后一次有动静」—— 用户发一句话，
+   * 群里所有人都会被 tick 一次，`lastAt` 全部变成「刚刚」。
+   *
+   * 那「沉默加成」就永远是 0，对话进行中谁都拿不到。
+   * **第一版就是这么写的，结果 AI 说完一句，群里再没人想接。**
+   *
+   * 这里记的是「她上一次**说话**」—— 才是沉默该看的。
+   */
+  spokenAt?: Record<string, number>;
 }
 
 const KEY = "3w:conv-runtime";
@@ -102,6 +116,20 @@ export function markWaitingForMe(conv: ConvId | string) {
   writeStore(s);
 }
 
+/** 她开口了 —— 记下来，用于「沉默加成」 */
+export function markSpoke(conv: ConvId | string, who: string) {
+  const s = readStore();
+  const cur = s[String(conv)] ?? emptyState();
+  s[String(conv)] = { ...cur, spokenAt: { ...(cur.spokenAt ?? {}), [who]: Date.now() } };
+  writeStore(s);
+}
+
+/** 距这个人上次**开口**多少分钟。没开过口 → Infinity（最想说） */
+export function idleMinutesOf(rt: ConvRuntime, who: string): number {
+  const at = rt.spokenAt?.[who];
+  return at ? (Date.now() - at) / 60_000 : Infinity;
+}
+
 /** 安静台词发过了 —— 记时间做节流 */
 export function markQuietShown(conv: ConvId | string) {
   const s = readStore();
@@ -169,8 +197,19 @@ export function desireOf(i: DesireInput): number {
   const mood = (i.dynamic?.心情 ?? 50) / 100;
   const close = (i.dynamic?.亲近 ?? 50) / 100;
 
-  /* 沉默加成：5 分钟开始涨，30 分钟到顶 +0.25 */
-  const silence = i.idleMin === Infinity ? 0 : Math.min(0.25, Math.max(0, (i.idleMin - 5) * 0.25 / 25));
+  /*
+   * 沉默加成：5 分钟开始涨，30 分钟到顶 +0.25。
+   *
+   * `Infinity` = **从来没开过口** —— 那是最想说话的状态，给满分。
+   *
+   * 第一版这里写的 `Infinity ? 0` —— 意思正好反了：
+   * 从没说过话的人拿不到沉默加成，永远开不了口。
+   * 「新人反而插不上话」，整段对话就死了。
+   */
+  const silence =
+    i.idleMin === Infinity
+      ? 0.25
+      : Math.min(0.25, Math.max(0, ((i.idleMin - 5) * 0.25) / 25));
 
   let d = mood * 0.3 + close * 0.3 + silence;
   if (i.mentioned) d += 0.4;

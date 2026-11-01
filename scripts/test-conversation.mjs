@@ -83,6 +83,12 @@ const mentioned = C.desireOf({
 });
 ok(`被提到了 → 意愿明显更高（${mentioned.toFixed(2)}）`, mentioned > 0.55);
 
+const neverSpoke = C.desireOf({
+  persona: {}, dynamic: { 心情: 85, 亲近: 80 },
+  idleMin: Infinity, mentioned: false, memoryEcho: false, justSpoke: false,
+});
+ok(`从没开过口 → 沉默给满分（${neverSpoke.toFixed(2)} > 0.55）`, neverSpoke > C.DESIRE_THRESHOLD);
+
 const justSpoke = C.desireOf({
   persona: {}, dynamic: { 心情: 90, 亲近: 90 },
   idleMin: 30, mentioned: false, memoryEcho: false, justSpoke: true,
