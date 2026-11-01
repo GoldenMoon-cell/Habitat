@@ -1,3 +1,4 @@
+import { sanitizePersonas } from "../lib/sanitize";
 import { PERSONAS, samplePersonas, type Persona, type PersonaId } from "./personas";
 
 /**
@@ -147,7 +148,7 @@ export function loadPersonas(): Persona[] {
      *
      * 存档就是存档。用户删了什么，就是真的删了。
      */
-    return saved.personas;
+    return sanitizePersonas(saved.personas);
   } catch {
     return defaultPersonas();
   }

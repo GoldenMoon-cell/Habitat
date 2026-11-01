@@ -1,4 +1,5 @@
 import type { ConvId } from "./mock";
+import { sanitizeGroups } from "../lib/sanitize";
 import type { PersonaId } from "./personas";
 
 /**
@@ -33,8 +34,14 @@ export function loadGroups(): Group[] {
     const raw = localStorage.getItem(KEY);
     if (!raw) return [];
     const saved = JSON.parse(raw) as Persisted;
-    if (saved?.v !== VERSION || !Array.isArray(saved.groups)) return [];
-    return saved.groups;
+    if (saved?.v !== VERSION) return [];
+    /*
+     * 过一遍清洗再返回。
+     *
+     * `localStorage` 里的东西可能是旧版本写的、用户改过的、断电写坏的 ——
+     * **一个缺字段的群就能让整个聊天区渲染崩掉**（见 lib/sanitize.ts）。
+     */
+    return sanitizeGroups(saved.groups);
   } catch {
     return [];
   }

@@ -13,12 +13,25 @@ import EnginePanel from "./components/EnginePanel";
 import ApiConfigDialog from "./components/ApiConfigDialog";
 import { loadCredentials, maskKey, resolveCredential, siblingModels } from "./store/credentials";
 import { explainLlmError } from "./lib/llmError";
+import {
+  bandOf,
+  bumpRound,
+  heatOf,
+  markWaitingForMe,
+  maxRoundOf,
+  parseMentions,
+  pickNext,
+  readActivity,
+  readRuntime,
+  resetRound,
+  resonates,
+} from "./lib/conversation";
 import { recordCall } from "./lib/usage";
 import { DEFAULT_APP_NAME, readAppName, saveAppName } from "./lib/appName";
 import { isCreator, readMode, subscribeMode } from "./lib/mode";
 import { subscribeClock, timeOffset, timeOffsetLabel } from "./lib/clock";
 import { dueDeadlines, clearDeadline, deadlineOf } from "./lib/deadline";
-import { hasProfile, readProfile } from "./lib/profile";
+import { hasProfile, ownerName, readProfile } from "./lib/profile";
 import { log } from "./lib/eventLog";
 import { extract, isDuplicate } from "./lib/extract";
 import { MEMORY_CHANGED } from "./lib/memoryNotes";
@@ -925,6 +938,26 @@ export default function App() {
   }, [pushToast]);
 
   /* ── 消息 ── */
+  /*
+   * ── 对话循环的两个 ref ──
+   *
+   * `userSpokeAt` 用来防止「抢话」：
+   * AI 说完之后会等 0.9–1.4 秒再决定下一个人要不要开口 ——
+   * 这段延迟里你如果说话了，这一轮就作废（见 afterAiTurn）。
+   *
+   * `autoTimer` 是那根等待的定时器。用户发言时立刻掐掉。
+   */
+  const userSpokeAt = useRef(0);
+  const autoTimer = useRef<number | null>(null);
+  /**
+   * 为什么用 ref 转一道：
+   * scheduleReply 要用 afterAiTurn，afterAiTurn 要用 scheduleReply —— 循环。
+   * 先挂一个空的，等 afterAiTurn 定义好再填进去。
+   */
+  const afterAiTurnRef = useRef<(target: ConvId, text: string, speakerId: string) => void>(
+    () => {}
+  );
+
   const push = useCallback(
     (target: ConvId, msg: Omit<Message, "id" | "conv" | "time">): string => {
       /*
@@ -934,6 +967,22 @@ export default function App() {
        * 升级成"已发出"。
        */
       const id = uid();
+
+      /*
+       * 用户发言 = 话题重置。
+       *
+       * 轮次归零、热度回到 1.0 —— 所以「AI 连说 4 条」的窗口
+       * 只存在于你沉默的那段时间里，不会出现「聊了一小时还是同一个话题」。
+       */
+      if (msg.author === "me" && !msg.system) {
+        resetRound(String(target));
+        userSpokeAt.current = Date.now();
+        if (autoTimer.current) {
+          window.clearTimeout(autoTimer.current);
+          autoTimer.current = null;
+        }
+      }
+
       setThreads((prev) => ({
         ...prev,
         [target]: [...(prev[target] ?? []), { ...msg, id, conv: target, time: now() }],
@@ -1440,6 +1489,8 @@ export default function App() {
             playReceive(0.92 + (h % 5) * 0.04);
           }
           push(target, { author: responder, text });
+          /* 记轮次 + 决定下一个人要不要接（见 docs/proactive.md） */
+          afterAiTurnRef.current(target, text, String(responder));
         } catch (e) {
           setTyping(null);
           const info = explainLlmError(e);
@@ -1488,11 +1539,108 @@ export default function App() {
         window.setTimeout(() => {
           setTyping(null);
           push(target, { author: responder, text });
+          /* 演示模式也走同一套循环 —— 不然「还没配 API」的人看不到这个功能 */
+          afterAiTurnRef.current(target, text, String(responder));
         }, 1750 + Math.random() * 700)
       );
     },
     [push, pushToast, personas, personaMap, getGroup, threads, llmProbe]
   );
+
+  /*
+   * ══ 对话循环：一条说完之后，下一个人要不要接 ══
+   *
+   * 这是「AI 之间能互动」的传动轴。三条约束：
+   *
+   *   ① **只有群聊接力。** 私聊永远是「你说一句她回一句」——
+   *      她一个人在私聊里自说自话是对恐怖谷的冒犯。
+   *   ② **等 0.9–1.4 秒再决定。** 立刻接像机器；等的时候你说话了，
+   *      这一轮就作废（见 push 里的 userSpokeAt）。
+   *   ③ **到硬上限就停。** 上限来自「群聊活跃度」设置（2 / 4 / 6）。
+   */
+  const afterAiTurn = useCallback(
+    (target: ConvId, text: string, speakerId: string) => {
+      /* ① 有 AI 点名找用户 → 记一笔「在等你」，但**不阻塞别人** */
+      const who = ownerName();
+      if (parseMentions(text).some((n) => n === who)) markWaitingForMe(String(target));
+
+      /* ② 轮次 +1 */
+      const rt = bumpRound(String(target));
+
+      /* ③ 只有群聊接 */
+      if (!isGroupId(target)) return;
+
+      const memberIds = (getGroup(target)?.members ?? []).map(String);
+      if (memberIds.length < 2) return; /* 一个人的群没什么可接的 */
+
+      const maxRound = maxRoundOf(readActivity());
+      if (rt.round >= maxRound) return; /* 到上限了，别白等一个定时器 */
+
+      /* 掐掉上一根（同一时刻只能有一根等待） */
+      if (autoTimer.current) window.clearTimeout(autoTimer.current);
+
+      const scheduledAt = Date.now();
+      autoTimer.current = window.setTimeout(() => {
+        autoTimer.current = null;
+
+        /*
+         * 等待期间你说话了 → 这一轮作废。
+         *
+         * 不这么做的话：你在她说完之后 0.5 秒打了一句话，
+         * 1 秒后另一个人又冒出来 —— 你的话被夹在中间，像没人看见。
+         */
+        if (userSpokeAt.current > scheduledAt) return;
+
+        const members = memberIds
+          .map((id) => personaMap[id])
+          .filter(Boolean) as NonNullable<(typeof personaMap)[string]>[];
+
+        const latest = readRuntime(String(target));
+
+        const picked = pickNext({
+          conv: String(target),
+          members,
+          runtime: latest,
+          maxRound,
+          lastText: text,
+          lastSpeakerId: speakerId,
+          /*
+           * 距这个人上次有动静多少分钟。
+           *
+           * `Message` 只有 `time: "21:12"` 这种显示字符串，没有时间戳 ——
+           * 所以不用对话记录算，改用 `DynamicState.lastAt`：
+           * 那是每个角色自己的「上次互动时间」，本来就有，不用新存。
+           *
+           * 没记录 → Infinity（从没说过话的人最想开口）。
+           */
+          idleMinutes: (id) => {
+            const d = readDynamic(id);
+            return d?.lastAt ? (Date.now() - d.lastAt) / 60_000 : Infinity;
+          },
+          dynamicOf: (id) => {
+            const d = readDynamic(id);
+            return d ? { 心情: d.心情, 亲近: d.亲近 } : undefined;
+          },
+          /* 记忆呼应：她有没有一条记忆接得上刚才那句话 */
+          echoOf: (id) => {
+            const ms = loadMemories(id, false).slice(0, 6);
+            return ms.some((m) => resonates(text, m.text));
+          },
+        });
+
+        if (picked.kind !== "speak") {
+          /* 没人想说了 —— 群自然安静。这是对的，不是错误 */
+          return;
+        }
+
+        void scheduleReply(target, String(picked.persona.id) as never);
+      }, 900 + Math.random() * 500);
+    },
+    [getGroup, personaMap, threads, scheduleReply]
+  );
+
+  /* 填进那个 ref —— 打破 scheduleReply ↔ afterAiTurn 的循环 */
+  afterAiTurnRef.current = afterAiTurn;
 
   /*
    * 强制改名 —— 一次把五件事做完，而且**不重载页面**。
