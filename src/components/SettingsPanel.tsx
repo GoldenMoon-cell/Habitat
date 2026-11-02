@@ -18,6 +18,7 @@ import type { ArchiveBundle } from "../lib/archive";
 import { verify } from "../lib/awakenLedger";
 import { loadPersonas } from "../data/personaStore";
 import { CHANNELS, checkUpdate, openRelease, readChannel, saveChannel, type UpdateResult } from "../lib/update";
+import { readActivity, saveActivity, type Activity } from "../lib/conversation";
 import { applyArchive, collectArchive, parseArchive } from "../lib/archive";
 
 /**
@@ -86,6 +87,9 @@ export default function SettingsPanel({
   onChangeAppName?: (v: string) => void;
 }) {
   const [showAbout, setShowAbout] = useState(false);
+
+  /* 群聊活跃度 —— 决定一轮最多几个 AI 连续说话 */
+  const [activity, setActivity] = useState<Activity>(() => readActivity());
 
   /*
    * 检查更新。
@@ -322,6 +326,42 @@ export default function SettingsPanel({
                   <div className="mt-1.5 font-mono text-[9px] leading-relaxed text-mist/26">
                     这两条会进她的人格提示。留空也行 —— 印象会从对话里长出来。
                   </div>
+                </div>
+              </div>
+
+              {/* ── 群聊活跃度 ── */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="label">群聊活跃度</span>
+                  <span className="font-mono text-[9.5px] text-mist/45">
+                    最多 {activity === "quiet" ? 2 : activity === "lively" ? 6 : 4} 条
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {([
+                    { k: "quiet", label: "安静", hint: "最多 2 条就停" },
+                    { k: "normal", label: "正常", hint: "最多 4 条" },
+                    { k: "lively", label: "热闹", hint: "最多 6 条" },
+                  ] as const).map((a) => (
+                    <button
+                      key={a.k}
+                      onClick={() => {
+                        setActivity(a.k);
+                        saveActivity(a.k);
+                      }}
+                      title={a.hint}
+                      className={`rounded-[6px] border px-2 py-1.5 text-[10.5px] transition-colors ${
+                        activity === a.k
+                          ? "border-biolum/40 bg-biolum/[0.08] text-biolum"
+                          : "border-white/[0.08] text-mist/55 hover:border-white/[0.16]"
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-1.5 text-[10px] leading-[1.6] text-mist/36">
+                  你每说一句，轮次归零。这个数字决定 AI 之间最多连着说几句。
                 </div>
               </div>
 

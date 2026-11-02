@@ -411,6 +411,63 @@ export function pickFuel<T extends FuelCandidate>(
 }
 
 /* ══════════════════════════════════════════
+   安静台词（私聊）
+   ══════════════════════════════════════════ */
+
+/**
+ * 私聊里她「在场但没说话」的几条动作描述。
+ *
+ * ── 为什么不调模型 ──
+ *
+ * 为了发一句「她没有说话」花 12k tokens 是荒谬的。
+ * 而且模型写舞台指示很容易写成烂剧本：
+ *
+ *   ❌「她低下头，眼神黯淡，似乎在思考什么」
+ *   ✅「她把屏幕亮度调低了一点。」
+ *
+ * **克制是这里的全部。** 不解释、不撒娇、不问「你还在吗」。
+ */
+export const QUIET_LINES = [
+  "【她把屏幕亮度调低了一点。】",
+  "【她没说话，但头像还亮着。】",
+  "【她翻到上面，把你说过的话又看了一遍。】",
+  "【光标闪了几下，又停了。】",
+  "【她把窗口拖到一边，还留着一条缝。】",
+];
+
+/** 隔多久没互动，才值得发一次安静台词 */
+const QUIET_AFTER_HOURS = 6;
+
+/**
+ * 该不该发一条安静台词。
+ *
+ * ── 为什么必须节流 ──
+ *
+ * 不节流的话，「她不说话」会被演成「她一直在表演沉默」——
+ * 比真的沉默更假。**沉默的效果来自它的稀有。**
+ * 一天最多一次。
+ */
+export function shouldShowQuiet(
+  rt: ConvRuntime,
+  lastInteractAt: number,
+  now = Date.now()
+): boolean {
+  /* 今天已经发过 → 不发 */
+  if (rt.quietShownAt) {
+    const sameDay =
+      new Date(rt.quietShownAt).toDateString() === new Date(now).toDateString();
+    if (sameDay) return false;
+  }
+  /* 刚聊完 → 不说话是正常的，不用演 */
+  if (now - lastInteractAt < QUIET_AFTER_HOURS * 3_600_000) return false;
+  return true;
+}
+
+export function pickQuietLine(): string {
+  return QUIET_LINES[Math.floor(Math.random() * QUIET_LINES.length)];
+}
+
+/* ══════════════════════════════════════════
    活跃度
    ══════════════════════════════════════════ */
 
@@ -486,9 +543,24 @@ export function pickNext(i: PickInput): PickResult {
   /* ── ① 点名 ── */
   const names = parseMentions(i.lastText);
   for (const name of names) {
-    const hit = i.members.find((m) => m.name === name || m.handle === `@${name}`);
-    if (!hit) continue; /* 不在这个群里 → 忽略 */
-    if (String(hit.id) === i.lastSpeakerId) continue; /* 不能 @ 自己 */
+    /*
+     * ── 重名怎么办 ──
+     *
+     * 项目**允许重名**（`generationOf` 那里写过「不靠名字唯一性」）。
+     * 所以 `[@阿野]` 可能同时命中两个人 —— 那时候不能猜。
+     *
+     * 规则：
+     *   ① 先把自己排除（不能 @ 自己）
+     *   ② 剩下正好一个 → 就是他
+     *   ③ 剩下两个以上 → **歧义，不点名**，退回去算意愿
+     *
+     * 猜错比不猜更糟：把话递给错的人，比没人接更尴尬。
+     */
+    const hits = i.members.filter((m) => m.name === name || m.handle === `@${name}`);
+    const others = hits.filter((m) => String(m.id) !== i.lastSpeakerId);
+    if (others.length !== 1) continue;
+
+    const hit = others[0];
     if (!allowMention(i.lastSpeakerId, String(hit.id))) continue; /* 互 @ 死循环 */
     return { kind: "speak", persona: hit, via: "mention" };
   }

@@ -159,6 +159,23 @@ eq("有呼应 → 优先呼应那条（哪怕没那么久）", withEcho && withE
 const noEcho = C.pickFuel(cands, "完全不相关的一句话");
 eq("没呼应 → 越久越优先", noEcho && noEcho.id, "old");
 
+/* ══ 重名 @ + 安静台词 ══ */
+console.log("\\n── 重名与安静台词 ──");
+mem.clear();
+const dup = { conv: "g", members: [mk("a", "阿野"), mk("b", "阿野"), mk("c", "别人")], runtime: { round: 0, roundStartAt: Date.now(), lastAiAt: 0 },
+  maxRound: 4, lastSpeakerId: "c", idleMinutes: () => 30, dynamicOf: () => ({ 心情: 90, 亲近: 90 }), echoOf: () => false };
+
+const ambiguous = C.pickNext({ ...dup, lastText: "[@阿野] 你说呢" });
+ok("重名时 @ 不瞎猜（退化成意愿）", ambiguous.kind === "speak" && ambiguous.via === "desire");
+
+const selfOnly = C.pickNext({ ...dup, lastSpeakerId: "a", lastText: "[@阿野] 喂" });
+ok("重名但只排除自己后剩一个 → 点名成立", selfOnly.kind === "speak" && selfOnly.via === "mention");
+
+ok("刚聊完不发安静台词", C.shouldShowQuiet({ round: 0, roundStartAt: 0, lastAiAt: 0 }, Date.now() - 3600000) === false);
+ok("隔 8 小时 + 今天没发过 → 发", C.shouldShowQuiet({ round: 0, roundStartAt: 0, lastAiAt: 0 }, Date.now() - 8 * 3600000) === true);
+ok("今天已经发过 → 不发", C.shouldShowQuiet({ round: 0, roundStartAt: 0, lastAiAt: 0, quietShownAt: Date.now() }, Date.now() - 8 * 3600000) === false);
+ok("文案池非空且都是动作描述", C.QUIET_LINES.length > 0 && C.QUIET_LINES.every((l) => l.startsWith("【")));
+
 /* ══ sanitize：脏数据不能把 UI 搞崩 ══ */
 console.log("\n── 数据容错 ──");
 const S = await (async () => {

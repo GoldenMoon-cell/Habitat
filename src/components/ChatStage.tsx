@@ -10,6 +10,7 @@ import Composer from "./Composer";
 import SessionSettings from "./SessionSettings";
 import GroupMembersDialog from "./GroupMembersDialog";
 import { sumTokensK } from "../lib/tokens";
+import { readRuntime } from "../lib/conversation";
 import BlockBoundary from "./BlockBoundary";
 import { IconPencil, IconSliders, IconTail } from "./Icons";
 
@@ -485,6 +486,21 @@ function ChatStageInner({
       </BlockBoundary>
 
       <div className="pointer-events-none relative z-[15] -mt-8 h-8 bg-gradient-to-t from-[#050e16] to-transparent" />
+
+      {/*
+        ── 她在等你回话 ──
+
+        有 AI 用 [@你] 点了名。之前这个状态只写进 localStorage、
+        **没有任何地方显示** —— 用户根本不知道她在等。
+
+        放在输入区正上方：视线从对话落到输入框的必经之路上。
+      */}
+      {readRuntime(String(conv)).waitingFor === "me" && (
+        <div className="relative z-20 flex items-center gap-1.5 px-4 pb-1 font-mono text-[10px] text-biolum/70">
+          <span className="h-[5px] w-[5px] rounded-full bg-biolum/70" />
+          她在等你回话
+        </div>
+      )}
 
       <div className="relative z-20">
         <BlockBoundary kind="inputlock" name="输入区">

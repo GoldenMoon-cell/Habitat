@@ -21,8 +21,11 @@ import {
   markSpoke,
   markWaitingForMe,
   maxRoundOf,
+  markQuietShown,
   parseMentions,
   pickFuel,
+  pickQuietLine,
+  shouldShowQuiet,
   pickNext,
   readActivity,
   readRuntime,
@@ -1740,6 +1743,35 @@ export default function App() {
       }
     };
   }, []);
+
+  /*
+   * ══ 私聊里的「安静台词」 ══
+   *
+   * 隔了很久才回来，她可能已经在那儿坐了一会儿。
+   * 这时候一句话都不说会很怪；但每次都发一条「她在等你」又太假。
+   *
+   * 规则：
+   *   · 只在私聊，只在打开会话的那一刻
+   *   · 距上次互动超过 6 小时
+   *   · **一天最多一条**（`shouldShowQuiet` 里做节流）
+   *
+   * 文案是本地池，不调模型 —— 为了说一句「她没说话」花 12k tokens 不值得。
+   */
+  useEffect(() => {
+    if (isGroupId(conv)) return;
+    if (!conv) return;
+
+    const rt = readRuntime(String(conv));
+    const lastAt = rt.lastAiAt || rt.roundStartAt || 0;
+    if (!shouldShowQuiet(rt, lastAt)) return;
+
+    const agent = personaMap[String(conv)];
+    if (!agent) return;
+
+    markQuietShown(String(conv));
+    push(String(conv), { author: agent.id, text: pickQuietLine() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conv]);
 
   /*
    * 强制改名 —— 一次把五件事做完，而且**不重载页面**。
