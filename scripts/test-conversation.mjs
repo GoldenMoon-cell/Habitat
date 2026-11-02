@@ -165,7 +165,11 @@ mem.clear();
 const dup = { conv: "g", members: [mk("a", "阿野"), mk("b", "阿野"), mk("c", "别人")], runtime: { round: 0, roundStartAt: Date.now(), lastAiAt: 0 },
   maxRound: 4, lastSpeakerId: "c", idleMinutes: () => 30, dynamicOf: () => ({ 心情: 90, 亲近: 90 }), echoOf: () => false };
 
+/* 关掉连发骰子 —— 否则 25% 会走到连发分支，测不到「点名歧义」 */
+const rr = Math.random;
+Math.random = () => 0.99;
 const ambiguous = C.pickNext({ ...dup, lastText: "[@阿野] 你说呢" });
+Math.random = rr;
 ok("重名时 @ 不瞎猜（退化成意愿）", ambiguous.kind === "speak" && ambiguous.via === "desire");
 
 const selfOnly = C.pickNext({ ...dup, lastSpeakerId: "a", lastText: "[@阿野] 喂" });
@@ -236,6 +240,33 @@ const nearAwake = !!F.residueHit([near], ASK, T0);
 const deepAwake = !!F.residueHit([deep], ASK, T0);
 ok(`random=0.5：贴阈值会醒（${nearAwake}）· 埋深不醒（${deepAwake}）`, nearAwake && !deepAwake);
 Math.random = realRandom;
+
+/* ══ 连发 ══ */
+console.log("\\n── 连发（一个人连着说）──");
+mem.clear();
+const mkSpeak = (over) => C.pickNext({
+  conv: "g", members: [mk("a","鲸鲸"), mk("b","澜汐")],
+  runtime: { round: 1, roundStartAt: Date.now(), lastAiAt: 0 },
+  maxRound: 4, lastText: "", lastSpeakerId: "a",
+  idleMinutes: () => 30, dynamicOf: () => ({ 心情: 90, 亲近: 90 }), echoOf: () => false,
+  ...over,
+});
+
+const realRandom2 = Math.random;
+Math.random = () => 0;              // 骰子必然命中连发
+const cont = mkSpeak({ runtime: { round: 1, roundStartAt: Date.now(), lastAiAt: 0, lastSpeaker: "a", streak: 1 } });
+ok("streak=1 + 骰子命中 → 上一个人补一句", cont.kind === "speak" && cont.via === "continue" && cont.persona.id === "a");
+
+const capped = mkSpeak({ runtime: { round: 2, roundStartAt: Date.now(), lastAiAt: 0, lastSpeaker: "a", streak: 2 } });
+ok(`streak=2 → 不许再连（MAX_STREAK=${C.MAX_STREAK}）`, !(capped.kind === "speak" && capped.via === "continue"));
+
+Math.random = () => 0.99;           // 骰子必然不命中
+const noCont = mkSpeak({ runtime: { round: 1, roundStartAt: Date.now(), lastAiAt: 0, lastSpeaker: "a", streak: 1 } });
+ok("骰子不命中 → 换人", !(noCont.kind === "speak" && noCont.via === "continue"));
+Math.random = realRandom2;
+
+const otherSpeaker = mkSpeak({ runtime: { round: 1, roundStartAt: Date.now(), lastAiAt: 0, lastSpeaker: "b", streak: 1 } });
+ok("上一个人不在场时不会误触连发", !(otherSpeaker.kind === "speak" && otherSpeaker.via === "continue"));
 
 /* ══ sanitize：脏数据不能把 UI 搞崩 ══ */
 console.log("\n── 数据容错 ──");

@@ -67,6 +67,7 @@ import { estimateTokens, sumTokensK } from "./lib/tokens";
 import { chat, chatViaMain, hasMainProcessLlm, probeOllama, type ChatMsg, type LLMProbe } from "./lib/llm";
 import { buildHistory, buildSystemPrompt, trimToBudget } from "./lib/prompt";
 import { judge, fuelOf, readJudgeConfig, type JudgeCandidate, type JudgeFuel } from "./lib/judge";
+import { bubbleDelay, splitBubbles } from "./lib/bubbles";
 import { learnFromError } from "./lib/contextWindow";
 import { NEUTRAL, commitDynamic, readDynamic, tick } from "./lib/dynamic";
 import { defaultPersonas } from "./data/personaStore";
@@ -1161,7 +1162,7 @@ export default function App() {
   );
 
   const scheduleReply = useCallback(
-    async (target: ConvId, force?: AgentId) => {
+    async (target: ConvId, force?: AgentId, continuation?: { selfText: string }) => {
       timers.current.forEach((t) => window.clearTimeout(t));
       timers.current = [];
 
@@ -1236,6 +1237,7 @@ export default function App() {
           const sys = buildSystemPrompt(agent, {
             isGroup: isGroupId(target),
             heatBand,
+            ...(continuation ? { continuation } : {}),
             ...(fuel ? { fuel: { text: fuel.text, tag: fuel.tag } } : {}),
             roster,
             dynamic: { 心情: live.心情, 亲近: live.亲近 },
@@ -1333,8 +1335,22 @@ export default function App() {
 
           /* max_tokens 跟着心情走 —— 心情低的时候让她「说不出太多」，
              这是硬件层面的话少，比在 prompt 里请求「说短一点」硬。 */
-          const budget =
-            live.心情 < 35 ? 180 : live.心情 > 75 ? 700 : 380;
+          /*
+           * ── 字数额度 ──
+           *
+           * **这里踩过一个坑**：曾经给「连发」单独压到 200，
+           * 想让补的那句短一点 —— 结果推理模型把 200 个 token
+           * 全用在思考上，`content` 是空的，界面显示「模型返回了空内容」。
+           *
+           * `max_tokens` 是**思考 + 回答的总和**，不是回答的额度。
+           * 想让她说短，靠 prompt（已经写了「补的那句要短」），不要靠砍预算。
+           *
+           * 底线 600：再低就可能被思考吃光。
+           */
+          const budget = Math.max(
+            600,
+            live.心情 < 35 ? 180 : live.心情 > 75 ? 700 : 380
+          );
 
           const baseReq = {
             messages: msgs,
@@ -1369,9 +1385,33 @@ export default function App() {
             const t0 = performance.now();
 
             try {
-              const iter = hasMainProcessLlm() ? chatViaMain(req) : chat(req);
-              for await (const chunk of iter) out += chunk;
-              const text = out.trim();
+              /*
+               * ── 空回复 ≠ 模型坏了 ──
+               *
+               * 推理模型先输出 `reasoning_content`，再输出 `content`。
+               * 预算不够时，思考把它吃光，`content` 是空字符串 ——
+               * 但 HTTP 还是 200，看不出错。
+               *
+               * 所以：空回复自动加大预算再试一次。
+               * 一次就够 —— 再失败就是真的有问题，照实报。
+               */
+              let text = "";
+              for (let attempt = 0; attempt < 2; attempt++) {
+                const useReq =
+                  attempt === 0 ? req : { ...req, maxTokens: (req.maxTokens ?? 380) * 4 };
+                const iter = hasMainProcessLlm() ? chatViaMain(useReq) : chat(useReq);
+                let acc = "";
+                for await (const chunk of iter) acc += chunk;
+                text = acc.trim();
+                if (text) break;
+                if (attempt === 0) {
+                  console.debug(
+                    "[3W] 空回复，加大预算重试:",
+                    `${req.maxTokens} → ${(req.maxTokens ?? 380) * 4}`
+                  );
+                }
+              }
+              out = text;
               log.llmOk(modelId, Math.round(performance.now() - t0), text.length);
               return text;
             } finally {
@@ -1532,9 +1572,45 @@ export default function App() {
             for (let i = 0; i < who.length; i++) h = (h * 31 + who.charCodeAt(i)) >>> 0;
             playReceive(0.92 + (h % 5) * 0.04);
           }
-          push(target, { author: responder, text });
-          /* 记轮次 + 决定下一个人要不要接（见 docs/proactive.md） */
-          afterAiTurnRef.current(target, text, String(responder));
+          /*
+           * ── 拆成几个气泡依次冒出来 ──
+           *
+           * 整条一次性出现，读起来是「系统吐了一段文本」；
+           * 拆成 2–3 个、中间停一秒，就变成「有人在打字」。
+           *
+           * **同一句话，观感完全不同。**
+           *
+           * 拆分规则在 `lib/bubbles.ts`（有 17 条断言）：
+           * 短于 42 字且没有空行 → 不拆；有空行 → 信任它。
+           */
+          const parts = splitBubbles(text);
+
+          if (parts.length <= 1) {
+            push(target, { author: responder, text });
+            afterAiTurnRef.current(target, text, String(responder));
+          } else {
+            /*
+             * 第一个立刻出，后面的按延迟出。
+             * typing 一直挂着 —— 她确实还在说。
+             */
+            push(target, { author: responder, text: parts[0] });
+
+            let delay = 0;
+            for (let i = 1; i < parts.length; i++) {
+              delay += bubbleDelay(i - 1);
+              const isLast = i === parts.length - 1;
+              timers.current.push(
+                window.setTimeout(() => {
+                  push(target, { author: responder, text: parts[i] });
+                  if (isLast) {
+                    setTyping(null);
+                    /* 整组说完才轮到下一个人 —— 不是每个气泡算一回合 */
+                    afterAiTurnRef.current(target, text, String(responder));
+                  }
+                }, delay)
+              );
+            }
+          }
         } catch (e) {
           setTyping(null);
           const info = explainLlmError(e);
@@ -1820,7 +1896,14 @@ export default function App() {
             /* verdict 为 null = 调用失败，静默用规则的结果 */
           }
 
-          void scheduleReply(target, chosenId as never);
+          /*
+           * 连发时要把「她刚说了什么」传下去 ——
+           * 否则模型看到最近一条是你的问题，会重新回答一遍，
+           * 结果同一个人先说自己瘫着、后说自己出门了。
+           */
+          const cont =
+            picked.via === "continue" ? { selfText: text } : undefined;
+          void scheduleReply(target, chosenId as never, cont);
         } catch (e) {
           /*
            * 定时器里单独包一层：这一段的异常最容易消失 ——

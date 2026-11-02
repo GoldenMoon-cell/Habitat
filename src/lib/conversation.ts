@@ -34,6 +34,15 @@ export interface ConvRuntime {
   /** 私聊「安静台词」上次出现的时间 —— 一天最多一条 */
   quietShownAt?: number;
   /**
+   * 上一条是谁说的 —— 用来判「连发」。
+   *
+   * 真实群里一个人会连着发两三条（想到一半又补一句），
+   * 所以不能硬禁止同一个人连说。但要有个上限，否则变成独角戏。
+   */
+  lastSpeaker?: string;
+  /** 他已经连着说了几条 */
+  streak?: number;
+  /**
    * 每个人**最后一次开口**的时间。
    *
    * ── 为什么不能复用 DynamicState.lastAt ──
@@ -93,6 +102,9 @@ export function resetRound(conv: ConvId | string): ConvRuntime {
     lastAiAt: now,
   };
   delete next.waitingFor;
+  /* 用户说话了 → 连发链断了，重新数 */
+  delete next.lastSpeaker;
+  delete next.streak;
   s[String(conv)] = next;
   writeStore(s);
   return next;
@@ -116,11 +128,23 @@ export function markWaitingForMe(conv: ConvId | string) {
   writeStore(s);
 }
 
-/** 她开口了 —— 记下来，用于「沉默加成」 */
+/**
+ * 她开口了 —— 记下来。
+ *
+ * 记三样：
+ *   · spokenAt   → 「沉默加成」用
+ *   · lastSpeaker + streak → 「连发」用
+ */
 export function markSpoke(conv: ConvId | string, who: string) {
   const s = readStore();
   const cur = s[String(conv)] ?? emptyState();
-  s[String(conv)] = { ...cur, spokenAt: { ...(cur.spokenAt ?? {}), [who]: Date.now() } };
+  const same = cur.lastSpeaker === who;
+  s[String(conv)] = {
+    ...cur,
+    lastSpeaker: who,
+    streak: same ? (cur.streak ?? 0) + 1 : 1,
+    spokenAt: { ...(cur.spokenAt ?? {}), [who]: Date.now() },
+  };
   writeStore(s);
 }
 
@@ -170,6 +194,24 @@ export function bandOf(heat: number): HeatBand {
 
 /** 意愿阈值 —— 低于它就不想说话 */
 export const DESIRE_THRESHOLD = 0.55;
+
+/**
+ * 同一个人最多连着说几条。
+ *
+ * 2 条是刻意的：真实群里「补一句」很常见，
+ * 「连着说三条以上」就变成了独角戏，别人插不进来。
+ */
+export const MAX_STREAK = 2;
+
+/**
+ * 说完一句之后，他接着补一句的概率。
+ *
+ * 为什么不是靠意愿分决定：意愿分里已经有「刚说过 −0.3」，
+ * 那个惩罚让同一个人几乎不可能再赢一次 —— 结果就是永远轮流发言。
+ *
+ * 连发不是「更想说话」，是**一句话没说完**。这是两件事。
+ */
+export const CONTINUE_CHANCE = 0.25;
 
 export interface DesireInput {
   persona: Persona;
@@ -551,7 +593,7 @@ export interface PickInput {
 }
 
 export type PickResult =
-  | { kind: "speak"; persona: Persona; via: "mention" | "desire" }
+  | { kind: "speak"; persona: Persona; via: "mention" | "desire" | "continue" }
   | { kind: "quiet"; reason: "cap" | "cold" | "no-desire" | "empty" };
 
 /**
@@ -597,11 +639,31 @@ export function pickNext(i: PickInput): PickResult {
     return { kind: "speak", persona: hit, via: "mention" };
   }
 
-  /* ── ② 意愿 ── */
+  /*
+   * ── ② 连发 ──
+   *
+   * 上一个人可能还没说完。
+   *
+   * 判断放在意愿之前：因为意愿分里带着「刚说过 −0.3」，
+   * 让同一个人靠意愿再赢一次几乎不可能 —— 那对话就永远是轮流发言。
+   *
+   * 连发不是「更想说话」，是**一句话没说完**。
+   */
+  const streak = i.runtime.lastSpeaker === i.lastSpeakerId ? (i.runtime.streak ?? 0) : 0;
+  if (streak < MAX_STREAK && Math.random() < CONTINUE_CHANCE) {
+    const last = i.members.find((m) => String(m.id) === i.lastSpeakerId);
+    if (last) return { kind: "speak", persona: last, via: "continue" };
+  }
+
+  /* ── ③ 意愿 ── */
   let best: { p: Persona; d: number } | null = null;
   for (const p of i.members) {
     const id = String(p.id);
-    if (id === i.lastSpeakerId && i.members.length > 1) continue; /* 别连着说 */
+    /*
+     * 刚说过的人仍然不参与意愿竞争 —— 他想再说，走上面的连发那条路。
+     * （留着这个排除是为了不让 −0.3 的惩罚把别人挤掉又选回他）
+     */
+    if (id === i.lastSpeakerId && i.members.length > 1) continue;
 
     const d = desireOf({
       persona: p,

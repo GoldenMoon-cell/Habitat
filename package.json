@@ -19,7 +19,8 @@
     "tauri": "node scripts/run-tauri.mjs",
     "test:l1": "node scripts/test-l1.mjs",
     "test:conversation": "node scripts/test-conversation.mjs",
-    "test:judge": "node scripts/test-judge.mjs"
+    "test:judge": "node scripts/test-judge.mjs",
+    "test:bubbles": "node scripts/test-bubbles.mjs"
   },
   "build": {
     "appId": "com.goldenmoon.habitat",
