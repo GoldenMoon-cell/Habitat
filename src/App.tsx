@@ -1715,8 +1715,31 @@ export default function App() {
     [getGroup, personaMap, threads, scheduleReply]
   );
 
-  /* 填进那个 ref —— 打破 scheduleReply ↔ afterAiTurn 的循环 */
-  afterAiTurnRef.current = afterAiTurn;
+  /*
+   * 填进那个 ref —— 打破 scheduleReply ↔ afterAiTurn 的循环。
+   *
+   * **放在 effect 里，不在 render 里赋值。**
+   * StrictMode 下 render 会跑两遍；并发渲染里 render 还可能被丢弃。
+   * 在 render 期间改 ref 属于副作用，React 明确不建议。
+   */
+  useEffect(() => {
+    afterAiTurnRef.current = afterAiTurn;
+  }, [afterAiTurn]);
+
+  /*
+   * 卸载时掐掉那根等待。
+   *
+   * 不清的话：定时器在已卸载的组件上跑，对着旧会话调 scheduleReply ——
+   * 用户可能已经切走了，那句回复就落在一个他没在看的会话里。
+   */
+  useEffect(() => {
+    return () => {
+      if (autoTimer.current) {
+        window.clearTimeout(autoTimer.current);
+        autoTimer.current = null;
+      }
+    };
+  }, []);
 
   /*
    * 强制改名 —— 一次把五件事做完，而且**不重载页面**。
