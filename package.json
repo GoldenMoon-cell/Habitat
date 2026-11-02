@@ -17,7 +17,9 @@
     "test:cred": "node scripts/test-credential.mjs",
     "pack": "node scripts/run-pack.mjs",
     "tauri": "node scripts/run-tauri.mjs",
-    "test:l1": "node scripts/test-l1.mjs"
+    "test:l1": "node scripts/test-l1.mjs",
+    "test:conversation": "node scripts/test-conversation.mjs",
+    "test:judge": "node scripts/test-judge.mjs"
   },
   "build": {
     "appId": "com.goldenmoon.habitat",
