@@ -97,11 +97,11 @@ eq("没有候选人 → 干脆不问", await J.judge(input({ candidates: [] }), 
 console.log("\n── 记忆审核（规则当审核者）──");
 eq("太短（2 字）→ 不收", J.reviewMemory({ text: "他辣" }), null);
 eq("偏好类 4 字 → 收（这是有用的事实）",
-  J.reviewMemory({ text: "他不吃辣" })?.text, "他不吃辣");
-eq("非偏好类要 8 字：6 字 → 不收",
-  J.reviewMemory({ text: "他说他要走了", tag: "事件" }), null);
-eq("非偏好类 8 字以上 → 收",
-  J.reviewMemory({ text: "他说他下周三要去一趟杭州", tag: "事件" })?.tag, "事件");
+  J.reviewMemory({ text: "他不吃辣", tag: "偏好" })?.text, "他不吃辣");
+eq("非短期类要 8 字：6 字 → 不收",
+  J.reviewMemory({ text: "他说他要走了", tag: "短期" }), null);
+eq("短期类 8 字以上 → 收",
+  J.reviewMemory({ text: "他说他下周三要去一趟杭州", tag: "短期" })?.tag, "短期");
 eq("没有第一人称 → 不收",
   J.reviewMemory({ text: "香菜是一种很常见的调味蔬菜" }), null);
 eq("是问句 → 不收",
@@ -109,6 +109,14 @@ eq("是问句 → 不收",
 eq("在问他 → 不收",
   J.reviewMemory({ text: "你觉得他这个人到底怎么样呢" }), null);
 eq("不是对象 → 不收", J.reviewMemory("他说他不吃香菜"), null);
+
+eq("tag 不在四个值里 → 收敛到「短期」",
+  J.reviewMemory({ text: "他说他下周三要去一趟杭州", tag: "工作" })?.tag, "短期");
+eq("tag 缺省 → 短期",
+  J.reviewMemory({ text: "他说他下周三要去一趟杭州" })?.tag, "短期");
+eq("四个合法值都保留",
+  ["长期","短期","情绪","偏好"].map((t) => J.reviewMemory({ text: "他说他下周三要去一趟杭州", tag: t })?.tag),
+  ["长期","短期","情绪","偏好"]);
 
 const good = J.reviewMemory({ text: "他说他受不了香菜的味道", tag: "偏好" });
 eq("具体、第一人称、不是问句 → 收", good && good.tag, "偏好");

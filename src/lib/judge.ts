@@ -220,7 +220,21 @@ export function reviewMemory(raw: unknown): { text: string; tag: string } | null
   const text = typeof m.text === "string" ? m.text.trim() : "";
   if (!text) return null;
 
-  const tag = typeof m.tag === "string" && m.tag.trim() ? m.tag.trim() : "长期";
+  /*
+   * ── tag 必须收敛到那四个值 ──
+   *
+   * `Memory["tag"]` 是 `"长期" | "短期" | "情绪" | "偏好"`。
+   * 规则版（`extract.ts`）走关键词，只会产出这四个；
+   * 但判断模型是自由发挥，它可能返回「工作」「生活」。
+   *
+   * 不收的话，`tag` 会悄悄长出新值 —— 而星图按 tag 分星团，
+   * 一个没人定义过的 tag 会变成一个无名孤岛。
+   *
+   * 认不出来就归「短期」：默认值保守，反正它会自己衰减。
+   */
+  const KNOWN_TAGS = ["长期", "短期", "情绪", "偏好"];
+  const rawTag = typeof m.tag === "string" ? m.tag.trim() : "";
+  const tag = KNOWN_TAGS.includes(rawTag) ? rawTag : "短期";
   const minLen = SHORT_TAGS.has(tag) ? 4 : 8;
   if (text.length < minLen) return null;
 
