@@ -133,6 +133,32 @@ eq("没人有话说 → 停", pick({ dynamicOf: () => ({ 心情: 10, 亲近: 10 
 
 eq("空群 → 停", pick({ members: [] }), { kind: "quiet", reason: "empty" });
 
+/* ══ 话题燃料 ══ */
+console.log("\n── 换话题的燃料 ──");
+const DAY = 86400000;
+const now = Date.now();
+const mkMem = (id, text, o = {}) => ({
+  id, text, tag: "长期", weight: 0.6,
+  accessCount: 1, lastAccessed: now - 10 * DAY,
+  ...o,
+});
+
+eq("池子空了 → null（不硬凑）", C.pickFuel([], "随便聊聊"), null);
+eq("全都刚想起过 → null", C.pickFuel([mkMem("a", "x", { lastAccessed: now - DAY })], "聊天"), null);
+eq("accessCount 太高 → 排除", C.pickFuel([mkMem("a", "x", { accessCount: 9 })], "聊天"), null);
+eq("被忘掉了 → 排除", C.pickFuel([mkMem("a", "x", { forgotten: true })], "聊天"), null);
+
+const cands = [
+  mkMem("old", "他不吃香菜", { lastAccessed: now - 60 * DAY }),
+  mkMem("echo", "他说以后一定先跟我说一声", { lastAccessed: now - 5 * DAY }),
+  mkMem("mid", "今天海面很安静", { lastAccessed: now - 20 * DAY }),
+];
+const withEcho = C.pickFuel(cands, "他说以后一定会先跟我说一声的");
+eq("有呼应 → 优先呼应那条（哪怕没那么久）", withEcho && withEcho.id, "echo");
+
+const noEcho = C.pickFuel(cands, "完全不相关的一句话");
+eq("没呼应 → 越久越优先", noEcho && noEcho.id, "old");
+
 /* ══ sanitize：脏数据不能把 UI 搞崩 ══ */
 console.log("\n── 数据容错 ──");
 const S = await (async () => {

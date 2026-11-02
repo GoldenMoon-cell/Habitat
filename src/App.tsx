@@ -22,6 +22,7 @@ import {
   markWaitingForMe,
   maxRoundOf,
   parseMentions,
+  pickFuel,
   pickNext,
   readActivity,
   readRuntime,
@@ -1208,8 +1209,29 @@ export default function App() {
           /* 把此刻的状态也告诉模型 —— 让心情真的影响说话方式，
              而不是只在界面上画一条会动的线。 */
           const live = readDynamic(String(agent.id));
+          /*
+           * ── 这一轮还剩多少热度 ──
+           *
+           * `cooling` 时：
+           *   ① prompt 里告诉她「可以说完了，不用硬撑」
+           *   ② 额外塞一条**很久没想起的事**，给换话题一个真实落脚点
+           *
+           * 第二件是关键 —— 只让她「换话题」而没有东西可换，
+           * 她会憋出「那我们聊聊你最近怎么样吧」这种空转。
+           */
+          const convRt = readRuntime(String(target));
+          const heatBand = bandOf(heatOf(convRt));
+          const lastLine =
+            (threads[target] ?? []).slice(-1)[0]?.text ?? "";
+          const fuel =
+            heatBand === "open"
+              ? null
+              : pickFuel(loadMemories(String(target), false), lastLine);
+
           const sys = buildSystemPrompt(agent, {
             isGroup: isGroupId(target),
+            heatBand,
+            ...(fuel ? { fuel: { text: fuel.text, tag: fuel.tag } } : {}),
             roster,
             dynamic: { 心情: live.心情, 亲近: live.亲近 },
             /*

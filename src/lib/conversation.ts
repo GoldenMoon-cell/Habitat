@@ -349,6 +349,68 @@ export function resonates(topic: string, memory: string): boolean {
 }
 
 /* ══════════════════════════════════════════
+   换话题的燃料
+   ══════════════════════════════════════════ */
+
+export interface FuelCandidate {
+  id: string;
+  text: string;
+  tag: string;
+  weight: number;
+  accessCount?: number;
+  lastAccessed?: number;
+  forgotten?: boolean;
+}
+
+/** 多久没想起才算「久未想起」 */
+const FUEL_MIN_DAYS = 3;
+
+/**
+ * 挑一条「她很久没想起的事」。
+ *
+ * ── 为什么需要它 ──
+ *
+ * 热度降到 cooling 的时候，光告诉模型「可以收了」不够 ——
+ * 它没有别的东西可说，只会憋出一句「那我们聊聊你最近怎么样吧」。
+ *
+ * 给她一条**真实的旧事**，换话题才有落脚点。
+ *
+ * ── 选法 ──
+ *
+ *   1. 没被忘掉
+ *   2. 没怎么被提起过（accessCount <= 2）
+ *   3. 确实很久了（距上次想起 > 3 天）
+ *   4. **优先能呼应正在聊的话题**（过渡才无痕）
+ *   5. 都不呼应 → 越久越优先
+ *
+ * 找不到就返回 null —— **不要硬凑**。没有燃料就单纯地收尾。
+ */
+export function pickFuel<T extends FuelCandidate>(
+  list: T[],
+  topicText: string,
+  now = Date.now()
+): T | null {
+  const pool = list.filter((m) => {
+    if (m.forgotten) return false;
+    if ((m.accessCount ?? 0) > 2) return false;
+    const at = m.lastAccessed ?? 0;
+    if (!at) return false;
+    return now - at > FUEL_MIN_DAYS * 86_400_000;
+  });
+
+  if (pool.length === 0) return null;
+
+  /* 先找能呼应当前话题的 */
+  const echo = pool.filter((m) => resonates(topicText, m.text));
+  const pick = echo.length > 0 ? echo : pool;
+
+  /* 越久没想起越优先 */
+  return pick.reduce((best, m) =>
+    (m.lastAccessed ?? 0) < (best.lastAccessed ?? 0) ? m : best
+  );
+}
+
+/* ══════════════════════════════════════════
    活跃度
    ══════════════════════════════════════════ */
 
