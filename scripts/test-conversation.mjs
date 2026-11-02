@@ -176,6 +176,67 @@ ok("隔 8 小时 + 今天没发过 → 发", C.shouldShowQuiet({ round: 0, round
 ok("今天已经发过 → 不发", C.shouldShowQuiet({ round: 0, roundStartAt: 0, lastAiAt: 0, quietShownAt: Date.now() }, Date.now() - 8 * 3600000) === false);
 ok("文案池非空且都是动作描述", C.QUIET_LINES.length > 0 && C.QUIET_LINES.every((l) => l.startsWith("【")));
 
+/* ══ 潜意识闪回：必须不是「存档回溯」 ══ */
+console.log("\n── 潜意识闪回 ──");
+const F = await (async () => {
+  const OUT3 = path.join(ROOT, ".tmp-forgetting.mjs");
+  execSync(`npx esbuild src/lib/forgetting.ts --bundle --format=esm --platform=neutral --outfile="${OUT3}"`, { cwd: ROOT, stdio: "pipe" });
+  const m = await import(pathToFileURL(OUT3).href);
+  fs.unlinkSync(OUT3);
+  return m;
+})();
+
+const T0 = Date.now();
+const AGE = 400; // 天
+const mkM = (id, weight) => ({
+  id, conv: "c", time: "", text: "「流浪猫」在我们楼下", source: "对话", weight,
+  lastAccessed: T0 - AGE * 86400000, accessCount: 1, tag: "长期",
+  at: T0 - AGE * 86400000,
+});
+
+/*
+ * 用实测反推初始权重 —— 不猜衰减曲线。
+ * 阈值 0.2 之上的会被夹到 p=1（那就不叫「已淡」了），所以必须落到下面。
+ */
+const probe = F.effectiveWeight(mkM("probe", 0.6), T0);
+const factor = probe / 0.6;
+const wDeep = 0.13 / factor;  // 目标 ≈ 0.13
+const wNear = 0.197 / factor; // 目标 ≈ 0.197（贴着阈值）
+const deep = mkM("a", wDeep);
+const near = mkM("b", wNear);
+const wd = F.effectiveWeight(deep, T0);
+const wn = F.effectiveWeight(near, T0);
+
+ok(`造的数据确实「已淡」：埋深 ${wd.toFixed(3)} · 贴阈值 ${wn.toFixed(3)} · 阈值 ${F.MEMORY_THRESHOLD}`,
+   wd < F.MEMORY_THRESHOLD && wn < F.MEMORY_THRESHOLD);
+
+const realRandom = Math.random;
+const ASK = "楼下那只流浪猫还在吗";
+
+// ① 词没命中 → 掷不掷都不该醒
+Math.random = () => 0;
+eq("词没命中 → undefined", F.residueHit([deep], "今天天气不错", T0), undefined);
+
+// ② 命中 + 骰子给最小值 → 应该醒（证明门槛是 random < p）
+eq("命中 + random=0 → 醒", F.residueHit([deep], ASK, T0)?.id, "a");
+
+// ③ 命中 + 骰子给最大值 → **不该醒**（关键：不再是必中）
+Math.random = () => 0.9999999;
+eq("命中 + random≈1 → 不醒（不是存档回溯）", F.residueHit([deep], ASK, T0), undefined);
+
+// ④ 真实随机跑 400 次 —— 必须既有醒的也有没醒的
+Math.random = realRandom;
+let hits = 0;
+for (let i = 0; i < 400; i++) if (F.residueHit([deep], ASK, T0)) hits++;
+ok(`真实随机 400 次：醒 ${hits} 次 —— 既不是 0 也不是 400`, hits > 0 && hits < 400);
+
+// ⑤ 同一颗骰子：贴阈值的会醒，埋深的不会
+Math.random = () => 0.5;
+const nearAwake = !!F.residueHit([near], ASK, T0);
+const deepAwake = !!F.residueHit([deep], ASK, T0);
+ok(`random=0.5：贴阈值会醒（${nearAwake}）· 埋深不醒（${deepAwake}）`, nearAwake && !deepAwake);
+Math.random = realRandom;
+
 /* ══ sanitize：脏数据不能把 UI 搞崩 ══ */
 console.log("\n── 数据容错 ──");
 const S = await (async () => {

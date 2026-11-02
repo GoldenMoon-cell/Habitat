@@ -197,13 +197,46 @@ export function wakeWords(text: string): string[] {
  *
  * 用户刚说的话里，有没有触及某条**已经淡掉**的记忆。
  */
-export function residueHit(faded: Memory[], userText: string): Memory | undefined {
+export function residueHit(
+  faded: Memory[],
+  userText: string,
+  now = 0
+): Memory | undefined {
   if (!userText) return undefined;
+  const t = now || nowMs();
+
   for (const m of faded) {
-    for (const w of wakeWords(m.text)) {
-      if (w.length >= 2 && userText.includes(w)) return m;
-    }
+    /* 词没命中就连骰子都不用掷 */
+    const matched = wakeWords(m.text).some(
+      (w) => w.length >= 2 && userText.includes(w)
+    );
+    if (!matched) continue;
+
+    /*
+     * ── 掷一次骰子 ──
+     *
+     * 唤醒概率跟着**还剩多少权重**走。平方是为了让深埋的真的埋住：
+     *
+     *   0.19（刚淡下去）  → 0.90
+     *   0.10（淡了一半）  → 0.25
+     *   0.05（快没了）    → 0.06
+     *
+     * **不能是 100%。**
+     *
+     * 命中就一定想起来，那就不叫潜意识，叫**存档回溯** ——
+     * 玩家会学会「只要我提那个词，她就一定记得」，
+     * 于是遗忘曲线、海马体、皮层那一整套全成了摆设。
+     *
+     * 现在：她可能想起来，也可能想不起来。
+     * **正因为可能想不起来，想起来的时候才像真的。**
+     */
+    const w = effectiveWeight(m, t);
+    const p = Math.min(1, Math.max(0, w / MEMORY_THRESHOLD)) ** 2;
+    if (Math.random() < p) return m;
+
+    /* 这条没醒 —— 继续看下一条。可能有别的事更容易想起来 */
   }
+
   return undefined;
 }
 
