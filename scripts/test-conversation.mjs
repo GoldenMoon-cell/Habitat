@@ -96,6 +96,13 @@ const justSpoke = C.desireOf({
 ok(`刚说过 → 比没说过低（${justSpoke.toFixed(2)}）`, justSpoke < hot);
 
 console.log("\n── 选人 ──");
+/*
+ * 关掉连发骰子 —— 这一整段测的是「意愿 / 点名」，
+ * 而连发有 25% 概率抢在前面，会让断言随机失败。
+ * 「连发」自己那一段会把骰子换成 0 或 0.99。
+ */
+const _realRandomPick = Math.random;
+Math.random = () => 0.99;
 mem.clear(); /* 清掉上一段留下的 @ 链，否则会污染「点名」用例 */
 const mk = (id, name) => ({ id, name, handle: `@${id}` });
 
@@ -182,6 +189,7 @@ ok("文案池非空且都是动作描述", C.QUIET_LINES.length > 0 && C.QUIET_L
 
 /* ══ 潜意识闪回：必须不是「存档回溯」 ══ */
 console.log("\n── 潜意识闪回 ──");
+Math.random = _realRandomPick; /* 前面几段把骰子换过，这里换回来 */
 const F = await (async () => {
   const OUT3 = path.join(ROOT, ".tmp-forgetting.mjs");
   execSync(`npx esbuild src/lib/forgetting.ts --bundle --format=esm --platform=neutral --outfile="${OUT3}"`, { cwd: ROOT, stdio: "pipe" });
@@ -243,6 +251,7 @@ Math.random = realRandom;
 
 /* ══ 连发 ══ */
 console.log("\\n── 连发（一个人连着说）──");
+Math.random = _realRandomPick;
 mem.clear();
 const mkSpeak = (over) => C.pickNext({
   conv: "g", members: [mk("a","鲸鲸"), mk("b","澜汐")],

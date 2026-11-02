@@ -649,8 +649,18 @@ export function pickNext(i: PickInput): PickResult {
    *
    * 连发不是「更想说话」，是**一句话没说完**。
    */
-  const streak = i.runtime.lastSpeaker === i.lastSpeakerId ? (i.runtime.streak ?? 0) : 0;
-  if (streak < MAX_STREAK && Math.random() < CONTINUE_CHANCE) {
+  /*
+   * 两个条件都要满足才允许连发：
+   *   ① 运行时记的「上一个人」确实是眼前这个 lastSpeakerId
+   *   ② 他还没连着说到上限
+   *
+   * 第 ① 条不能省 —— 正常流程下两者总是一致，
+   * 但数据不同步（旧存档 / 切换会话）时会不一致，
+   * 那时候会莫名其妙让一个已经不算「刚说过」的人补一句。
+   */
+  const sameSpeaker = i.runtime.lastSpeaker === i.lastSpeakerId;
+  const streak = sameSpeaker ? (i.runtime.streak ?? 0) : 0;
+  if (sameSpeaker && streak < MAX_STREAK && Math.random() < CONTINUE_CHANCE) {
     const last = i.members.find((m) => String(m.id) === i.lastSpeakerId);
     if (last) return { kind: "speak", persona: last, via: "continue" };
   }
