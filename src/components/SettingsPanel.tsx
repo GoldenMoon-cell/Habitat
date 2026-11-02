@@ -19,6 +19,7 @@ import { verify } from "../lib/awakenLedger";
 import { loadPersonas } from "../data/personaStore";
 import { CHANNELS, checkUpdate, openRelease, readChannel, saveChannel, type UpdateResult } from "../lib/update";
 import { readActivity, saveActivity, type Activity } from "../lib/conversation";
+import { readJudgeConfig, saveJudgeConfig } from "../lib/judge";
 import { applyArchive, collectArchive, parseArchive } from "../lib/archive";
 
 /**
@@ -90,6 +91,9 @@ export default function SettingsPanel({
 
   /* 群聊活跃度 —— 决定一轮最多几个 AI 连续说话 */
   const [activity, setActivity] = useState<Activity>(() => readActivity());
+
+  /* 判断模型 —— 默认关闭 */
+  const [judgeCfg, setJudgeCfg] = useState(() => readJudgeConfig());
 
   /*
    * 检查更新。
@@ -326,6 +330,44 @@ export default function SettingsPanel({
                   <div className="mt-1.5 font-mono text-[9px] leading-relaxed text-mist/26">
                     这两条会进她的人格提示。留空也行 —— 印象会从对话里长出来。
                   </div>
+                </div>
+              </div>
+
+              {/* ── 判断模型（可选增强） ── */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="label">群聊判断模型</span>
+                  <button
+                    onClick={() => {
+                      const next = { ...judgeCfg, enabled: !judgeCfg.enabled };
+                      setJudgeCfg(next);
+                      saveJudgeConfig(next);
+                    }}
+                    className={`rounded-[6px] border px-2 py-[3px] font-mono text-[9.5px] transition-colors ${
+                      judgeCfg.enabled
+                        ? "border-biolum/40 bg-biolum/[0.08] text-biolum"
+                        : "border-white/[0.08] text-mist/45 hover:border-white/[0.16]"
+                    }`}
+                  >
+                    {judgeCfg.enabled ? "已开启" : "已关闭"}
+                  </button>
+                </div>
+                {judgeCfg.enabled && (
+                  <input
+                    value={judgeCfg.model ?? ""}
+                    onChange={(e) => {
+                      const next = { ...judgeCfg, model: e.target.value };
+                      setJudgeCfg(next);
+                      saveJudgeConfig(next);
+                    }}
+                    placeholder="判断用的模型名（留空 = 用角色自己的）"
+                    className="mb-1.5 w-full rounded-[6px] border border-white/[0.08] bg-transparent px-2 py-1.5 font-mono text-[10px] text-mist/70 outline-none focus:border-biolum/40"
+                  />
+                )}
+                <div className="text-[10px] leading-[1.6] text-mist/36">
+                  打开后每轮多一次模型调用，由它判断「该不该说话、该谁」。
+                  <br />
+                  连不上就自动退回本地规则，不会报错。
                 </div>
               </div>
 

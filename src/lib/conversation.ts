@@ -497,6 +497,38 @@ export function saveActivity(a: Activity) {
   }
 }
 
+/**
+ * 按意愿把候选人排好序。
+ *
+ * ── 为什么单独抽出来 ──
+ *
+ * 规则版和判断模型必须看**同一批人**。如果各算各的，
+ * 就会出现「规则说澜汐分最高，判断模型却说鲸鲸」而两边都自认有理。
+ *
+ * 所以：本地算分 → 排序 → 取前 N → 交给判断模型当候选。
+ * 判断模型只能在这一批里挑，挑不出去。
+ */
+export function rankCandidates(
+  i: PickInput,
+  limit = 3
+): { persona: Persona; desire: number }[] {
+  return i.members
+    .filter((p) => String(p.id) !== i.lastSpeakerId || i.members.length === 1)
+    .map((p) => ({
+      persona: p,
+      desire: desireOf({
+        persona: p,
+        dynamic: i.dynamicOf(String(p.id)),
+        idleMin: i.idleMinutes(String(p.id)),
+        mentioned: i.lastText.includes(p.name),
+        memoryEcho: i.echoOf(String(p.id)),
+        justSpoke: String(p.id) === i.lastSpeakerId,
+      }),
+    }))
+    .sort((a, b) => b.desire - a.desire)
+    .slice(0, limit);
+}
+
 /* ══════════════════════════════════════════
    选人
    ══════════════════════════════════════════ */

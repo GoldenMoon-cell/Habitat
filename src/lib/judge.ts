@@ -275,3 +275,61 @@ export async function judge(
     return null;
   }
 }
+
+/* ══════════════════════════════════════════
+   配置
+   ══════════════════════════════════════════ */
+
+const CONFIG_KEY = "3w:judge-model";
+
+export interface JudgeConfig {
+  enabled: boolean;
+  /** 用哪套凭据。空 = 用角色自己的 */
+  credentialId?: string;
+  /** 用哪个模型。空 = 用凭据里第一个 */
+  model?: string;
+}
+
+export const JUDGE_DEFAULT: JudgeConfig = { enabled: false };
+
+/**
+ * **默认关闭。**
+ *
+ * 打开之后每轮多一次调用；关着的时候走规则版，
+ * 判得粗一点，但永远是活的。
+ */
+export function readJudgeConfig(): JudgeConfig {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (!raw) return JUDGE_DEFAULT;
+    const p = JSON.parse(raw);
+    return {
+      enabled: p?.enabled === true,
+      ...(typeof p?.credentialId === "string" ? { credentialId: p.credentialId } : {}),
+      ...(typeof p?.model === "string" ? { model: p.model } : {}),
+    };
+  } catch {
+    return JUDGE_DEFAULT;
+  }
+}
+
+export function saveJudgeConfig(c: JudgeConfig) {
+  try {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(c));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * 从判断结果里挑出燃料正文。
+ *
+ * 拿不到就返回 null —— **不要退回去用第一条**，那等于绕过候选机制。
+ */
+export function fuelOf(
+  r: JudgeResult | null,
+  fuels: JudgeFuel[]
+): JudgeFuel | null {
+  if (!r || !r.fuelId) return null;
+  return fuels.find((f) => f.id === r.fuelId) ?? null;
+}

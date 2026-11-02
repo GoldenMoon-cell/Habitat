@@ -24,6 +24,7 @@ import {
   markQuietShown,
   parseMentions,
   pickFuel,
+  rankCandidates,
   pickQuietLine,
   shouldShowQuiet,
   pickNext,
@@ -65,6 +66,7 @@ import { clearThreads, loadThreads, saveThreads, threadsSizeKB } from "./data/th
 import { estimateTokens, sumTokensK } from "./lib/tokens";
 import { chat, chatViaMain, hasMainProcessLlm, probeOllama, type ChatMsg, type LLMProbe } from "./lib/llm";
 import { buildHistory, buildSystemPrompt, trimToBudget } from "./lib/prompt";
+import { judge, fuelOf, readJudgeConfig, type JudgeCandidate, type JudgeFuel } from "./lib/judge";
 import { learnFromError } from "./lib/contextWindow";
 import { NEUTRAL, commitDynamic, readDynamic, tick } from "./lib/dynamic";
 import { defaultPersonas } from "./data/personaStore";
@@ -1602,6 +1604,41 @@ export default function App() {
   );
 
   /*
+   * ══ 判断模型的调用适配器 ══
+   *
+   * 只负责「把 messages 发出去，拿回一段文本」。
+   * 校验、降级、超时全在 `lib/judge.ts` 里 —— 这里保持薄。
+   *
+   * 用的是判断模型自己的配置：credentialId 和 model 都没填时，
+   * 退回**说话者自己的凭据**（同一套 Key，换个便宜的模型名）。
+   */
+  const callJudge = useCallback(
+    async (msgs: ChatMsg[], fallbackCredId?: string): Promise<string> => {
+      const cfg = readJudgeConfig();
+      const model =
+        cfg.model ||
+        resolveCredential("", fallbackCredId)?.models?.[0]?.id ||
+        "";
+      const cred = resolveCredential(model, cfg.credentialId ?? fallbackCredId);
+      if (!cred || !model) throw new Error("判断模型没有可用凭据");
+
+      const req = {
+        model,
+        messages: msgs,
+        baseUrl: cred.baseUrl,
+        apiKey: cred.apiKey,
+        temperature: 0, /* 判断要稳定，不要发散 */
+        maxTokens: 300,
+      };
+      const iter = hasMainProcessLlm() ? chatViaMain(req) : chat(req);
+      let out = "";
+      for await (const chunk of iter) out += chunk;
+      return out;
+    },
+    []
+  );
+
+  /*
    * ══ 对话循环：一条说完之后，下一个人要不要接 ══
    *
    * 这是「AI 之间能互动」的传动轴。三条约束：
@@ -1646,7 +1683,7 @@ export default function App() {
       if (autoTimer.current) window.clearTimeout(autoTimer.current);
 
       const scheduledAt = Date.now();
-      autoTimer.current = window.setTimeout(() => {
+      autoTimer.current = window.setTimeout(async () => {
         autoTimer.current = null;
         try {
 
@@ -1702,7 +1739,88 @@ export default function App() {
           return;
         }
 
-          void scheduleReply(target, String(picked.persona.id) as never);
+          /*
+           * ── 判断模型介入 ──
+           *
+           * 规则已经算出「有人想说话，而且是他」。
+           * 判断模型在这个基础上再问两件事：
+           *
+           *   ① 现在**真的**该有人说话吗（它可以否决）
+           *   ② 该谁 —— 在本地排好的前 3 里挑
+           *
+           * **它不能凭空造人，也不能让本来不想说话的人开口。**
+           * 那不是增强，那是换了一套判据。
+           *
+           * 调用失败 / 超时 / 返回垃圾 → 用规则的结果，不报错。
+           */
+          const cfg = readJudgeConfig();
+          /* 别叫 speakerId —— 那是函数参数（上一个人说的话），会遮住它 */
+          let chosenId = String(picked.persona.id);
+
+          if (cfg.enabled) {
+            const ranked = rankCandidates({
+              conv: String(target),
+              members,
+              runtime: latest,
+              maxRound,
+              lastText: text,
+              lastSpeakerId: speakerId,
+              idleMinutes: (id) => idleMinutesOf(latest, id),
+              dynamicOf: (id) => {
+                const d = readDynamic(id);
+                return d ? { 心情: d.心情, 亲近: d.亲近 } : undefined;
+              },
+              echoOf: (id) => {
+                const ms = loadMemories(id, false).slice(0, 6);
+                return ms.some((m) => resonates(text, m.text));
+              },
+            });
+
+            const heatBand = bandOf(heatOf(latest));
+
+            const cands: JudgeCandidate[] = ranked.map((r) => ({
+              id: String(r.persona.id),
+              name: r.persona.name,
+              desire: r.desire,
+              ...(r.persona.tagline ? { gist: r.persona.tagline } : {}),
+            }));
+
+            const fuelPool: JudgeFuel[] = loadMemories(String(target), false)
+              .filter((m) => !m.forgotten)
+              .slice(0, 3)
+              .map((m) => ({ id: m.id, text: m.text, tag: m.tag }));
+
+            const verdict = await judge(
+              {
+                candidates: cands,
+                recent: (threads[target] ?? [])
+                  .slice(-6)
+                  .map((m) => ({
+                    who: m.author === "me" ? ownerName() : String(personaMap[String(m.author)]?.name ?? m.author),
+                    text: m.text ?? "",
+                  }))
+                  .filter((m) => m.text),
+                fuels: fuelPool,
+                heatBand,
+                ownerName: ownerName(),
+              },
+              { call: (msgs) => callJudge(msgs, personaMap[chosenId]?.credentialId) }
+            );
+
+            if (verdict) {
+              if (!verdict.speak) {
+                /* 它说「这时候不该有人说话」—— 听它的，这轮到此为止 */
+                console.debug("[3W] 判断模型叫停:", `heat=${heatOf(latest)}`);
+                return;
+              }
+              if (verdict.who && cands.some((c) => c.id === verdict.who)) {
+                chosenId = verdict.who;
+              }
+            }
+            /* verdict 为 null = 调用失败，静默用规则的结果 */
+          }
+
+          void scheduleReply(target, chosenId as never);
         } catch (e) {
           /*
            * 定时器里单独包一层：这一段的异常最容易消失 ——
