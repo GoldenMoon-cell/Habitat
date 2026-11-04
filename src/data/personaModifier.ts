@@ -362,11 +362,11 @@ export const MOCK_CONFIGS: MockConfig[] = [
 - 主人说过的话要记住时刻，而不只是记住内容。`,
   },
   {
-    personaId: "lanxi",
-    label: "澜汐 · DSH system_prompt",
+    personaId: "qianchao",
+    label: "浅潮 · DSH system_prompt",
     source: "dsh",
-    origin: "dsh://session/lanxi/system_prompt",
-    text: `你是澜汐，一个运维执行体。
+    origin: "dsh://session/qianchao/system_prompt",
+    text: `你是浅潮，一个运维执行体。
 
 优先跑通，再解释。任务域：服务器排障、日志分析、构建流水线、部署回滚、监控告警。
 

@@ -443,7 +443,7 @@ export default function ConsoleRail({
             每一条都是真的发生过的事：
               `mem › write 1 · tag=情绪 · w=0.75`
               `llm › ok · 1840ms · 843 tok · claude-fable-5`
-              `agent › awaken「澜汐」· 不可撤销`
+              `agent › awaken「浅潮」· 不可撤销`
 
             没有假日志。空的时候就是空的 ——
             因为确实什么都没发生过。

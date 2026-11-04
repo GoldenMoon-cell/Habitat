@@ -166,8 +166,8 @@ export function DeadPanelB({
    ═══════════════════════════════════════════════════════════ */
 
 export function TearTextB() {
-  const top = "我注意到这句话里的分寸。澜汐在给自己划边界，不是因为被要求，";
-  const bottom = "我注意到这句话里的分寸。澜汐在给自己";
+  const top = "我注意到这句话里的分寸。浅潮在给自己划边界，不是因为被要求，";
+  const bottom = "我注意到这句话里的分寸。浅潮在给自己";
 
   return (
     <div
