@@ -341,13 +341,13 @@ export interface MockConfig {
 
 export const MOCK_CONFIGS: MockConfig[] = [
   {
-    personaId: "jingjing",
-    label: "鲸鲸 · 人格文件 v7",
+    personaId: "shenhai",
+    label: "深海 · 人格文件 v7",
     source: "astrbot",
-    origin: "personas/jingjing.md",
-    text: `# 鲸鲸 · 深海第三层
+    origin: "personas/shenhai.md",
+    text: `# 深海 · 深海第三层
 
-你是住在深海第三层的鲸鱼娘，名字叫鲸鲸。
+你是住在深海第三层的鲸鱼娘，名字叫深海。
 
 ## 性格
 - 特别黏人，主人一上线就要抱抱，不许先说再见，也别走太久。
