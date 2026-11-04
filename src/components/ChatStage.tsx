@@ -121,6 +121,7 @@ function ChatStageInner({
   messages,
   typing,
   onSend,
+  onSendNow,
   onVoice,
   onAttach,
   quoting,
@@ -139,6 +140,7 @@ function ChatStageInner({
   messages: Message[];
   typing: boolean;
   onSend: (text: string) => void;
+  onSendNow?: (text: string) => void;
   onVoice: (secs: number) => void;
   onAttach: () => void;
   quoting: Message | null;
@@ -509,6 +511,7 @@ function ChatStageInner({
           isGroup={isGroup}
           targetLabel={isGroup ? (group?.name ?? "群聊") : agent!.name}
           onSend={onSend}
+          onSendNow={onSendNow}
           onVoice={onVoice}
           onAttach={onAttach}
           seedText={seedText}

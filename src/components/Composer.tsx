@@ -12,6 +12,7 @@ export default function Composer({
   targetLabel,
   isGroup,
   onSend,
+  onSendNow,
   onVoice,
   onAttach,
   quoting,
@@ -24,6 +25,8 @@ export default function Composer({
   targetLabel: string;
   isGroup: boolean;
   onSend: (text: string) => void;
+  /** Ctrl/Cmd + Enter —— 不等待发窗口，立刻送出去 */
+  onSendNow?: (text: string) => void;
   onVoice: (seconds: number) => void;
   onAttach: () => void;
   /** 正在引用的消息（发送时写进 replyTo） */
@@ -108,6 +111,16 @@ export default function Composer({
     const v = text.trim();
     if (!v) return;
     onSend(v);
+    setText("");
+    setMention(null);
+    requestAnimationFrame(() => taRef.current?.focus());
+  };
+
+  /* Ctrl/Cmd + Enter —— 不建待发，立刻送出去 */
+  const submitNow = () => {
+    const v = text.trim();
+    if (!v || !onSendNow) return;
+    onSendNow(v);
     setText("");
     setMention(null);
     requestAnimationFrame(() => taRef.current?.focus());
@@ -266,7 +279,9 @@ export default function Composer({
             }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              submit();
+              // Ctrl（Win/Linux）或 Cmd（mac）→ 绕过待发窗口
+              if ((e.ctrlKey || e.metaKey) && onSendNow) submitNow();
+              else submit();
             }
           }}
           rows={1}
@@ -294,7 +309,7 @@ export default function Composer({
           <span className="mx-1 h-3 w-px bg-white/8" />
 
           <span className="hidden font-mono text-[10px] text-mist/46 sm:inline">
-            Enter 发送 · Shift+Enter 换行
+            Enter 发送 · Shift+Enter 换行 · Ctrl+Enter 立即
           </span>
 
           <div className="ml-auto flex items-center gap-1.5">

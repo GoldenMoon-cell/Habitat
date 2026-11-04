@@ -2283,7 +2283,7 @@ export default function App() {
   const sentOnce = useRef(false);
 
   const handleSend = useCallback(
-    (text: string) => {
+    (text: string, forceInstant = false) => {
       /*
        * 说话之前先清一遍到期的预定。
        *
@@ -2325,19 +2325,6 @@ export default function App() {
       }
 
       /*
-       * 有未提交的那条 + 这次按了个空的 Enter
-       *   → 立即发出，不新建消息。
-       *
-       * 这是「再按一次回车」的语义。输入框通常已经空了，
-       * 所以判断 `!text.trim()` 就够 —— 用户想边说边发时会重新打字，
-       * 那时走下面的正常路径，待定的那条会在 6 秒后自己发。
-       */
-      if (pendingSend.current && !text.trim()) {
-        commitPending();
-        return;
-      }
-
-      /*
        * 有新内容要发 —— 先把上一条待定的结掉。
        *
        * 否则会出现两条同时在等，顺序就乱了。
@@ -2356,12 +2343,13 @@ export default function App() {
        * 撤回它 = 从消息列表里删掉 + 清掉 timer，她收不到任何东西。
        */
       /*
-       * 即时模式：不建待发，直接发。
+       * 两种「立刻发」：
+       *   · 设置里选了「立即发送」（默认）
+       *   · Ctrl/Cmd + Enter 强制跳过待发窗口
        *
-       * 用户自己在设置里选的 —— 没有撤回窗口，按下去她就收到了。
        * 每次发送读一次 localStorage（不是每帧），改了设置能立刻生效。
        */
-      if (readSendMode() === "instant") {
+      if (forceInstant || readSendMode() === "instant") {
         pendingSend.current = null;
         setPendingId(null);
         enqueueReply(conv, mentioned?.id);
@@ -2867,6 +2855,7 @@ export default function App() {
           messages={threads[conv] ?? []}
           typing={typing === conv}
           onSend={handleSend}
+          onSendNow={(v) => handleSend(v, true)}
           onVoice={handleVoice}
           onAttach={handleAttach}
           quoting={quoting}
