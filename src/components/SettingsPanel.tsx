@@ -20,6 +20,7 @@ import { loadPersonas } from "../data/personaStore";
 import { CHANNELS, checkUpdate, openRelease, readChannel, saveChannel, type UpdateResult } from "../lib/update";
 import { readActivity, saveActivity, type Activity } from "../lib/conversation";
 import { readJudgeConfig, saveJudgeConfig } from "../lib/judge";
+import { readSendMode, saveSendMode, SEND_DELAY_MS, type SendMode } from "../lib/sendDelay";
 import { applyArchive, collectArchive, parseArchive } from "../lib/archive";
 
 /**
@@ -91,6 +92,9 @@ export default function SettingsPanel({
 
   /* 群聊活跃度 —— 决定一轮最多几个 AI 连续说话 */
   const [activity, setActivity] = useState<Activity>(() => readActivity());
+
+  /* 发送模式 —— 默认等 6 秒，可撤回 */
+  const [sendMode, setSendMode] = useState<SendMode>(() => readSendMode());
 
   /* 判断模型 —— 默认关闭 */
   const [judgeCfg, setJudgeCfg] = useState(() => readJudgeConfig());
@@ -404,6 +408,43 @@ export default function SettingsPanel({
                 </div>
                 <div className="mt-1.5 text-[10px] leading-[1.6] text-mist/36">
                   你每说一句，轮次归零。这个数字决定 AI 之间最多连着说几句。
+                </div>
+              </div>
+
+              {/* ── 发送模式 ── */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="label">发送方式</span>
+                  <span className="font-mono text-[9.5px] text-mist/45">
+                    {sendMode === "instant" ? "立即" : `${SEND_DELAY_MS / 1000} 秒`}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  {([
+                    { k: "delayed" as const, label: "等一下", hint: "发出去后 6 秒才真的送到。这期间可以撤回，她收不到任何东西" },
+                    { k: "instant" as const, label: "按了就发", hint: "回车即发送，没有撤回窗口" },
+                  ]).map((m) => (
+                    <button
+                      key={m.k}
+                      onClick={() => {
+                        setSendMode(m.k);
+                        saveSendMode(m.k);
+                      }}
+                      title={m.hint}
+                      className={`rounded-[6px] border px-2 py-1.5 text-[10.5px] transition-colors ${
+                        sendMode === m.k
+                          ? "border-biolum/40 bg-biolum/[0.08] text-biolum"
+                          : "border-white/[0.08] text-mist/55 hover:border-white/[0.16]"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-1.5 text-[10px] leading-[1.6] text-mist/36">
+                  {sendMode === "delayed"
+                    ? "消息先留在你这边。按一次空回车可以立刻发出。"
+                    : "没有撤回窗口 —— 按下去她就收到了。"}
                 </div>
               </div>
 

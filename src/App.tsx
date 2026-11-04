@@ -34,6 +34,7 @@ import {
   resonates,
 } from "./lib/conversation";
 import { recordCall } from "./lib/usage";
+import { readSendMode, SEND_DELAY_MS } from "./lib/sendDelay";
 import { DEFAULT_APP_NAME, readAppName, saveAppName } from "./lib/appName";
 import { isCreator, readMode, subscribeMode } from "./lib/mode";
 import { subscribeClock, timeOffset, timeOffsetLabel } from "./lib/clock";
@@ -2354,11 +2355,24 @@ export default function App() {
        * 期间这条消息在界面上是「待定」的 —— 半透明 + 一个环形倒计时。
        * 撤回它 = 从消息列表里删掉 + 清掉 timer，她收不到任何东西。
        */
+      /*
+       * 即时模式：不建待发，直接发。
+       *
+       * 用户自己在设置里选的 —— 没有撤回窗口，按下去她就收到了。
+       * 每次发送读一次 localStorage（不是每帧），改了设置能立刻生效。
+       */
+      if (readSendMode() === "instant") {
+        pendingSend.current = null;
+        setPendingId(null);
+        enqueueReply(conv, mentioned?.id);
+        return;
+      }
+
       const timer = window.setTimeout(() => {
         pendingSend.current = null;
         setPendingId(null);
         enqueueReply(conv, mentioned?.id);
-      }, 6000);
+      }, SEND_DELAY_MS);
 
       pendingSend.current = { id, conv, mentionedId: mentioned?.id, timer };
       setPendingId(id);
