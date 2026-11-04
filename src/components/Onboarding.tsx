@@ -245,16 +245,18 @@ export default function Onboarding({
                 <span className="text-ink/80"> 你上次离开时的样子 </span>。
               </p>
 
-              {/* 测试版声明 —— 第一次打开就该看见，不能只写在 README 里 */}
-              <div className="mt-4 rounded-md border border-amber-500/25 bg-amber-500/[0.06] px-3.5 py-3">
-                <div className="text-[11px] font-medium text-amber-300/85">
-                  ⚠ 这是测试版
+              {/* 实验性构建声明 —— 第一次打开就该看见，不能只写在 README 里 */}
+              <div className="mt-4 rounded-md border border-amber-500/22 bg-amber-500/[0.05] px-3.5 py-3">
+                <div className="text-[11px] font-medium tracking-[0.02em] text-amber-300/80">
+                  ⚠ 实验性构建 · 深渊测试
                 </div>
-                <div className="mt-1.5 text-[10.5px] leading-[1.75] text-mist/55">
-                  长对话、跨天记忆、多人场景都<strong className="text-ink/70">还没验过</strong>，
-                  可能卡住、记错、或行为前后不一致。
-                  <br />
-                  重要对话别只存在这里 —— 没有云同步，本地文件没了就没了。
+                <div className="mt-1.5 text-[10.5px] leading-[1.75] text-mist/50">
+                  跨天记忆、20 轮以上长对话、3 个以上角色的并发社交 ——
+                  这三样还没经过长程验证。可能出现逻辑错乱、记忆错记、或行为崩坏。
+                </div>
+                <div className="mt-1.5 text-[10.5px] leading-[1.75] text-mist/38">
+                  深渊不留底。本作无云端同步，本地数据即为唯一物理现实。
+                  <span className="text-mist/55"> 重要的事，别只存在这里。</span>
                 </div>
               </div>
 
