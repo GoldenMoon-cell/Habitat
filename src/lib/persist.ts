@@ -58,6 +58,51 @@ export const DATA_KEYS = [
   "3w:usage-daily",
   "3w:app-name",
   "3w:rail-collapsed",
+  /*
+   * ── 第三批：不可逆的历史 ──
+   *
+   * 这一批比前面都重。前面漏的是「配置」，这一批漏的是**发生过的事**。
+   *
+   * 3w:graveyard     墓碑。埋过的每个人、每一代、每次的关键词。
+   *                  丢了等于所有死过的人没死过 —— 而这是回不来的。
+   * 3w:deadline      预定事件（角色说「三天后告诉你」）。
+   * 3w:conv-runtime  对话轮次 / 等待状态 / 谁刚说过话。
+   * 3w:name-history  改名历史。旧名字还能把她叫醒，靠的就是它。
+   * 3w:mention-chain 互 @ 防死循环链。
+   * 3w:time-offset   时间机器。丢了「三个月后」会跳回今天。
+   * 3w:last-real-time 时间机器的基准点，和上面一条必须成对。
+   * 3w:quick-scripts 快捷剧本。
+   * 3w:persona-seq   角色序号（新角色 id 从这来）。
+   * 3w:judge-model   判断模型配置。
+   * 3w:group-activity 群聊活跃度。
+   * 3w:tts           语音配置。
+   */
+  "3w:graveyard",
+  "3w:deadline",
+  "3w:conv-runtime",
+  "3w:name-history",
+  "3w:mention-chain",
+  "3w:time-offset",
+  "3w:last-real-time",
+  "3w:quick-scripts",
+  "3w:persona-seq",
+  "3w:judge-model",
+  "3w:group-activity",
+  "3w:tts",
+  /*
+   * 剩下这几个是「开关」和「提示过没有」—— 丢了不致命，
+   * 但恢复后会重复弹已经关掉的提示，不如一起存。
+   *
+   * 刻意不进清单的三个：
+   *   3w:boot / 3w:memories-changed / 3w:scripts-changed
+   *   它们是派生状态（启动标记、变更序号），重建即可，存了反而可能不一致。
+   */
+  "3w:send-mode",
+  "3w:muted",
+  "3w:notify",
+  "3w:phantom-seen",
+  "3w:rightclick-hinted",
+  "3w:update-channel",
 ] as const;
 
 export const EXPORT_FORMAT = 1;

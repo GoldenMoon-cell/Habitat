@@ -7,6 +7,11 @@
  * 墓碑埋错了、账本被改、上下文算错导致对话崩 —— 都不可逆。
  */
 
+
+/* 需要 ts 解析钩子（forgetting.ts 有运行时 import 无扩展名）。
+   直接跑用：npm run test:ts
+   不这么跑会 ERR_MODULE_NOT_FOUND —— 不是断言失败。 */
+
 let pass = 0, fail = 0;
 const t = (name, fn) => {
   try { fn(); pass++; console.log(`  ✅ ${name}`); }

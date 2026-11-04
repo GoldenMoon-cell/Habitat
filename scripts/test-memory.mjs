@@ -9,9 +9,14 @@
  * 但它们是纯函数 —— 灌时间、灌句子就能验。
  */
 
-import { effectiveWeight, isConsolidated, shouldConsolidate, isFaded,
-         MEMORY_THRESHOLD, CONSOLIDATE_AT } from "../src/lib/forgetting.ts";
-import { extract } from "../src/lib/extract.ts";
+const { effectiveWeight, isConsolidated, shouldConsolidate, isFaded,
+        MEMORY_THRESHOLD, CONSOLIDATE_AT } = await import("../src/lib/forgetting.ts");
+const { extract } = await import("../src/lib/extract.ts");
+
+
+/* 需要 ts 解析钩子（forgetting.ts 有运行时 import 无扩展名）。
+   直接跑用：npm run test:ts
+   不这么跑会 ERR_MODULE_NOT_FOUND —— 不是断言失败。 */
 
 let pass = 0, fail = 0;
 const t = (name, fn) => {
