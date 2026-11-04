@@ -94,10 +94,28 @@ function readRaw(): ApiCredential[] {
   }
 }
 
+/*
+ * 写入串行化。
+ *
+ * persistEncrypted 要等加密（异步、走主进程），所以保存不是同步完成的。
+ * 用户连着改两次凭据时，两次保存会并行跑 —— **先启动的可能后完成，
+ * 于是把新值覆盖成旧值。** 改个 Key 看起来没生效，就是这个。
+ *
+ * 两条规矩：
+ *   ① 排队 —— 同一时刻只跑一次写
+ *   ② 只写最新的 —— 轮到时如果已经有更新的请求，这次直接跳过
+ */
+let writeChain: Promise<void> = Promise.resolve();
+let writeSeq = 0;
+
 /** 异步：加密后写回 localStorage。密文进磁盘，明文只在内存 */
 function persistEncrypted(list: ApiCredential[]) {
   const d = typeof window !== "undefined" ? window.desktop : undefined;
-  void (async () => {
+  const seq = ++writeSeq;
+
+  writeChain = writeChain.then(() => (async () => {
+    /* 轮到我之前已经有更新的请求了 —— 这次要写的东西已经过期 */
+    if (seq !== writeSeq) return;
     const out: ApiCredential[] = [];
     for (const c of list) {
       const copy = { ...c };
@@ -117,7 +135,9 @@ function persistEncrypted(list: ApiCredential[]) {
     } catch {
       /* 配额满 */
     }
-  })();
+  })()).catch(() => {
+    /* 一次写失败不该让后面的写全卡死 —— 链要能继续走 */
+  });
 }
 
 /**

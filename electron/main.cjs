@@ -699,13 +699,48 @@ ipcMain.handle("data:persist", async (_e, bundle) => {
 
 ipcMain.handle("data:read", async () => {
   ensureDataDir();
+
+  const parseFile = (p) => {
+    try {
+      return JSON.parse(fs.readFileSync(p, "utf8"));
+    } catch {
+      return null;
+    }
+  };
+
   const cur = path.join(DATA_DIR, "current.json");
-  if (!fs.existsSync(cur)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(cur, "utf8"));
-  } catch {
-    return null;
+  if (fs.existsSync(cur)) {
+    const d = parseFile(cur);
+    if (d) return d;
+    /*
+     * current.json 存在但读不出来 —— 多半是上次写入被中断（断电 / 强退），
+     * 文件被截断了。
+     *
+     * 这时**不能当成「没有数据」**：下面还有每日备份。
+     * 以前的实现直接 return null，等于用户的所有东西凭空消失。
+     */
+    console.warn("[data] current.json 损坏，尝试每日备份");
   }
+
+  /* 退回最新的每日备份（文件名带日期，倒序第一个就是最新的） */
+  try {
+    const baks = fs
+      .readdirSync(DATA_DIR)
+      .filter((f) => /^backup-\d{4}-\d{2}-\d{2}\.json$/.test(f))
+      .sort()
+      .reverse();
+    for (const b of baks) {
+      const d = parseFile(path.join(DATA_DIR, b));
+      if (d) {
+        console.warn(`[data] 已从备份恢复：${b}`);
+        return d;
+      }
+    }
+  } catch {
+    /* 目录读不出来，走下面的 return null */
+  }
+
+  return null;
 });
 
 ipcMain.handle("data:dir", async () => {

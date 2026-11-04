@@ -750,14 +750,25 @@ export default function App() {
   }, [engine]);
 
   const timers = useRef<number[]>([]);
+  /*
+   * 剧本自己的一袋定时器。
+   *
+   * 不能和 timers 混 —— scheduleReply 开头会清空 timers（那是「新一轮开始，
+   * 取消上一轮的待发气泡」），而剧本是**一次排 N 个成员的回复**。
+   * 混在一起的话，第一个成员触发时就把后面 N-1 个全清了，
+   * 结果只有第一个人回话。
+   */
+  const scriptTimers = useRef<number[]>([]);
   const toastTimers = useRef<Map<number, number>>(new Map());
   const toastSeq = useRef(1);
 
   useEffect(() => {
     const t = timers.current;
+    const st = scriptTimers.current;
     const tt = toastTimers.current;
     return () => {
       t.forEach((x) => window.clearTimeout(x));
+      st.forEach((x) => window.clearTimeout(x));
       tt.forEach((x) => window.clearTimeout(x));
     };
   }, []);
@@ -2560,11 +2571,15 @@ export default function App() {
         scheduleReply(conv);
         return;
       }
+      /* 清掉上一轮剧本残留的，再排这一轮 */
+      scriptTimers.current.forEach((x) => window.clearTimeout(x));
+      scriptTimers.current = [];
+
       members.forEach((id, i) => {
         const timer = window.setTimeout(() => {
           void scheduleReply(conv, id as never);
         }, i * 1400);
-        timers.current.push(timer);
+        scriptTimers.current.push(timer);
       });
     },
     [conv, push, scheduleReply, getGroup]
