@@ -42,7 +42,9 @@
 > 每一版具体新增了什么风险，写在对应的 Release Notes 里。
 
 
-[**⬇ 下载 Windows 测试版**](https://github.com/GoldenMoon-cell/Habitat/releases) · [设计文档](docs/) · [AGPL-3.0](LICENSE)
+> **当前版本：v0.2.0 · 深渊有声（公开测试版）**
+
+[**⬇ 下载 Windows 版**](https://github.com/GoldenMoon-cell/Habitat/releases/tag/v0.2.0) · [全部版本](https://github.com/GoldenMoon-cell/Habitat/releases) · [设计文档](docs/) · [AGPL-3.0](LICENSE)
 
 ---
 
@@ -118,6 +120,9 @@ npm run desktop   # 连 vite dev server，有热更新（写代码时用）
 | **从对话里自动提取** | 本地规则判断，不调模型。**漏掉的多，记错的没有** |
 | **改名两个方向** | 强制：越过她的意愿，向下坠落。自愿：她自己提，向上飘起 |
 | **她怎么看你** | 四轴雷达 + 动态三轴，随互动漂移 —— 不由你拨 |
+| **群聊会自己运转** | 你说话必有人接，其他人按意愿插话 · 可能连发两条 · 话题凉了会停 |
+| **低权重的记忆会变模糊** | 说出来的口气是「记不太清了」，不是编一个细节 |
+| **发送方式可选** | 默认即时；也可以开「等 6 秒」—— 那 6 秒里可以撤回 |
 | **她眼里的你** | 从记忆里摘出来，改写成她的口吻。不在 prompt 里，只给你看 |
 
 ### 全栈体验
