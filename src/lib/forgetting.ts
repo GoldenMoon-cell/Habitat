@@ -123,9 +123,15 @@ export function isConsolidated(m: Memory): boolean {
  *
  * 每次调用都重算 —— 不存回 localStorage。
  */
-export function effectiveWeight(m: Memory, now = 0): number {
-  /* 默认参数在函数定义时求值一次 —— 所以要在这里再取，才能拿到最新的时间偏移 */
-  if (!now) now = nowMs();
+export function effectiveWeight(m: Memory, now?: number): number {
+  /*
+   * 只在「没传」时取当前时间。
+   *
+   * 原来写的是 `now = 0` + `if (!now)` —— 但 0 是 falsy，
+   * 于是「纪元时刻」被当成「没传」，去取了真实时间。
+   * 线上不会传 0，但任何想指定时间原点的调用方都会掉进去。
+   */
+  if (now === undefined) now = nowMs();
   if (m.forgotten) return 0;
   if (isPermanent(m)) return m.weight;
 
@@ -164,16 +170,16 @@ export function effectiveWeight(m: Memory, now = 0): number {
  * 最后一条很重要 —— 一条已经淡到 0.1 的记忆不该突然被巩固，
  * 那等于「你想不起来的东西突然变得刻骨铭心」。
  */
-export function shouldConsolidate(m: Memory, now = 0): boolean {
-  if (!now) now = nowMs();
+export function shouldConsolidate(m: Memory, now?: number): boolean {
+  if (now === undefined) now = nowMs();
   if (m.forgotten || isConsolidated(m)) return false;
   if ((m.accessCount ?? 0) < CONSOLIDATE_AT) return false;
   return effectiveWeight(m, now) >= 0.3;
 }
 
 /** 这条记忆有没有淡到「潜意识」里去 */
-export function isFaded(m: Memory, now = 0): boolean {
-  if (!now) now = nowMs();
+export function isFaded(m: Memory, now?: number): boolean {
+  if (now === undefined) now = nowMs();
   return !m.forgotten && effectiveWeight(m, now) < MEMORY_THRESHOLD;
 }
 
