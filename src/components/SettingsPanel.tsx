@@ -443,7 +443,7 @@ export default function SettingsPanel({
                 </div>
                 <div className="mt-1.5 text-[10px] leading-[1.6] text-mist/36">
                   {sendMode === "delayed"
-                    ? "消息先留在你这边 6 秒，期间可以撤回。想马上发就再按一次空回车。"
+                    ? "消息先留在你这边 6 秒，期间可以撤回。想跳过等待就用 Ctrl+Enter。"
                     : "按下去她就收到了，没有撤回窗口。"}
                 </div>
               </div>
