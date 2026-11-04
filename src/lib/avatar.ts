@@ -28,8 +28,8 @@ const CJK = /[\u3400-\u9fff]/;
  * 现在：名字变了就按新名字算（DeepSeek → De）。
  */
 const SPECIAL_BY_DEFAULT_NAME: Record<string, { when: string; mark: string }> = {
-  jingjing: { when: "鲸鲸", mark: "鲸" },
-  lanxi: { when: "澜汐", mark: "汐" },
+  jingjing: { when: "深蓝", mark: "蓝" },
+  lanxi: { when: "浅潮", mark: "潮" },
 };
 
 /**
