@@ -51,3 +51,17 @@ release-manifest.txt
 # ── 测试截图 ──
 ob-*.png
 
+
+# ── 内部工程文件：不公开 ──
+# 设计文档、计划、样张会剧透还没做的功能。
+# 这些文件留在本地和 dev 分支，不进公开仓库。
+docs/TODO.md
+docs/PLAN.md
+docs/DONE.md
+docs/WALKTHROUGH.md
+docs/decisions.md
+docs/creator-mode.md
+docs/proactive.md
+docs/v0.2.md
+docs/previews/
+AGENTS.md
