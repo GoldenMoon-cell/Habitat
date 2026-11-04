@@ -238,3 +238,63 @@ export function isDuplicate(text: string, existing: Memory[]): boolean {
     .slice(0, 20)
     .some((m) => m.text === s || (head.length >= 8 && m.text.startsWith(head)));
 }
+
+/* ══════════════════════════════════════════
+   交给判断模型的入口
+   ══════════════════════════════════════════ */
+
+/**
+ * 「这条值得多问一次吗」。
+ *
+ * 关键词启发式有两个毛病：它只能数长度，读不懂情绪。
+ *
+ *   「今天累死了」5 字   ← 情绪门槛 8 字，被扔掉
+ *   「哈哈哈哈」4 字     ← 扔对了
+ *
+ * 两者长度差不多，但一个该记一个不该。**长度分不出它们。**
+ *
+ * 所以这里只挑出「差一点就够格」的那一类 —— 有明显是垃圾的（纯语气、
+ * 在问他、没提自己）不要再花一次模型调用。判断模型贵，要用在刀刃上。
+ */
+export function worthAsking(text: string): boolean {
+  const raw = String(text ?? "").trim();
+  if (!raw) return false;
+
+  const s = raw.replace(/@\S+/g, " ").replace(/\s+/g, " ").trim();
+  if (!s) return false;
+
+  const bare = s.replace(/[，。！？、…~～\s]/g, "");
+  if (PURE_FILLER.includes(bare)) return false;
+  if (/^[哈嗯哦噢啊呵嘻嘿]+$/.test(bare)) return false;
+
+  const compact = s.replace(/\s+/g, "");
+
+  // 在问他 —— 启发式判得准，不用花模型调用
+  if (has(compact, ASKING_HIM)) return false;
+
+  /*
+   * **这里故意不要求第一人称。**
+   *
+   * 中文日常自述经常省主语：
+   *   「今天累死了」  ← 没有「我」，但显然在说自己
+   *   「我好累」      ← 有「我」
+   *
+   * 之前照搬 extract 的「必须提到自己」，结果把最该记的那一类
+   * 直接拦在门外 —— 连问模型的机会都没有。
+   *
+   * 省主语的话里也会有「今天天气不错」这种不关于他的，
+   * 但那类交给模型判断更准 —— 它读得懂语境，关键词读不懂。
+   */
+  if (s.length > 20) return false;
+
+  // 纯提问不问关于他的事 → 不救
+  const isQuestion = /[？?]$/.test(s) || /^(你|您|为啥|为什么|怎么|多少|哪)/.test(s);
+  if (isQuestion) return false;
+
+  return true;
+}
+
+/** tag → 初始权重。判断模型救回来的记忆沿用同一个表，不另算一套。 */
+export function weightForTag(tag: Memory["tag"]): number {
+  return tag === "长期" ? 0.85 : tag === "偏好" ? 0.7 : tag === "情绪" ? 0.55 : 0.45;
+}

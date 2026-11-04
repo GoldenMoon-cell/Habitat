@@ -347,3 +347,76 @@ export function fuelOf(
   if (!r || !r.fuelId) return null;
   return fuels.find((f) => f.id === r.fuelId) ?? null;
 }
+
+/* ══════════════════════════════════════════
+   单独的「记忆判断」—— 关键词规则读不懂情绪，让它兜一下
+   ══════════════════════════════════════════ */
+
+const MEMORY_SYSTEM = `你在一款叫《生境》的软件里，负责判断用户刚说的一句话值不值得被 AI 记住。
+
+判断标准：**这句话里有没有关于他自己的、以后可能用得上的东西。**
+
+值得记的：
+· 他是谁（名字、职业、住哪、家人）
+· 他的偏好（喜欢什么、受不了什么）
+· 他当下的状态（累、开心、焦虑、生病）
+· 发生过的事（具体的、有时间地点的）
+
+不值得记的：
+· 在问问题
+· 只是回应（「好」「嗯」「哈哈」）
+· 关于别人的事（不关于他）
+· 泛泛而谈（「我很好」「我也一样」）
+· 你拿不准的 —— **宁可漏，不要编。**
+
+输出 JSON，不要别的东西：
+{"remember": true, "tag": "长期|短期|情绪|偏好", "why": "一句话"}
+或
+{"remember": false, "why": "一句话"}`;
+
+export interface MemoryVerdict {
+  remember: boolean;
+  tag: "长期" | "短期" | "情绪" | "偏好";
+  why: string;
+}
+
+/** 把模型返回的原始文本收成一个判决。解析不了就当作「不记」。 */
+export function validateMemoryVerdict(raw: string): MemoryVerdict | null {
+  try {
+    const o = extractJson(raw) as Record<string, unknown>;
+    if (!o || typeof o !== "object") return null;
+    const remember = o.remember === true;
+    if (!remember) return { remember: false, tag: "短期", why: String(o.why ?? "") };
+    const tag = o.tag === "长期" || o.tag === "情绪" || o.tag === "偏好" ? o.tag : "短期";
+    return { remember: true, tag, why: String(o.why ?? "") };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 问一次「这条该不该记」。
+ *
+ * 失败/超时/解析不出来 → 返回 null，调用方按「不记」处理。
+ * **永远不往上抛** —— 记忆抽取失败不该让对话断掉。
+ */
+export async function judgeMemoryOf(
+  text: string,
+  opts: JudgeOptions
+): Promise<MemoryVerdict | null> {
+  const timeout = opts.timeoutMs ?? DEFAULT_TIMEOUT;
+  try {
+    const raw = await Promise.race([
+      opts.call([
+        { role: "system", content: MEMORY_SYSTEM },
+        { role: "user", content: `【他说的话】\n${text}` },
+      ]),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error("memory judge timeout")), timeout)
+      ),
+    ]);
+    return validateMemoryVerdict(raw);
+  } catch {
+    return null;
+  }
+}

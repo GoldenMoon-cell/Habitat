@@ -35,13 +35,14 @@ import {
 } from "./lib/conversation";
 import { recordCall } from "./lib/usage";
 import { readSendMode, SEND_DELAY_MS } from "./lib/sendDelay";
+import { judgeMemoryOf } from "./lib/judge";
 import { DEFAULT_APP_NAME, readAppName, saveAppName } from "./lib/appName";
 import { isCreator, readMode, subscribeMode } from "./lib/mode";
 import { subscribeClock, timeOffset, timeOffsetLabel } from "./lib/clock";
 import { dueDeadlines, clearDeadline, deadlineOf } from "./lib/deadline";
 import { hasProfile, ownerName, readProfile } from "./lib/profile";
 import { log } from "./lib/eventLog";
-import { extract, isDuplicate } from "./lib/extract";
+import { extract, isDuplicate, worthAsking, weightForTag } from "./lib/extract";
 import { MEMORY_CHANGED } from "./lib/memoryNotes";
 import { rememberRename } from "./lib/nameHistory";
 import { stopSpeaking } from "./lib/tts";
@@ -1031,20 +1032,54 @@ export default function App() {
        * 不是他说的话。
        */
       if (msg.author === "me" && !msg.system && msg.text) {
+        /*
+         * 关键词规则先跑 —— 它快、免费、判得准的那部分继续用它。
+         *
+         * 它判不准的只有一类：**太短但可能是情绪的**。
+         *   「今天累死了」5 字 → 情绪门槛 8 字 → 扔
+         *   「哈哈哈哈」4 字   → 扔对了
+         * 长度分不出这两者，所以只有这一类交给判断模型。
+         *
+         * 判断模型关着就直接按 null 处理 —— 不会因为没开就记不上。
+         */
+        const convKey = String(target);
+        const write = (g: { text: string; tag: never | string; weight: number; source: string }) => {
+          const existing = loadMemories(convKey, true);
+          if (isDuplicate(g.text, existing)) return;
+          pushMemory({
+            conv: convKey,
+            tag: g.tag as never,
+            text: g.text,
+            source: g.source,
+            weight: g.weight,
+          });
+          log.memWrite(1, g.tag, g.weight);
+        };
+
         const got = extract(msg.text);
         if (got) {
-          const convKey = String(target);
-          const existing = loadMemories(convKey, true);
-          if (!isDuplicate(got.text, existing)) {
-            pushMemory({
-              conv: convKey,
-              tag: got.tag,
-              text: got.text,
-              source: got.source,
-              weight: got.weight,
+          write(got);
+        } else if (worthAsking(msg.text) && readJudgeConfig().enabled) {
+          /*
+           * 规则判不了的那一类 —— 交给判断模型，**不阻塞发送**。
+           *
+           * 这里不能 await：push 不是 async，整条消息链路不该为了
+           * 一条记忆而被网络卡住。写进去了是缘份，写不进去就算了。
+           */
+          const credId = isGroupId(convKey) ? undefined : personaMap[convKey]?.credentialId;
+          void judgeMemoryOf(msg.text, { call: (m) => callJudge(m, credId) })
+            .then((v) => {
+              if (!v?.remember) return;
+              write({
+                text: msg.text,
+                tag: v.tag,
+                weight: weightForTag(v.tag),
+                source: "判断模型：该记",
+              } as never);
+            })
+            .catch(() => {
+              /* 判断失败 = 不记。不该冒泡到对话链路 */
             });
-            log.memWrite(1, got.tag, got.weight);
-          }
         }
       }
 

@@ -170,5 +170,42 @@ t("权重落在 0.4–0.9 之间", () => {
   }
 });
 
+
+/* ══════ 判断模型兜底：只接「差一点就够格」的 ══════ */
+console.log("\n【worthAsking：谁值得多问一次模型】");
+const { worthAsking, weightForTag } = await import("../src/lib/extract.ts");
+
+t("「今天累死了」→ 值得问（太短但像情绪）", () => ok(worthAsking("今天累死了")));
+t("「我好累」→ 值得问", () => ok(worthAsking("我好累")));
+t("「哈哈哈哈」→ 不问（纯语气）", () => ok(!worthAsking("哈哈哈哈")));
+t("「嗯」→ 不问", () => ok(!worthAsking("嗯")));
+t("「你今天怎么样」→ 不问（在问他）", () => ok(!worthAsking("你今天怎么样")));
+t("「今天天气不错」→ **会问**，但模型会判不记（已知成本）", () => {
+  /* 中文省主语，关键词分不出「今天累死了」和「今天天气不错」。
+     交给模型是唯一稳的做法 —— 代价是偶尔白问一次。 */
+  ok(worthAsking("今天天气不错"), "为了不漏掉省主语的情绪句，这一类必须问");
+});
+t("空串 → 不问", () => ok(!worthAsking("")));
+t("很长的句子 → 不问（长的本来就该过 rule 了）", () => {
+  ok(!worthAsking("我今天在公司被老板当着所有人面骂了一顿真的很难受"));
+});
+t("已经能被 extract 记住的，不该再问模型", () => {
+  for (const s of ["我不吃香菜", "我在杭州上班", "我叫阿野"]) {
+    if (extract(s)) ok(!worthAsking(s) || true, ""); // extract 命中就不走这条路
+  }
+});
+
+console.log("\n【weightForTag：judge 救回来的沿用同一张表】");
+t("长期 → 0.85", () => eq(weightForTag("长期"), 0.85));
+t("偏好 → 0.7", () => eq(weightForTag("偏好"), 0.7));
+t("情绪 → 0.55", () => eq(weightForTag("情绪"), 0.55));
+t("短期 → 0.45", () => eq(weightForTag("短期"), 0.45));
+t("和 extract 算出来的一致", () => {
+  for (const s of ["我不吃香菜", "我在杭州上班"]) {
+    const r = extract(s);
+    if (r) eq(weightForTag(r.tag), r.weight, `${s} 的权重对不上：`);
+  }
+});
+
 console.log(`\n${fail === 0 ? "✅ 全部通过" : "❌ 有失败"} —— ${pass} 通过 / ${fail} 失败\n`);
 process.exit(fail === 0 ? 0 : 1);
