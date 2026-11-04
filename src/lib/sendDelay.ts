@@ -1,14 +1,14 @@
 /**
  * 发送模式。
  *
- * 默认「等 6 秒」—— 这 6 秒里消息是待定的（半透明 + 环形倒计时），
- * 可以撤回，她收不到任何东西。这是这个软件的一个设计，不是延迟 bug。
+ * 默认「按了就发」—— 和手机短信一样。按下去她就收到了。
  *
- * 但有人就想要「按了就发」。
- * 所以给它一个开关，而不是替用户决定。
+ * 「等 6 秒」是一个功能，不是默认行为：这 6 秒里消息是待定的
+ * （半透明 + 环形倒计时），可以撤回，她收不到任何东西。
+ * 想用的人自己在设置里打开。
  *
- * 两种模式下都保留的逃生门：
- *   等 6 秒模式下，按一次空 Enter 立即发出（「再按一次回车」的语义）。
+ * 打开后多一条逃生门：
+ *   待发期间按一次空 Enter → 立刻发出，不用等满 6 秒。
  */
 
 export type SendMode = "delayed" | "instant";
@@ -21,10 +21,10 @@ const KEY = "3w:send-mode";
 export function readSendMode(): SendMode {
   try {
     const v = localStorage.getItem(KEY);
-    // 只有明确写了 instant 才是即时 —— 其余（含没写过、写坏了）都回到默认的延迟
-    return v === "instant" ? "instant" : "delayed";
+    // 只有明确写了 delayed 才等 6 秒 —— 其余（含没写过、写坏了）都是即时
+    return v === "delayed" ? "delayed" : "instant";
   } catch {
-    return "delayed";
+    return "instant";
   }
 }
 

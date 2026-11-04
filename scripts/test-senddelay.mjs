@@ -1,8 +1,8 @@
 /**
  * 发送模式 —— 断言。
  *
- * 这条规则是用户自己选的，不是我们替他决定的。
- * 测的是：默认必须是「等 6 秒」，只有明确写了 instant 才是即时。
+ * 默认和手机短信一样：按了就发。
+ * 「等 6 秒」是功能，不是默认 —— 只有用户明确写了 delayed 才启用。
  */
 
 let pass = 0, fail = 0;
@@ -26,11 +26,11 @@ const { readSendMode, saveSendMode, sendModeLabel, SEND_DELAY_MS } = await impor
 
 console.log("\n【默认值】");
 
-t("没写过 → 等 6 秒（不是即时）", () => eq(readSendMode(), "delayed"));
+t("没写过 → 立即发送（和手机短信一样）", () => eq(readSendMode(), "instant"));
 t("窗口常量是 6000ms", () => eq(SEND_DELAY_MS, 6000));
-t("用户从没改过时，默认不给他「按了就发」", () => {
+t("用户从没改过时，不该被塞一个等待窗口", () => {
   store.clear();
-  ok(readSendMode() !== "instant", "默认不该是 instant");
+  eq(readSendMode(), "instant", "默认必须是即时：");
 });
 
 console.log("\n【记忆】");
@@ -39,25 +39,25 @@ t("存 instant → 读回 instant", () => {
   saveSendMode("instant");
   eq(readSendMode(), "instant");
 });
-t("存 delayed → 读回 delayed", () => {
+t("存 delayed → 读回 delayed（用户主动开了才等）", () => {
   saveSendMode("delayed");
   eq(readSendMode(), "delayed");
 });
 
 console.log("\n【坏数据一律回默认】");
 
-t("空字符串 → 延迟", () => { store.set("3w:send-mode", ""); eq(readSendMode(), "delayed"); });
-t("乱码 → 延迟", () => { store.set("3w:send-mode", "{{{\"x\":1"); eq(readSendMode(), "delayed"); });
-t("大小写不对（Instant）→ 延迟", () => { store.set("3w:send-mode", "Instant"); eq(readSendMode(), "delayed"); });
-t("相似词（immediate）→ 延迟", () => { store.set("3w:send-mode", "immediate"); eq(readSendMode(), "delayed"); });
-t("数字 1 → 延迟", () => { store.set("3w:send-mode", "1"); eq(readSendMode(), "delayed"); });
+t("空字符串 → 即时", () => { store.set("3w:send-mode", ""); eq(readSendMode(), "instant"); });
+t("乱码 → 即时", () => { store.set("3w:send-mode", "{{{\"x\":1"); eq(readSendMode(), "instant"); });
+t("大小写不对（Delayed）→ 即时", () => { store.set("3w:send-mode", "Delayed"); eq(readSendMode(), "instant"); });
+t("相似词（wait）→ 即时", () => { store.set("3w:send-mode", "wait"); eq(readSendMode(), "instant"); });
+t("数字 1 → 即时", () => { store.set("3w:send-mode", "1"); eq(readSendMode(), "instant"); });
 
 console.log("\n【localStorage 不可用也不能崩】");
 
-t("getItem 抛错 → 回默认", () => {
+t("getItem 抛错 → 回默认（即时）", () => {
   const bak = globalThis.localStorage.getItem;
   globalThis.localStorage.getItem = () => { throw new Error("隐私模式"); };
-  try { eq(readSendMode(), "delayed"); }
+  try { eq(readSendMode(), "instant"); }
   finally { globalThis.localStorage.getItem = bak; }
 });
 t("setItem 抛错 → 不冒泡", () => {
