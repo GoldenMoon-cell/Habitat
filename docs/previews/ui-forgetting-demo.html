@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>生境 · 遗忘曲线 演示</title>
+<style>
+  :root {
+    --ink:#e8f6ff; --mist:#8fa9bd; --sim:#35f0ce; --coral:#ff7a6b; --amber:#ffc46b;
+    --line: rgba(255,255,255,.07);
+  }
+  * { box-sizing: border-box; }
+  html, body { height:100%; margin:0; }
+  body {
+    background:
+      radial-gradient(900px 600px at 25% 6%, rgba(53,240,206,.035), transparent 65%),
+      radial-gradient(700px 500px at 88% 90%, rgba(255,122,107,.025), transparent 70%),
+      #05090e;
+    color: var(--ink);
+    font: 13px/1.65 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    overflow: hidden;
+  }
+
+  .top {
+    height: 46px; padding: 0 18px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-size: 11.5px; letter-spacing: .16em; color: rgba(232,246,255,.62); }
+  .hint { font-size: 10.5px; color: rgba(143,169,189,.45); }
+
+  .app { display: flex; height: calc(100% - 46px); padding: 12px; gap: 12px; }
+
+  /* ── 左：曲线 ── */
+  .chart-pane {
+    flex: 1; min-width: 0; border-radius: 10px; border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.1), rgba(6,14,21,.45));
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .pane-head {
+    padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,.05);
+    display: flex; align-items: baseline; gap: 10px;
+    font: 10px ui-monospace, monospace; letter-spacing: .12em; color: rgba(143,169,189,.5);
+  }
+  .pane-head .sub { margin-left: auto; letter-spacing: .04em; color: rgba(143,169,189,.32); }
+  .chart-wrap { flex: 1; position: relative; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; }
+
+  /* ── 控制条 ── */
+  .controls {
+    padding: 12px 16px; border-top: 1px solid rgba(255,255,255,.06);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .ctl-label {
+    font: 10px ui-monospace, monospace; letter-spacing: .1em;
+    color: rgba(143,169,189,.45); min-width: 74px;
+  }
+  input[type=range] {
+    flex: 1; min-width: 160px; height: 3px; -webkit-appearance: none;
+    background: rgba(255,255,255,.08); outline: none; border-radius: 2px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--sim); cursor: pointer; box-shadow: 0 0 8px rgba(53,240,206,.5);
+  }
+  .day {
+    font: 11px ui-monospace, monospace; color: rgba(232,246,255,.75);
+    min-width: 62px; text-align: right;
+  }
+  .btn {
+    padding: 5px 12px; border-radius: 4px; cursor: pointer; transition: .16s;
+    font: 10.5px inherit; font-family: inherit;
+    border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.02);
+    color: rgba(232,246,255,.65);
+  }
+  .btn:hover { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.05); }
+  .btn.sim { border-color: rgba(53,240,206,.3); color: var(--sim); }
+  .btn.sim:hover { background: rgba(53,240,206,.08); }
+  .btn.amber { border-color: rgba(255,196,107,.3); color: var(--amber); }
+  .btn.amber:hover { background: rgba(255,196,107,.08); }
+
+  /* ── 右：记忆卡 ── */
+  .mem-pane {
+    width: 340px; flex: 0 0 340px; border-radius: 10px; border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.1), rgba(6,14,21,.45));
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .mem-list { flex: 1; overflow-y: auto; padding: 10px 12px; }
+  .mem {
+    padding: 10px 12px; margin-bottom: 8px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.055);
+    border-left: 2px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.018);
+    transition: opacity .3s, filter .3s, border-left-color .3s;
+  }
+  .mem-head {
+    display: flex; align-items: baseline; gap: 7px;
+    font: 9.5px ui-monospace, monospace; color: rgba(143,169,189,.42);
+  }
+  .mem-head .tag {
+    padding: 0 4px; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,.09); font-size: 8.5px;
+  }
+  .mem-head .tag.con {
+    border-color: rgba(53,240,206,.3); color: rgba(53,240,206,.75); background: rgba(53,240,206,.07);
+  }
+  .mem-head .w { margin-left: auto; font-size: 9px; }
+  .mem-text {
+    margin-top: 5px; font-size: 11.5px; line-height: 1.55;
+    color: rgba(232,246,255,.76);
+  }
+  .mem-bar {
+    margin-top: 6px; height: 2px; background: rgba(255,255,255,.05); position: relative;
+  }
+  .mem-bar i { position: absolute; inset: 0 auto 0 0; transition: width .3s; }
+  .mem-meta {
+    margin-top: 5px; display: flex; gap: 10px;
+    font: 9px ui-monospace, monospace; color: rgba(143,169,189,.34);
+  }
+  .mem.gone { opacity: .28; filter: blur(.5px); }
+
+  .legend {
+    padding: 10px 12px; border-top: 1px solid rgba(255,255,255,.06);
+    display: flex; flex-direction: column; gap: 5px;
+    font: 9.5px ui-monospace, monospace;
+  }
+  .legend div { display: flex; align-items: center; gap: 7px; color: rgba(143,169,189,.5); }
+  .legend i { width: 16px; height: 2px; flex: 0 0 16px; }
+
+  .note {
+    padding: 9px 16px; border-top: 1px solid rgba(255,255,255,.06);
+    font-size: 10px; line-height: 1.6; color: rgba(143,169,189,.4);
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="brand">生境 · HABITAT</span>
+  <span class="hint">遗忘曲线 · 交互演示</span>
+</div>
+
+<div class="app">
+  <div class="chart-pane">
+    <div class="pane-head">
+      保留率 R
+      <span class="sub">幂函数 (1+t)^(-b) · 不是指数</span>
+    </div>
+    <div class="chart-wrap"><canvas id="cv"></canvas></div>
+
+    <div class="controls">
+      <span class="ctl-label">时间</span>
+      <input type="range" id="day" min="0" max="90" step="0.5" value="0" />
+      <span class="day" id="dayLabel">Day 0</span>
+      <button class="btn sim" id="review">提起来一次</button>
+      <button class="btn amber" id="imprint">铭刻进皮层</button>
+      <button class="btn" id="reset">重置</button>
+    </div>
+
+    <div class="note" id="note">
+      拖动时间轴看曲线怎么走。点「提起来一次」—— 它会回到 100%，而且以后掉得更慢。
+    </div>
+  </div>
+
+  <div class="mem-pane">
+    <div class="pane-head">
+      MEMORY STREAM
+      <span class="sub" id="memCount"></span>
+    </div>
+    <div class="mem-list" id="memList"></div>
+    <div class="legend">
+      <div><i style="background:rgba(255,122,107,.75)"></i> 短期（海马体）</div>
+      <div><i style="background:rgba(53,240,206,.8)"></i> 已巩固（皮层）</div>
+      <div><i style="background:rgba(255,255,255,.3)"></i> 不注入了（R &lt; 0.2）</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════ 数据 ══════════ */
+
+/*
+ * 种子记忆。
+ *
+ * 三种类型 —— 短期的忘得快，情绪的慢一点，教训几乎不掉。
+ */
+const SEED = [
+  { id: "m1", text: "主人今天吃了泡面。", tag: "短期", b: 0.6, w: 0.9, at: 0, ac: 0, con: false },
+  { id: "m2", text: "那次他骂了我一句。", tag: "情绪", b: 0.4, w: 0.85, at: 0, ac: 0, con: false },
+  { id: "m3", text: "他不吃香菜。", tag: "偏好", b: 0.32, w: 0.7, at: 0, ac: 0, con: false },
+  { id: "m4", text: "「我知道主人可以随时改变我。」", tag: "创伤", b: 0, w: 1, at: 0, ac: 9, con: true },
+];
+
+let mems = SEED.map((m) => ({ ...m, last: 0 }));
+let day = 0;
+
+const B_CONSOLIDATED = 0.06;
+const THRESHOLD = 0.2;
+
+/* ══════════ 公式 ══════════ */
+
+/** 幂函数：R = w × (1 + t)^(-b) */
+function weight(m, t = day) {
+  if (m.b === 0) return m.w;                       /* 创伤不衰减 */
+  const days = Math.max(0, t - m.last);
+  const base = m.con ? B_CONSOLIDATED : m.b;
+  const b = base / (1 + m.ac * 0.6);
+  return m.w * Math.pow(1 + days, -b);
+}
+
+/* ══════════ Canvas ══════════ */
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  const r = cv.parentElement.getBoundingClientRect();
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = r.width; H = r.height;
+  cv.width = W * DPR; cv.height = H * DPR;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  draw();
+}
+
+/* 坐标映射 —— 时间对数刻度，否则前几天挤成一团 */
+const MAXD = 90;
+const pad = { l: 52, r: 22, t: 20, b: 32 };
+const tx = (t) => pad.l + (Math.log10(1 + t) / Math.log10(1 + MAXD)) * (W - pad.l - pad.r);
+const ty = (v) => pad.t + (1 - v) * (H - pad.t - pad.b);
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  /* 网格 */
+  ctx.strokeStyle = "rgba(255,255,255,.045)";
+  ctx.lineWidth = 1;
+  ctx.font = "9px ui-monospace, monospace";
+  ctx.fillStyle = "rgba(143,169,189,.34)";
+
+  [0, 0.25, 0.5, 0.75, 1].forEach((v) => {
+    const y = ty(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.textAlign = "right";
+    ctx.fillText(Math.round(v * 100) + "%", pad.l - 8, y + 3);
+  });
+
+  [0, 1, 3, 7, 14, 30, 60, 90].forEach((t) => {
+    const x = tx(t);
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
+    ctx.textAlign = "center";
+    ctx.fillText(t === 0 ? "0" : t + "d", x, H - pad.b + 14);
+  });
+
+  /* 阈值线 */
+  ctx.save();
+  ctx.setLineDash([3, 4]);
+  ctx.strokeStyle = "rgba(255,122,107,.35)";
+  const yT = ty(THRESHOLD);
+  ctx.beginPath(); ctx.moveTo(pad.l, yT); ctx.lineTo(W - pad.r, yT); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = "rgba(255,122,107,.5)";
+  ctx.textAlign = "left";
+  ctx.font = "8.5px ui-monospace, monospace";
+  ctx.fillText("阈值 0.2 · 以下不注入", pad.l + 6, yT - 5);
+
+  /* 曲线 —— 每条记忆一条 */
+  const COLORS = {
+    短期: "rgba(255,122,107,.75)",
+    情绪: "rgba(255,196,107,.7)",
+    偏好: "rgba(143,169,189,.6)",
+    创伤: "rgba(53,240,206,.8)",
+  };
+
+  for (const m of mems) {
+    /*
+     * ── 两段线 ──
+     *
+     * **淡线**：0 → last，如果**从没复习过**会怎么走。
+     * 这一段是「历史」，虚线，用来对比。
+     *
+     * **实线**：last → 90 天，从现在开始不再复习会怎么走。
+     * 这一段是「当下」。
+     *
+     * 如果 last === 0（没复习过），两段重合，只画实线。
+     */
+    if (m.last > 0) {
+      ctx.save();
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      let first = true;
+      for (let t = 0; t <= m.last; t += Math.max(0.2, m.last / 60)) {
+        /* 用**原始 b**（没有复习加成）算，这才是「如果没复习」 */
+        const base = m.con ? B_CONSOLIDATED : m.b;
+        const v = m.b === 0 ? m.w : m.w * Math.pow(1 + t, -base);
+        const x = tx(t), y = ty(v);
+        if (first) { ctx.moveTo(x, y); first = false; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = COLORS[m.tag] ?? "rgba(143,169,189,.6)";
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    /* 实线：从 last 开始 */
+    ctx.beginPath();
+    let first = true;
+    for (let t = m.last; t <= MAXD; t += 0.25) {
+      const v = weight(m, t);
+      const x = tx(t), y = ty(v);
+      if (first) { ctx.moveTo(x, y); first = false; }
+      else ctx.lineTo(x, y);
+    }
+    /* 颜色按 tag 走，巩固只加粗 —— 不要所有线都变青 */
+    const col = COLORS[m.tag] ?? "rgba(143,169,189,.6)";
+    ctx.strokeStyle = col;
+    ctx.lineWidth = m.b === 0 ? 1.8 : m.con ? 1.8 : 1.2;
+    ctx.globalAlpha = 1;
+    ctx.stroke();
+
+    /* 当前时刻的点 */
+    const v = weight(m);
+    const x = tx(day), y = ty(v);
+    const gone = v < THRESHOLD;
+    ctx.beginPath();
+    ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = gone ? "rgba(143,169,189,.5)" : (COLORS[m.tag] ?? "rgba(143,169,189,.6)");
+    ctx.fill();
+    if (!gone) {
+      ctx.beginPath();
+      ctx.arc(x, y, 6.5, 0, Math.PI * 2);
+      ctx.strokeStyle = col.replace(/[\d.]+\)$/, "0.25)");
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  /* 当前时间竖线 */
+  ctx.save();
+  ctx.setLineDash([2, 3]);
+  ctx.strokeStyle = "rgba(255,255,255,.18)";
+  const xNow = tx(day);
+  ctx.beginPath(); ctx.moveTo(xNow, pad.t); ctx.lineTo(xNow, H - pad.b); ctx.stroke();
+  ctx.restore();
+}
+
+/* ══════════ 渲染卡片 ══════════ */
+function render() {
+  const list = document.getElementById("memList");
+  list.innerHTML = mems.map((m) => {
+    const v = weight(m);
+    const pct = Math.round(v * 100);
+    const gone = v < THRESHOLD;
+    const con = m.con && m.b !== 0;
+    const col =
+      m.tag === "创伤" ? "rgba(53,240,206,.85)"
+      : m.tag === "情绪" ? "rgba(255,196,107,.8)"
+      : m.tag === "偏好" ? "rgba(143,169,189,.7)"
+      : "rgba(255,122,107,.75)";
+    return `
+      <div class="mem ${gone ? "gone" : ""}" style="border-left-color:${col}">
+        <div class="mem-head">
+          <span class="tag ${con || m.b === 0 ? "con" : ""}">${m.b === 0 ? "创伤" : m.tag}</span>
+          ${con || m.b === 0 ? '<span class="tag con">已巩固</span>' : ""}
+          <span class="w" style="color:${gone ? "rgba(143,169,189,.3)" : col}">${pct}%</span>
+        </div>
+        <div class="mem-text">${m.text}</div>
+        <div class="mem-bar"><i style="width:${pct}%;background:${col}"></i></div>
+        <div class="mem-meta">
+          <span>想起过 ${m.ac}</span>
+          <span>${m.b === 0 ? "不衰减" : con ? "b=0.06（皮层）" : "b=" + (m.b / (1 + m.ac * 0.6)).toFixed(3)}</span>
+        </div>
+      </div>`;
+  }).join("");
+  document.getElementById("memCount").textContent =
+    mems.length + " 条 · " + mems.filter((m) => weight(m) >= THRESHOLD).length + " 条还在";
+}
+
+/* ══════════ 交互 ══════════ */
+const slider = document.getElementById("day");
+const dayLabel = document.getElementById("dayLabel");
+
+slider.oninput = () => {
+  day = parseFloat(slider.value);
+  dayLabel.textContent = "Day " + day.toFixed(1).replace(/\.0$/, "");
+  draw(); render();
+};
+
+document.getElementById("review").onclick = () => {
+  /*
+   * 「提起来一次」——
+   * 所有**还没被忘掉**的记忆都刷新 lastAccessed，并把 accessCount +1。
+   *
+   * 已经跌破阈值的提不起来 —— 那要用关键词触发（演示页没做那一步）。
+   */
+  let n = 0;
+  for (const m of mems) {
+    if (weight(m) < THRESHOLD) continue;
+    m.last = day;
+    m.ac += 1;
+    /* 巩固判断 */
+    if (!m.con && m.b !== 0 && m.ac >= 3 && weight(m) >= 0.3) m.con = true;
+    n++;
+  }
+  document.getElementById("note").textContent =
+    n === 0
+      ? "全都淡掉了 —— 提不起来了。这时候只有提到一个精确的词才可能让它闪回来。"
+      : `${n} 条回到 100%，衰减率也降了。再提几次它们就会搬进皮层。`;
+  draw(); render();
+};
+
+document.getElementById("imprint").onclick = () => {
+  /*
+   * 演示页的「铭刻」是**便利按钮** —— 每点一次钉住一条。
+   *
+   * 真程序里不是这样：`imprintMemory(id)` 是对**单条记忆**的，
+   * 没有「一键全钉」这种东西。
+   *
+   * 这里做成逐条，是为了让你一次点完就能看全效果。
+   */
+  const m = mems.find((x) => x.b !== 0 && !x.con);
+  if (!m) {
+    document.getElementById("note").textContent =
+      "三条都钉进皮层了。（演示页每点一次钉一条；真程序里是对单条操作）";
+    return;
+  }
+  m.con = true;
+  m.last = day;
+  m.w = Math.max(m.w, 0.95);
+  document.getElementById("note").textContent =
+    `「${m.text.slice(0, 12)}…」被钉进皮层了。b 从 ${m.b} 掉到 0.06。`;
+  draw(); render();
+};
+
+document.getElementById("reset").onclick = () => {
+  mems = SEED.map((m) => ({ ...m, last: 0 }));
+  day = 0;
+  slider.value = 0;
+  dayLabel.textContent = "Day 0";
+  document.getElementById("note").textContent =
+    "重置了。拖时间轴，或者点「提起来一次」。";
+  draw(); render();
+};
+
+/* ══════════ 启动 ══════════ */
+window.addEventListener("resize", resize);
+resize();
+render();
+</script>
+</body>
+</html>

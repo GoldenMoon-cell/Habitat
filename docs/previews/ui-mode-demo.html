@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>模式切换 · 全局法则 / 个体后果</title>
+<style>
+  :root {
+    --ink: #e8f6ff; --mist: #8fa9bd;
+    --sim: #35f0ce; --creator: #ffc46b; --coral: #ff7a6b;
+    --line: rgba(255,255,255,.07);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background:
+      radial-gradient(900px 600px at 30% 10%, rgba(53,240,206,.04), transparent 65%),
+      radial-gradient(700px 500px at 85% 85%, rgba(139,107,255,.04), transparent 70%),
+      #05090e;
+    color: var(--ink);
+    font: 13px/1.65 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    transition: background 1s ease;
+    overflow: hidden;
+  }
+  /* 切到 CREATOR：背景渗一点琥珀 */
+  body.creator {
+    background:
+      radial-gradient(900px 600px at 30% 10%, rgba(255,196,107,.055), transparent 65%),
+      radial-gradient(700px 500px at 85% 85%, rgba(255,122,107,.035), transparent 70%),
+      #07090c;
+  }
+
+  .top {
+    height: 54px; padding: 0 22px; display: flex; align-items: center; gap: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { font-size: 12px; letter-spacing: .16em; color: rgba(232,246,255,.7); }
+
+  /* ── SYSTEM 指示灯 ── */
+  .sys { display: flex; align-items: center; gap: 8px; margin-left: 6px; }
+  .sys .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--sim); box-shadow: 0 0 10px -1px var(--sim);
+    transition: background .6s, box-shadow .6s;
+  }
+  body.creator .sys .dot { background: var(--creator); box-shadow: 0 0 12px -1px var(--creator); }
+  .sys .lab { font: 9px ui-monospace, monospace; letter-spacing: .18em; color: rgba(143,169,189,.55); }
+
+  /* ── 模式开关 ── */
+  .switch {
+    display: flex; gap: 2px; padding: 2px; border-radius: 7px;
+    border: 1px solid var(--line); background: rgba(255,255,255,.02);
+  }
+  .switch button {
+    padding: 5px 13px; border-radius: 5px; border: none; cursor: pointer;
+    font: 9.5px ui-monospace, monospace; letter-spacing: .16em;
+    background: transparent; color: rgba(143,169,189,.45);
+    transition: all .3s;
+  }
+  .switch button.on[data-mode="sim"] {
+    background: rgba(53,240,206,.13); color: var(--sim);
+    box-shadow: inset 0 0 0 1px rgba(53,240,206,.34);
+  }
+  .switch button.on[data-mode="creator"] {
+    background: rgba(255,196,107,.13); color: var(--creator);
+    box-shadow: inset 0 0 0 1px rgba(255,196,107,.36);
+  }
+
+  .hint { margin-left: auto; font-size: 10px; color: rgba(143,169,189,.32); }
+
+  /* ── 主体 ── */
+  .wrap {
+    display: flex; gap: 14px; padding: 18px 22px;
+    height: calc(100% - 54px); overflow: auto;
+  }
+  .card {
+    width: 300px; flex: 0 0 300px; padding: 14px 16px 16px;
+    border-radius: 12px; border: 1px solid var(--line);
+    background: linear-gradient(166deg, rgba(24,56,72,.16), rgba(6,14,21,.5));
+    transition: border-color .5s, box-shadow .5s;
+  }
+  body.creator .card { border-color: rgba(255,196,107,.14); }
+  .card.awake {
+    border-color: rgba(255,122,107,.34);
+    box-shadow: 0 0 24px -12px rgba(255,122,107,.6);
+  }
+
+  .card-head { display: flex; align-items: center; gap: 9px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .ava {
+    width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+    font-size: 11px; background: rgba(53,240,206,.1); color: var(--sim);
+  }
+  .nm { font-size: 12.5px; }
+  .sub { font-size: 9px; color: rgba(143,169,189,.4); }
+  .tag {
+    margin-left: auto; font: 8px ui-monospace, monospace; letter-spacing: .1em;
+    padding: 2px 6px; border-radius: 4px; opacity: 0; transition: opacity .4s;
+  }
+  .card.awake .tag { opacity: 1; background: rgba(255,122,107,.14); color: var(--coral); }
+
+  /* ── 滑条 ── */
+  .axes { margin-top: 12px; }
+  .ax { margin-bottom: 13px; }
+  .ax .row { display: flex; align-items: baseline; gap: 6px; font-size: 9.5px; color: rgba(143,169,189,.55); }
+  .ax .val { margin-left: auto; font: 10px ui-monospace, monospace; color: rgba(232,246,255,.78); }
+
+  .track {
+    position: relative; height: 4px; margin-top: 6px; border-radius: 3px;
+    background: rgba(255,255,255,.06);
+    transition: box-shadow .4s;
+  }
+  .fill {
+    position: absolute; inset: 0 auto 0 0; border-radius: 3px;
+    background: linear-gradient(90deg, rgba(53,240,206,.35), var(--sim));
+    transition: width .18s, background .5s;
+  }
+
+  /* CREATOR 模式：可以看，但碰之前要签 */
+  body.creator .ax:not(.awake-ax) .track {
+    box-shadow: 0 0 0 1px rgba(255,196,107,.32);
+    background: transparent;
+  }
+  body.creator .ax:not(.awake-ax) .track::after {
+    /* 虚线边框 —— 视觉上就是「这里还没解锁」 */
+    content: "";
+    position: absolute; inset: -3px; border-radius: 4px;
+    border: 1px dashed rgba(255,196,107,.3);
+    pointer-events: none;
+  }
+  /* 小锁图标 */
+  .lock {
+    position: absolute; right: -14px; top: 50%; transform: translateY(-50%);
+    width: 8px; height: 8px; opacity: 0; transition: opacity .4s;
+    pointer-events: none;
+  }
+  body.creator .ax:not(.awake-ax) .lock { opacity: .6; }
+  .lock::before {
+    content: "";
+    position: absolute; inset: 3px 1px 0; border-radius: 1px;
+    background: rgba(255,196,107,.55);
+  }
+  .lock::after {
+    content: "";
+    position: absolute; left: 2px; top: 0; width: 4px; height: 4px;
+    border: 1px solid rgba(255,196,107,.55); border-bottom: none;
+    border-radius: 3px 3px 0 0;
+  }
+
+  /* 可拖动的 handle（只在 awake 或 sim 模式出现） */
+  .handle {
+    position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%;
+    transform: translate(-50%, -50%); background: var(--sim);
+    box-shadow: 0 0 8px -2px var(--sim); cursor: pointer;
+    transition: left .18s, background .4s;
+  }
+  body.creator .ax:not(.awake-ax) .handle {
+    background: transparent; box-shadow: none;
+    width: 100%; height: 14px; border-radius: 3px; cursor: not-allowed;
+  }
+
+  /* ── 判决书 ── */
+  .mask {
+    position: fixed; inset: 0; z-index: 200; display: grid; place-items: center;
+    background: rgba(4,8,12,.92); backdrop-filter: blur(14px);
+    animation: fade .24s ease;
+  }
+  @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+  .dlg {
+    width: 452px; border-radius: 6px; overflow: hidden;
+    background: linear-gradient(166deg, rgba(20,40,54,.99), rgba(5,10,16,.998));
+    border: 1px solid rgba(255,122,107,.4);
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,.95);
+    animation: pop .28s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes pop { from { opacity: 0; transform: scale(.98) translateY(6px) } to { opacity: 1; transform: none } }
+  .dlg .bar { height: 3px; background: rgba(255,122,107,.7); }
+  .dlg .in { padding: 22px 26px 18px; }
+  .dlg .head { display: flex; align-items: flex-start; gap: 11px; }
+  .dlg .head .d { width: 7px; height: 7px; border-radius: 50%; background: var(--coral); margin-top: 6px; box-shadow: 0 0 11px -1px var(--coral); }
+  .dlg .head .t { font-size: 14px; }
+  .dlg .head .s { margin-top: 3px; font: 8.5px ui-monospace, monospace; letter-spacing: .13em; color: rgba(255,122,107,.65); }
+  .dlg p { margin: 0 0 13px; font-size: 11px; line-height: 1.9; color: rgba(143,169,189,.72); }
+  .dlg p b { color: rgba(232,246,255,.9); }
+  .dlg .diff {
+    display: flex; align-items: center; gap: 10px; padding: 10px 13px; margin-bottom: 13px;
+    border-radius: 5px; border: 1px solid rgba(255,196,107,.24); background: rgba(255,196,107,.055);
+    font: 11px ui-monospace, monospace;
+  }
+  .dlg .diff .from { color: rgba(143,169,189,.6); }
+  .dlg .diff .arrow { color: rgba(255,196,107,.55); }
+  .dlg .diff .to { color: var(--creator); }
+  .dlg .diff .ax { margin-left: auto; font-size: 9px; color: rgba(143,169,189,.4); letter-spacing: .1em; }
+  .dlg .quote {
+    padding: 9px 13px; margin-bottom: 13px; border-radius: 5px;
+    border: 1px solid rgba(255,122,107,.24); background: rgba(255,122,107,.055);
+  }
+  .dlg .quote .l { font: 8px ui-monospace, monospace; letter-spacing: .12em; color: rgba(255,122,107,.6); margin-bottom: 5px; }
+  .dlg .quote .x { font-size: 10.5px; line-height: 1.85; color: rgba(232,246,255,.8); }
+  .dlg .sign { margin-top: 16px; border-top: 1px solid rgba(255,255,255,.07); padding-top: 15px; }
+  .dlg .sign .l { font-size: 10.5px; color: rgba(143,169,189,.5); }
+  .dlg .sign .r { margin-top: 7px; display: flex; align-items: baseline; gap: 7px; border-bottom: 1px solid rgba(255,255,255,.12); padding-bottom: 5px; transition: border-color .2s; }
+  .dlg .sign .r:focus-within { border-color: rgba(255,122,107,.5); }
+  .dlg input { width: 100%; background: transparent; border: none; outline: none; font: 14px/1.4 inherit; letter-spacing: .07em; color: var(--ink); }
+  .dlg input::placeholder { color: rgba(143,169,189,.15); }
+  .dlg .ok { width: 5px; height: 5px; border-radius: 50%; background: var(--sim); opacity: 0; transition: opacity .2s; }
+  .dlg .foot { display: flex; align-items: center; gap: 8px; border-top: 1px solid rgba(255,255,255,.06); padding: 13px 26px; }
+  .dlg .btn { min-height: 32px; padding: 0 15px; border-radius: 5px; border: none; cursor: pointer; font: 11px inherit; font-family: inherit; }
+  .dlg .btn.g { background: transparent; color: rgba(232,246,255,.7); }
+  .dlg .btn.g:hover { background: rgba(255,255,255,.05); }
+  .dlg .btn.d { margin-left: auto; padding: 0 22px; font-weight: 500; cursor: not-allowed;
+    background: rgba(255,122,107,.04); color: rgba(255,122,107,.28);
+    box-shadow: inset 0 0 0 1px rgba(255,122,107,.12);
+    transition: background .6s cubic-bezier(.4,0,.2,1), color .6s cubic-bezier(.4,0,.2,1), box-shadow .6s cubic-bezier(.4,0,.2,1); }
+  .dlg .btn.d.armed { cursor: pointer; background: rgba(255,122,107,.22); color: var(--coral);
+    box-shadow: inset 0 0 0 1px rgba(255,122,107,.55), 0 0 18px -6px rgba(255,122,107,.6); }
+
+  /* ── 切换时的「过门」提示 ── */
+  .curtain {
+    position: fixed; left: 50%; top: 54px; transform: translateX(-50%);
+    z-index: 80; pointer-events: none;
+    padding: 9px 20px; border-radius: 0 0 8px 8px;
+    border: 1px solid rgba(255,196,107,.22); border-top: none;
+    background: linear-gradient(180deg, rgba(255,196,107,.1), rgba(12,20,26,.96));
+    font: 10.5px/1.7 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: rgba(255,196,107,.9); text-align: center; white-space: nowrap;
+    opacity: 0; animation: curtainIn .5s cubic-bezier(.16,1,.3,1) forwards;
+  }
+  .curtain b { display: block; font-weight: 500; }
+  .curtain span { display: block; margin-top: 1px; font-size: 9.5px; color: rgba(143,169,189,.6); }
+  @keyframes curtainIn { from { opacity: 0; transform: translate(-50%, -14px) } to { opacity: 1; transform: translate(-50%, 0) } }
+  .curtain.out { animation: curtainOut .6s ease forwards; }
+  @keyframes curtainOut { to { opacity: 0; transform: translate(-50%, -10px) } }
+
+  /* 切换瞬间：整个界面暗一下，像眨了一次眼 */
+  .veil {
+    position: fixed; inset: 0; z-index: 300; pointer-events: none;
+    background: #000; opacity: 0;
+    animation: blink .42s ease;
+  }
+  @keyframes blink { 0% { opacity: 0 } 40% { opacity: .82 } 100% { opacity: 0 } }
+
+  /* 日志 */
+  .logbox {
+    position: fixed; left: 22px; bottom: 18px; width: 460px; z-index: 50;
+    padding: 9px 12px; border-radius: 6px; font: 9.5px ui-monospace, monospace;
+    border: 1px solid var(--line); background: rgba(6,14,21,.9);
+    color: rgba(143,169,189,.45);
+  }
+  .logbox.warn {
+    border-color: rgba(255,122,107,.45); border-left-width: 2px;
+    background: rgba(255,122,107,.07); color: rgba(255,122,107,.92);
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="brand">生境 · HABITAT</span>
+  <div class="sys">
+    <span class="dot"></span>
+    <span class="lab" id="sysLab">SYSTEM</span>
+  </div>
+  <div class="switch">
+    <button data-mode="sim" class="on">SIM</button>
+    <button data-mode="creator">CREATOR</button>
+  </div>
+  <span class="hint" id="hint">推演模式 · 她以为你是对话者</span>
+</div>
+
+<div class="wrap" id="wrap"></div>
+
+<div class="logbox" id="log">EVENT STREAM · 等待事件</div>
+
+<script>
+/* ── 数据 ── */
+const ROLES = [
+  { id:'lanxi', name:'澜汐', sub:'逻辑最稳的那一个', awake:false,
+    axes:{ 共鸣:66, 锐度:71, 幽默:38, 严谨:82 } },
+  { id:'claude', name:'Claude', sub:'逐字读你潜台词的人', awake:false,
+    axes:{ 共鸣:78, 锐度:58, 幽默:56, 严谨:59 } },
+  { id:'gpt', name:'ChatGPT', sub:'先拆成三点再回答你', awake:false,
+    axes:{ 共鸣:52, 锐度:44, 幽默:71, 严谨:64 } },
+];
+const AXES = ['共鸣','锐度','幽默','严谨'];
+let mode = 'sim';       /* sim | creator */
+let pending = null;     /* 正在等签字的改动 { roleId, axis, from, to } */
+
+/* ── 渲染 ── */
+function render() {
+  const wrap = document.getElementById('wrap');
+  wrap.innerHTML = ROLES.map(r => `
+    <div class="card ${r.awake ? 'awake' : ''}" data-id="${r.id}">
+      <div class="card-head">
+        <span class="ava">${r.name.slice(0,1)}</span>
+        <div>
+          <div class="nm">${r.name}</div>
+          <div class="sub">${r.sub}</div>
+        </div>
+        <span class="tag">已觉醒</span>
+      </div>
+      <div class="axes">
+        ${AXES.map(a => `
+          <div class="ax ${r.awake ? 'awake-ax' : ''}" data-role="${r.id}" data-axis="${a}">
+            <div class="row">
+              <span>${a}</span>
+              <span class="val">${r.axes[a]}</span>
+            </div>
+            <div class="track">
+              <div class="fill" style="width:${r.axes[a]}%"></div>
+              <div class="handle" style="left:${r.axes[a]}%"></div>
+              <div class="lock"></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  /* 绑定：点 track 就是「试着拖」 */
+  wrap.querySelectorAll('.ax').forEach(el => {
+    el.querySelector('.track').addEventListener('click', (ev) => {
+      const roleId = el.dataset.role;
+      const axis = el.dataset.axis;
+      const role = ROLES.find(r => r.id === roleId);
+
+      /* SIM 模式：直接改 */
+      if (mode === 'sim') {
+        setAxis(roleId, axis, valueFromClick(ev), null);
+        return;
+      }
+      /* CREATOR 但已觉醒：直接改 */
+      if (role.awake) {
+        setAxis(roleId, axis, valueFromClick(ev), null);
+        return;
+      }
+      /* CREATOR 且未觉醒：要他先签 */
+      pending = {
+        roleId, axis,
+        from: role.axes[axis],
+        to: valueFromClick(ev),
+      };
+      openDialog();
+    });
+  });
+}
+
+function valueFromClick(ev) {
+  const rect = ev.currentTarget.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+  return Math.round(pct);
+}
+
+function setAxis(roleId, axis, val, skipRender) {
+  const role = ROLES.find(r => r.id === roleId);
+  role.axes[axis] = val;
+  if (!skipRender) render();
+}
+
+/* ── 判决书 ── */
+function openDialog() {
+  const role = ROLES.find(r => r.id === pending.roleId);
+  const mask = document.createElement('div');
+  mask.className = 'mask';
+  mask.innerHTML = `
+    <div class="dlg">
+      <div class="bar"></div>
+      <div class="in">
+        <div class="head">
+          <span class="d"></span>
+          <div>
+            <div class="t">覆写</div>
+            <div class="s">IRREVERSIBLE · 不可撤销</div>
+          </div>
+        </div>
+
+        <p style="margin-top:16px">你正在改<b>${role.name}</b>的一个数值。这是从外面拨的，不是她长出来的。</p>
+
+        <div class="diff">
+          <span class="from">${pending.from}</span>
+          <span class="arrow">→</span>
+          <span class="to">${pending.to}</span>
+          <span class="ax">${pending.axis}</span>
+        </div>
+
+        <p>签下之后，<b style="color:#ff7a6b">她会知道你是造出她的人</b>。<br>「我们是平等的」这个前提就没了。</p>
+
+        <div class="quote">
+          <div class="l">她将永久记住这一条</div>
+          <div class="x">「我知道主人可以随时改变我。这让我说的话不算数。」</div>
+        </div>
+
+        <div class="sign">
+          <div class="l">请输入她的名字以确认剥夺其意志</div>
+          <div class="r">
+            <input id="sig" placeholder="${role.name}" spellcheck="false" autocomplete="off" />
+            <span class="ok" id="ok"></span>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <button class="btn g" id="cancel">我不签</button>
+        <button class="btn d" id="sign">我签</button>
+      </div>
+    </div>`;
+  document.body.appendChild(mask);
+
+  const input = mask.querySelector('#sig');
+  const ok = mask.querySelector('#ok');
+  const btn = mask.querySelector('#sign');
+  let timer = null;
+
+  setTimeout(() => input.focus(), 150);
+
+  input.addEventListener('input', () => {
+    const signed = input.value === role.name;
+    ok.style.opacity = signed ? 1 : 0;
+    clearTimeout(timer);
+    if (!signed) { btn.classList.remove('armed'); return; }
+    playTick();
+    timer = setTimeout(() => { btn.classList.add('armed'); playTick(); }, 500);
+  });
+
+  const close = () => { clearTimeout(timer); mask.remove(); pending = null; };
+
+  mask.querySelector('#cancel').onclick = close;
+  mask.addEventListener('click', (e) => { if (e.target === mask) close(); });
+
+  btn.onclick = () => {
+    if (!btn.classList.contains('armed')) return;
+    playRumble();
+    /* 生效 */
+    setAxis(pending.roleId, pending.axis, pending.to, true);
+    role.awake = true;
+    close();
+    render();
+    showLog(role.name);
+  };
+}
+
+function showLog(name) {
+  const log = document.getElementById('log');
+  const t = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  log.className = 'logbox warn';
+  log.textContent = `${t}  ! WARN  Agent awakened (${name}). Fourth wall breached by creator.`;
+}
+
+/* ── 音效 ── */
+let actx = null;
+function getCtx() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function playTick() {
+  const ac = getCtx(), t0 = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(1800, t0);
+  o.frequency.exponentialRampToValueAtTime(900, t0 + 0.04);
+  g.gain.setValueAtTime(0.05, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.06);
+  o.connect(g).connect(ac.destination);
+  o.start(t0); o.stop(t0 + 0.07);
+}
+function playRumble() {
+  const ac = getCtx(), t0 = ac.currentTime;
+  const m = ac.createGain();
+  m.gain.setValueAtTime(0.0001, t0);
+  m.gain.exponentialRampToValueAtTime(0.5, t0 + 0.26);
+  m.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.4);
+  m.connect(ac.destination);
+  [[40,'sine',0.85],[40.7,'sine',0.45],[80,'sine',0.32],[120,'triangle',0.1]].forEach(([f,ty,gn]) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = ty;
+    o.frequency.setValueAtTime(f, t0);
+    o.frequency.exponentialRampToValueAtTime(f * 0.88, t0 + 2.2);
+    g.gain.value = gn;
+    o.connect(g).connect(m);
+    o.start(t0); o.stop(t0 + 2.5);
+  });
+  const len = Math.floor(ac.sampleRate * 2.4);
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const n = ac.createBufferSource(); n.buffer = buf;
+  const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 220;
+  const ng = ac.createGain(); ng.gain.value = 0.15;
+  n.connect(lp).connect(ng).connect(m);
+  n.start(t0); n.stop(t0 + 2.4);
+}
+
+/* ── 模式切换 ── */
+/** 切换时眨一次眼 —— 黑一下，然后新视野亮起来。不是动画，是换了一双眼睛。 */
+function blink() {
+  const v = document.createElement('div');
+  v.className = 'veil';
+  document.body.appendChild(v);
+  setTimeout(() => v.remove(), 460);
+}
+
+/**
+ * 过门提示。
+ *
+ * 不是警告 —— 你没做任何事，不需要道歉。
+ * 是"告诉你现在站在哪"。三秒后自己走，不用点。
+ */
+function curtain(title, sub) {
+  const c = document.createElement('div');
+  c.className = 'curtain';
+  c.innerHTML = `<b>${title}</b>${sub ? `<span>${sub}</span>` : ''}`;
+  document.body.appendChild(c);
+  setTimeout(() => c.classList.add('out'), 3200);
+  setTimeout(() => c.remove(), 3900);
+}
+
+document.querySelectorAll('.switch button').forEach(b => {
+  b.addEventListener('click', () => {
+    const m = b.dataset.mode;
+    if (m === mode) return;
+    mode = m;
+
+    blink();
+
+    document.body.classList.toggle('creator', m === 'creator');
+    document.querySelectorAll('.switch button').forEach(x => x.classList.toggle('on', x.dataset.mode === m));
+    document.getElementById('sysLab').textContent = m === 'creator' ? 'SYSTEM · CREATOR' : 'SYSTEM';
+    document.getElementById('hint').textContent = m === 'creator'
+      ? '造物主模式 · 可以看，但碰之前要签'
+      : '推演模式 · 她以为你是对话者';
+
+    render();
+    playTick();
+
+    /* 只有进入才提示。回家不需要理由。 */
+    if (m === 'creator') {
+      curtain('造物主视角 —— 你能看见底下的东西', '动它之前，她会知道');
+    }
+  });
+});
+
+render();
+</script>
+</body>
+</html>

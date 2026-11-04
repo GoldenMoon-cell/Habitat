@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>生境 · 记忆星图 · 方案 B（three.js + Bloom）</title>
+<style>
+  :root { --cold:#cfefff; --warm:#ffb46b; --mist:#a9c4cf; --biolum:#35f0ce; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;user-select:none;
+    background:radial-gradient(ellipse at 50% 46%,#071a24 0%,#030c13 46%,#000305 100%);
+    font-family:ui-sans-serif,system-ui,"PingFang SC","Microsoft YaHei",sans-serif;color:var(--mist)}
+  /* three.js 的 canvas 是后 append 的，会盖住所有 DOM —— 压到最底层 */
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;z-index:0}
+  #hud,#legend,#tag,#tip,#corelabel{position:absolute;z-index:10}
+  canvas:active{cursor:grabbing}
+  #hud{position:absolute;left:22px;top:20px;pointer-events:none;font-size:11px;line-height:1.9;color:rgba(169,196,207,.5)}
+  #hud h1{margin:0 0 8px;font-size:13px;letter-spacing:.2em;color:rgba(207,239,255,.82);font-weight:500}
+  #hud b{color:var(--biolum);font-weight:500}
+  #hud .c{color:var(--cold)} #hud .w{color:var(--warm)}
+  #legend{position:absolute;left:22px;bottom:20px;display:flex;gap:18px;font-size:10.5px;color:rgba(169,196,207,.42);pointer-events:none}
+  #legend span{display:flex;align-items:center;gap:6px}
+  #legend i{width:6px;height:6px;border-radius:50%;display:inline-block}
+  #tip{position:absolute;right:22px;bottom:20px;font-size:10.5px;color:rgba(169,196,207,.3);pointer-events:none}
+  #tag{position:absolute;right:22px;top:20px;font-family:ui-monospace,monospace;font-size:10px;
+    padding:4px 9px;border-radius:5px;border:1px solid rgba(255,180,107,.32);color:var(--warm);opacity:.85}
+  #corelabel{position:absolute;transform:translate(-50%,-50%);pointer-events:none;
+    font-size:13px;letter-spacing:.1em;color:rgba(226,255,250,.72);text-shadow:0 0 14px rgba(53,240,206,.75)}
+  #fail{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    font-size:12px;color:rgba(255,150,140,.8);text-align:center;line-height:2;padding:40px}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <h1>记 忆 星 图 · 方 案 B</h1>
+  three.js + UnrealBloom　·　**真 3D + 后处理光晕**<br />
+  中心 = 她　·　距离 = 权重　· 深度 = 遗忘<br />
+  <span class="c">冷白</span> = 皮层　<span class="w">暖橙</span> = 海马体　·　**不连线**
+</div>
+
+<div id="tag">B · three.js</div>
+
+<div id="legend">
+  <span><i style="background:#cfefff;box-shadow:0 0 8px #cfefff"></i>皮层</span>
+  <span><i style="background:#ffb46b;box-shadow:0 0 8px #ffb46b"></i>海马体</span>
+  <span><i style="background:#243440"></i>忘了</span>
+</div>
+
+<div id="tip">拖动旋转 · 松手回到自动轨道</div>
+<div id="corelabel">鲸</div>
+<div id="fail">three.js 没能从 CDN 加载。<br />检查网络，或把 three.module.js 放到本地再改 importmap。</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+let THREE, EffectComposer, RenderPass, UnrealBloomPass;
+try {
+  THREE = await import('three');
+  ({ EffectComposer } = await import('three/addons/postprocessing/EffectComposer.js'));
+  ({ RenderPass }    = await import('three/addons/postprocessing/RenderPass.js'));
+  ({ UnrealBloomPass } = await import('three/addons/postprocessing/UnrealBloomPass.js'));
+} catch (e) {
+  document.getElementById('fail').style.display = 'flex';
+  throw e;
+}
+
+/* ═════════ 数据 —— 和 A 完全同一套种子 ═════════ */
+let seed = 20261103;
+const rnd = () => (seed = (seed*1664525 + 1013904223) % 4294967296) / 4294967296;
+
+const TAGS = [
+  { tag:"长期", n:34, az:0.79, base:.66, spread:.24, cortex:.58 },
+  { tag:"偏好", n:27, az:2.36, base:.56, spread:.22, cortex:.45 },
+  { tag:"情绪", n:46, az:3.93, base:.20, spread:.14, cortex:.06 },
+  { tag:"短期", n:71, az:5.50, base:.15, spread:.12, cortex:.02 },
+];
+
+const items = [];
+for (const c of TAGS) {
+  for (let i=0;i<c.n;i++){
+    const w = Math.max(.03, Math.min(.96, c.base + (rnd()-.5)*2*c.spread));
+    const consolidated = rnd() < c.cortex;
+    const sink = 1 - w;
+    items.push({
+      tag:c.tag, w, consolidated,
+      forgotten: !consolidated && w < .06 && rnd() < .5,
+      accessCount: consolidated ? 3+Math.floor(rnd()*9) : Math.floor(rnd()*3),
+      az: c.az + (rnd()-.5)*.70,
+      /* 半径和深度先占位，全部造完再按排名分配 */
+      rad: 0,
+      z: 0,
+      phase: rnd()*Math.PI*2,
+      speed: .5 + rnd()*.9,
+    });
+  }
+}
+
+/* ── 按排名铺开，而不是按权重线性映射 ──
+ *
+ * `rad = 0.1 + (1-w)*0.92` 会让 117/178 颗挤在外圈同一个半径上
+ * —— 因为大部分记忆权重都低。结果是一道薄薄的环，不是星图。
+ *
+ * 改成按权重排名分配：最亮的那颗贴着中心，最暗的那颗在最外，
+ * 中间均匀铺开。**这样才填满整个盘面。**
+ */
+{
+  const order = items.slice().sort((a, b) => b.w - a.w);
+  const n = order.length;
+  order.forEach((m, i) => {
+    const f = n > 1 ? i / (n - 1) : 0;          /* 0 = 最亮, 1 = 最暗 */
+    m.rad = 0.11 + f * 0.95 + (rnd() - .5) * 0.10;
+    m.z   = 0.25 - f * 1.75 + (rnd() - .5) * 0.35;
+  });
+}
+
+const SCALE = 9.5;
+const N = items.length;
+
+const pos   = new Float32Array(N*3);
+const color = new Float32Array(N*3);
+const sizeA = new Float32Array(N);
+const alpha = new Float32Array(N);      /* 给 attribute 用，每帧会被改 */
+const baseAlpha = new Float32Array(N);  /* 原始亮度，只读 —— 不能和上面共用，
+                                           否则每帧 ×tw 会自我复利，几秒暗到 0 */
+const phaseA= new Float32Array(N);
+const speedA= new Float32Array(N);
+const baseAz= new Float32Array(N);
+const baseRad=new Float32Array(N);
+const baseZ = new Float32Array(N);
+
+const COLD = new THREE.Color('#cfefff');
+const WARM = new THREE.Color('#ffb46b');
+
+items.forEach((m,i)=>{
+  baseAz[i]=m.az; baseRad[i]=m.rad*SCALE; baseZ[i]=m.z*SCALE;
+  phaseA[i]=m.phase; speedA[i]=m.speed;
+  const c = m.consolidated ? COLD : WARM;
+  color[i*3]=c.r; color[i*3+1]=c.g; color[i*3+2]=c.b;
+  const base = (m.consolidated?2.4:1.6) + Math.min(m.accessCount,12)*0.22;
+  sizeA[i] = base * 2.7;
+  baseAlpha[i] = m.forgotten ? 0.06 : (0.22 + m.w * 0.78);
+  alpha[i] = baseAlpha[i];
+});
+
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+geo.setAttribute('aColor',   new THREE.BufferAttribute(color, 3));
+geo.setAttribute('aSize',    new THREE.BufferAttribute(sizeA, 1));
+geo.setAttribute('aAlpha',   new THREE.BufferAttribute(alpha, 1));
+
+const mat = new THREE.ShaderMaterial({
+  transparent:true, depthWrite:false, depthTest:false,
+  blending: THREE.AdditiveBlending,
+  vertexShader:`
+    attribute float aSize;
+    attribute float aAlpha;
+    attribute vec3 aColor;
+    varying vec3 vColor;
+    varying float vAlpha;
+    void main(){
+      vColor = aColor;
+      vAlpha = aAlpha;
+      vec4 mv = modelViewMatrix * vec4(position,1.0);
+      gl_PointSize = aSize * (22.0 / -mv.z);
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader:`
+    varying vec3 vColor;
+    varying float vAlpha;
+    void main(){
+      vec2 d = gl_PointCoord - 0.5;
+      float r = length(d);
+      if (r > 0.5) discard;
+      float a = smoothstep(0.5, 0.0, r);
+      a = pow(a, 2.4);
+      gl_FragColor = vec4(vColor, a * vAlpha * 1.8);
+    }`
+});
+
+const scene = new THREE.Scene();
+const starfield = new THREE.Points(geo, mat);
+scene.add(starfield);
+
+/* 中心：她 */
+const coreGeo = new THREE.BufferGeometry();
+coreGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0,0,0]), 3));
+coreGeo.setAttribute('aColor',   new THREE.BufferAttribute(new Float32Array([0.19,1.0,0.87]), 3));
+coreGeo.setAttribute('aSize',    new THREE.BufferAttribute(new Float32Array([34]), 1));
+coreGeo.setAttribute('aAlpha',   new THREE.BufferAttribute(new Float32Array([0.85]), 1));
+const core = new THREE.Points(coreGeo, mat.clone());
+scene.add(core);
+
+/* 摄像机 */
+const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 400);
+camera.position.set(0, -6, 27);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setClearColor(0x000000, 0);
+renderer.setPixelRatio(Math.min(devicePixelRatio||1, 2));
+document.body.appendChild(renderer.domElement);
+
+/* Bloom —— B 方案的核心，A 做不到的东西 */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(1,1), 0.72, 0.58, 0.14);
+composer.addPass(bloom);
+
+function resize(){
+  const w = innerWidth, h = innerHeight;
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  bloom.setSize(w*0.8, h*0.8);
+}
+addEventListener('resize', resize);
+resize();
+
+/* 相机控制：自动环绕 + 拖拽临时接管 */
+let yaw = 0, pitch = -0.62, dragging=false, lx=0, ly=0, idle=9;
+const el = renderer.domElement;
+el.addEventListener('pointerdown', e=>{dragging=true;lx=e.clientX;ly=e.clientY;idle=0});
+addEventListener('pointerup', ()=>dragging=false);
+addEventListener('pointermove', e=>{
+  if(!dragging)return;
+  yaw += (e.clientX-lx)*0.006;
+  pitch = Math.max(-1.25, Math.min(0.35, pitch + (e.clientY-ly)*0.004));
+  lx=e.clientX; ly=e.clientY; idle=0;
+});
+
+const label = document.getElementById('corelabel');
+const t0 = performance.now();
+
+function frame(now){
+ try {
+  const t = (now-t0)/1000;
+  if (!dragging) { idle += 1/60; if (idle > 2.2) { yaw += 0.0017; pitch += (-0.62-pitch)*0.012; } }
+
+  /* 逐帧更新位置（和 A 一样的两条公式：半径=权重、z=落沉） */
+  const p = geo.attributes.position.array;
+  const a = geo.attributes.aAlpha.array;
+  for (let i=0;i<N;i++){
+    const wob = Math.sin(t*0.20 + phaseA[i]) * 0.035;
+    const az  = baseAz[i] + wob;
+    p[i*3]   = Math.cos(az) * baseRad[i];
+    p[i*3+1] = Math.sin(az) * baseRad[i] * 0.80;
+    p[i*3+2] = baseZ[i] + Math.sin(t*0.11 + phaseA[i]) * 0.35;
+    const tw = 1 + 0.14*Math.sin(t*speedA[i] + phaseA[i]);
+    a[i] = Math.min(1, baseAlpha[i] * tw);
+  }
+  geo.attributes.position.needsUpdate = true;
+  geo.attributes.aAlpha.needsUpdate = true;
+
+  /* 中心呼吸 */
+  core.material.uniforms = mat.uniforms;
+  core.scale.setScalar(1 + 0.10*Math.sin(t*0.9));
+
+  /* 相机绕原点转 */
+  const dist = 27;
+  camera.position.set(
+    Math.sin(yaw) * dist * Math.cos(pitch),
+    -dist * Math.sin(pitch),
+    Math.cos(yaw) * dist * Math.cos(pitch)
+  );
+  camera.lookAt(0, 0, 0);
+
+  /* 中心那个字的 DOM 位置 */
+  const v = new THREE.Vector3(0,0,0).project(camera);
+  label.style.left = ((v.x*0.5+0.5) * innerWidth) + 'px';
+  label.style.top  = ((-v.y*0.5+0.5) * innerHeight) + 'px';
+  label.style.opacity = 0.55 + 0.12*Math.sin(t*0.9);
+
+  composer.render();
+  requestAnimationFrame(frame);
+ } catch (err) {
+   const d = document.getElementById('fail');
+   d.style.display = 'flex';
+   d.textContent = 'frame() 抛错: ' + (err && err.message ? err.message : err);
+   console.error(err);
+ }
+}
+requestAnimationFrame(frame);
+
+/* 一次性诊断：1 秒后把关键数据打到右下角 */
+setTimeout(() => {
+  const p = geo.attributes.position.array;
+  const d = document.createElement('div');
+  d.style.cssText = 'position:absolute;right:22px;top:44px;z-index:99;font:10px ui-monospace,monospace;color:#7fe;opacity:.85;text-align:right;line-height:1.7';
+  d.textContent = `N=${N}  pos[0]=${p[0].toFixed(2)},${p[1].toFixed(2)},${p[2].toFixed(2)}  `
+    + `size0=${sizeA[0].toFixed(1)}  alpha0=${alpha[0].toFixed(2)}`;
+  document.body.appendChild(d);
+}, 1000);
+</script>
+</body>
+</html>

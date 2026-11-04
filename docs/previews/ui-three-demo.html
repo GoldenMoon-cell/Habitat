@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>群设置三种交互 · 对比演示</title>
+<style>
+  :root {
+    --bg: #05090e;
+    --ink: #e8f6ff;
+    --mist: #8fa9bd;
+    --accent: #35f0ce;
+    --purple: #8b6bff;
+    --danger: #ff7a6b;
+    --line: rgba(255,255,255,.07);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background:
+      radial-gradient(900px 600px at 30% 10%, rgba(53,240,206,.05), transparent 65%),
+      radial-gradient(700px 500px at 88% 82%, rgba(139,107,255,.05), transparent 70%),
+      var(--bg);
+    color: var(--ink);
+    font: 13px/1.65 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+  }
+
+  /* ══ 顶栏 ══ */
+  .top {
+    height: 58px; padding: 0 18px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid var(--line); background: rgba(5,9,14,.85);
+  }
+  .top h1 { margin: 0; font-size: 13px; font-weight: 500; letter-spacing: .06em; }
+  .switcher { margin-left: auto; display: flex; gap: 6px; }
+  .switcher button {
+    padding: 7px 13px; border-radius: 6px; font-size: 11.5px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,.1); background: transparent;
+    color: rgba(232,246,255,.58); transition: .18s;
+  }
+  .switcher button:hover { border-color: rgba(53,240,206,.4); color: var(--accent); }
+  .switcher button[aria-pressed="true"] {
+    background: rgba(53,240,206,.11); border-color: rgba(53,240,206,.5); color: var(--accent);
+  }
+
+  /* ══ 三栏 ══ */
+  .app { display: flex; height: calc(100% - 58px); padding: 10px; gap: 8px; }
+  .rail {
+    border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+    background: linear-gradient(166deg, rgba(24,56,72,.20), rgba(6,14,21,.5));
+    display: flex; flex-direction: column; gap: 8px; overflow: hidden;
+  }
+  .rail.list { width: 200px; flex: 0 0 200px; }
+  .rail.stage { flex: 1; min-width: 0; position: relative; }
+  .rail.vitals { width: 230px; flex: 0 0 230px; }
+
+  .rail-head {
+    display: flex; align-items: center; gap: 8px; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+    color: rgba(143,169,189,.55);
+  }
+  .rail-head .btn {
+    margin-left: auto; width: 26px; height: 26px; border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.1); background: transparent;
+    color: rgba(143,169,189,.6); cursor: pointer; display: grid; place-items: center;
+    font-size: 12px; transition: .18s;
+  }
+  .rail-head .btn:hover { border-color: rgba(53,240,206,.45); color: var(--accent); }
+
+  .item { padding: 7px 9px; border-radius: 7px; font-size: 11.5px; color: rgba(232,246,255,.6); background: rgba(255,255,255,.02); }
+  .item.on { background: rgba(53,240,206,.09); color: var(--accent); }
+
+  .msg {
+    padding: 9px 11px; border-radius: 9px; font-size: 11.5px; line-height: 1.85;
+    background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.045);
+    color: rgba(232,246,255,.72); margin-bottom: 7px;
+  }
+  .msg.me { background: rgba(53,240,206,.07); border-color: rgba(53,240,206,.15); margin-left: auto; max-width: 74%; }
+
+  /* ══ 成员行（三种方案共用） ══ */
+  .members { display: flex; flex-direction: column; gap: 5px; }
+  .member {
+    display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+    border-radius: 7px; background: rgba(255,255,255,.025);
+    cursor: pointer; transition: .16s; border: 1px solid transparent;
+  }
+  .member:hover { background: rgba(255,255,255,.05); }
+  .member .av { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: 11px; font-weight: 500; flex: 0 0 24px; }
+  .member .nm { font-size: 11.5px; color: rgba(232,246,255,.82); }
+  .member .md { font-size: 8.5px; color: rgba(143,169,189,.42); }
+  .member .ck {
+    margin-left: auto; width: 16px; height: 16px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,.16); display: grid; place-items: center;
+    font-size: 10px; color: transparent; transition: .18s;
+  }
+  .member[aria-checked="true"] .ck {
+    background: rgba(53,240,206,.22); border-color: rgba(53,240,206,.55); color: var(--accent);
+  }
+  /* 呼吸灯 —— 方案一强调的东西 */
+  .member[aria-checked="true"] .av::after {
+    content: ""; position: absolute; inset: -2px; border-radius: 9px;
+    box-shadow: 0 0 0 0 currentColor; animation: breathe 2.4s ease-in-out infinite;
+  }
+  .member .av { position: relative; }
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(53,240,206,.35); }
+    50%      { box-shadow: 0 0 0 4px rgba(53,240,206,0); }
+  }
+
+  /* ══════ 方案一：全息气泡 ══════ */
+  .pop {
+    position: fixed; width: 320px; z-index: 60; border-radius: 13px;
+    background: linear-gradient(166deg, rgba(18,42,56,.985), rgba(5,12,19,.995));
+    border: 1px solid rgba(122,208,226,.28);
+    box-shadow: 0 24px 64px -14px rgba(0,0,0,.9), inset 0 0 0 1px rgba(122,208,226,.06);
+    transform-origin: top right;
+  }
+  .pop.enter { animation: holoIn .32s cubic-bezier(.16,1,.3,1); }
+  .pop.leave { animation: holoOut .16s cubic-bezier(.4,0,1,1) forwards; }
+  @keyframes holoIn  {
+    from { opacity: 0; transform: scale(.94); clip-path: inset(0 0 100% 0); }
+    to   { opacity: 1; transform: none;      clip-path: inset(0 0 0 0); }
+  }
+  @keyframes holoOut {
+    to { opacity: 0; transform: scale(.97); clip-path: inset(0 0 100% 0); }
+  }
+  .pop-body { padding: 10px 12px; max-height: 460px; overflow: auto; }
+
+  .pop-head {
+    display: flex; align-items: center; gap: 8px; padding: 11px 13px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .pop-head .t { font-size: 12px; }
+  .pop-head .s { font-size: 9px; color: rgba(143,169,189,.45); margin-top: 1px; }
+  .pop-head .live {
+    margin-left: auto; display: flex; align-items: center; gap: 5px;
+    font-size: 9px; color: rgba(53,240,206,.7); font-family: ui-monospace, monospace;
+  }
+  .pop-head .live i {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 8px var(--accent); animation: pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+
+  .toast-line {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+    padding: 8px 15px; border-radius: 8px; z-index: 90;
+    background: rgba(8,20,28,.96); border: 1px solid rgba(53,240,206,.35);
+    font-size: 11.5px; color: var(--accent); font-family: ui-monospace, monospace;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast-line.show { opacity: 1; }
+
+  /* ══════ 方案二：原地翻转 ══════ */
+  .flip-outer { flex: 1; min-height: 0; perspective: 1400px; margin-top: 6px; }
+  .flip-inner {
+    position: relative; width: 100%; height: 100%;
+    transform-style: preserve-3d; transition: transform .62s cubic-bezier(.65,0,.35,1);
+  }
+  .flip-outer.flipped .flip-inner { transform: rotateY(180deg); }
+  .flip-face {
+    position: absolute; inset: 0; backface-visibility: hidden; overflow: auto;
+    border-radius: 10px;
+  }
+  .flip-front { padding-right: 4px; }
+  .flip-back {
+    transform: rotateY(180deg);
+    background: linear-gradient(166deg, rgba(14,32,44,.98), rgba(4,10,16,.99));
+    border: 1px solid rgba(122,208,226,.22);
+    padding: 12px;
+  }
+  .flip-note {
+    position: absolute; top: 8px; right: 12px; z-index: 5;
+    font: 9px/1.6 ui-monospace, monospace; color: rgba(143,169,189,.45);
+    pointer-events: none;
+  }
+
+  /* ══════ 方案三：HUD 控制台 ══════ */
+  .hud-mask {
+    position: fixed; inset: 0; z-index: 70; display: grid; place-items: center;
+    background: rgba(4,11,18,.82); backdrop-filter: blur(14px) saturate(120%);
+  }
+  .hud-mask.enter { animation: maskIn .24s ease; }
+  .hud-mask.leave { animation: maskOut .18s ease forwards; }
+  @keyframes maskIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes maskOut { to { opacity: 0; } }
+
+  .hud {
+    width: 460px; border-radius: 4px; position: relative;
+    background: linear-gradient(166deg, rgba(16,30,40,.995), rgba(4,9,15,.998));
+    border: 1px solid rgba(255,122,107,.5);
+    box-shadow: 0 0 0 1px rgba(255,122,107,.12), 0 28px 70px -18px rgba(0,0,0,.95),
+                inset 0 0 60px -20px rgba(255,122,107,.16);
+  }
+  .hud-mask.enter .hud { animation: hudIn .3s cubic-bezier(.16,1,.3,1); }
+  @keyframes hudIn { from { opacity: 0; transform: scale(.96) translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* 四角切角 */
+  .hud::before, .hud::after {
+    content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none;
+    border-color: rgba(255,122,107,.75); border-style: solid;
+  }
+  .hud::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  .hud::after  { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+
+  .hud-bar {
+    display: flex; align-items: center; gap: 8px; padding: 9px 13px;
+    border-bottom: 1px solid rgba(255,122,107,.18);
+    background: rgba(255,122,107,.05);
+    font: 10px/1 ui-monospace, monospace; letter-spacing: .14em;
+    color: rgba(255,122,107,.85); text-transform: uppercase;
+  }
+  .hud-bar i {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--danger);
+    box-shadow: 0 0 9px var(--danger); animation: pulse 1.4s ease-in-out infinite;
+  }
+  .hud-bar .x {
+    margin-left: auto; width: 22px; height: 22px; border: none; background: transparent;
+    color: rgba(255,122,107,.6); cursor: pointer; font-size: 12px; border-radius: 3px;
+  }
+  .hud-bar .x:hover { background: rgba(255,122,107,.14); color: var(--danger); }
+
+  .hud-body { padding: 12px 14px; max-height: 420px; overflow: auto; }
+  .hud-foot {
+    display: flex; gap: 8px; padding: 10px 14px;
+    border-top: 1px solid rgba(255,122,107,.14);
+  }
+
+  .btn {
+    min-height: 32px; padding: 0 14px; border-radius: 5px; font-size: 11.5px;
+    cursor: pointer; transition: .16s; font-family: inherit;
+  }
+  .btn.ghost { border: 1px solid rgba(255,255,255,.12); background: transparent; color: rgba(232,246,255,.7); }
+  .btn.ghost:hover { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.04); }
+  .btn.cyan  { border: 1px solid rgba(53,240,206,.36); background: rgba(53,240,206,.11); color: var(--accent); font-weight: 500; }
+  .btn.cyan:hover { filter: brightness(1.2); }
+  .btn.red   { border: 1px solid rgba(255,122,107,.42); background: rgba(255,122,107,.12); color: var(--danger); font-weight: 500; }
+  .btn.red:hover { filter: brightness(1.2); }
+  .ml-auto { margin-left: auto; }
+
+  /* ══ 说明 ══ */
+  .note {
+    position: fixed; left: 18px; bottom: 14px; z-index: 40; max-width: 480px;
+    padding: 10px 13px; border-radius: 9px; font-size: 11px; line-height: 1.75;
+    background: rgba(8,18,26,.94); border: 1px solid rgba(255,255,255,.07);
+    color: rgba(143,169,189,.74);
+  }
+  .note b { color: var(--accent); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>群设置 · 三种交互</h1>
+  <div class="switcher">
+    <button data-mode="pop" aria-pressed="true">① 全息气泡</button>
+    <button data-mode="flip" aria-pressed="false">② 原地翻转</button>
+    <button data-mode="hud" aria-pressed="false">③ HUD 控制台</button>
+  </div>
+</div>
+
+<div class="app">
+  <div class="rail list">
+    <div class="rail-head">会话</div>
+    <div class="item on">HABITAT CORE</div>
+    <div class="item">DeepSeek</div>
+    <div class="item">Claude</div>
+    <div class="item">ChatGPT</div>
+    <div class="item">鲸鲸</div>
+  </div>
+
+  <div class="rail stage" id="stage">
+    <div class="rail-head">
+      聊天 <span id="modeHint" style="margin-left:auto;font-size:9px;letter-spacing:.08em;color:rgba(143,169,189,.4)"></span>
+      <button class="btn" id="openBtn" title="群设置">⌘</button>
+    </div>
+
+    <div class="flip-outer" id="flipOuter">
+      <div class="flip-inner">
+        <!-- 正面：聊天记录 -->
+        <div class="flip-face flip-front" id="front">
+          <div class="msg">我碰它之前会先问你</div>
+          <div class="msg me">别吵了。今晚开一局狼人杀，谁当法官？</div>
+          <div class="msg">法官人选我做个快速权衡：鲸鲸情绪外露容易被带节奏，但抽牌公平；澜汐逻辑最稳，可惜她会把每句发言都写进日志；Claude 擅长读人，但你会在第三轮怀疑他在保谁。</div>
+          <div class="msg me">规则我拟了一版：不查身份、不记仇、天亮之前必须有人承认自己是狼。</div>
+          <div class="msg">那我先说好，我第一晚一定要验澜汐，她太可疑了。</div>
+          <div class="msg me">先把牌发完再说。</div>
+        </div>
+        <!-- 背面：成员选择 -->
+        <div class="flip-face flip-back" id="back">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <span style="font-size:12px;color:rgba(53,240,206,.8)">◉</span>
+            <div>
+              <div style="font-size:12px">群设置</div>
+              <div style="font-size:9px;color:rgba(143,169,189,.45);margin-top:1px">HABITAT CORE</div>
+            </div>
+            <button class="btn ghost ml-auto" id="flipClose" style="min-height:26px;padding:0 10px;font-size:10.5px">返回</button>
+          </div>
+          <div class="members" id="flipMembers"></div>
+          <div style="margin-top:10px;font-size:9px;color:rgba(143,169,189,.4)">
+            勾选立即生效 · 点「返回」翻回聊天记录
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rail vitals">
+    <div class="rail-head">VITALS</div>
+    <div class="item">MEMORY STREAM</div>
+    <div class="item">鲸鲸对「被清空」有强烈的失去焦虑</div>
+    <div class="item">AFFECT RADAR</div>
+    <div class="item">QUICK COMMANDS</div>
+    <div class="item">VITALS 始终完整可见</div>
+  </div>
+</div>
+
+<div class="note" id="note"></div>
+<div class="toast-line" id="toast"></div>
+
+<script>
+const MEMBERS = [
+  ["鲸", "鲸鲸", "qwen3-32b", "#35f0ce", true],
+  ["D", "DeepSeek", "deepseek-flash", "#4a9eff", true],
+  ["G", "Gemini", "gemini-3-pro", "#8b6bff", true],
+  ["C", "Claude", "claude-sonnet-5", "#ff9d6b", false],
+  ["G", "Grok", "grok-4", "#ff6b8a", false],
+  ["C", "ChatGPT", "gpt-5-luna", "#5eead4", false],
+  ["Q", "Qwen", "qwen3-max", "#a78bfa", false],
+  ["K", "Kimi", "kimi-k2", "#fbbf24", false],
+];
+
+const NOTES = {
+  pop: "<b>① 全息气泡</b>：点哪儿弹哪儿，<b>没有「取消/保存」</b> —— 勾选立刻生效，点空白处像全息投影一样消散。<br>代价：暂时盖住聊天记录一小块。",
+  flip: "<b>② 原地翻转</b>：聊天框<b>原地 3D 翻转 180°</b>，背面就是成员选择。<br>完全不占额外空间、不遮挡任何东西 —— 但动画期间聊天内容会短暂不可读。",
+  hud: "<b>③ HUD 控制台</b>：屏幕正中 + 深度高斯模糊 + 红色科技边框，像飞船舱门。<br>最有仪式感，代价最重 —— 用户会失去「我刚才在干什么」的上下文。",
+};
+
+const TITLES = {
+  pop: "弹出气泡",
+  flip: "翻转聊天区",
+  hud: "打开控制台",
+};
+
+let mode = "pop";
+let open = false;
+let el = null;
+let savedOn = new Set(MEMBERS.filter(m => m[4]).map(m => m[1]));
+
+const stage = document.getElementById("stage");
+const flipOuter = document.getElementById("flipOuter");
+const front = document.getElementById("front");
+const back = document.getElementById("back");
+const openBtn = document.getElementById("openBtn");
+const note = document.getElementById("note");
+const toast = document.getElementById("toast");
+const modeHint = document.getElementById("modeHint");
+
+function memberHTML(on) {
+  return MEMBERS.map(([ch, nm, md, c]) => {
+    const checked = on.has(nm);
+    return `<div class="member" role="checkbox" aria-checked="${checked}" data-name="${nm}">
+      <span class="av" style="background:${c}22;color:${c}">${ch}</span>
+      <div style="min-width:0"><div class="nm">${nm}</div><div class="md">${md}</div></div>
+      <span class="ck">✓</span>
+    </div>`;
+  }).join("");
+}
+
+function showToast(txt) {
+  toast.textContent = txt;
+  toast.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove("show"), 1600);
+}
+
+/* 点击成员：即时生效 */
+function bindMembers(host) {
+  host.addEventListener("click", (e) => {
+    const m = e.target.closest(".member");
+    if (!m) return;
+    const name = m.dataset.name;
+    const on = m.getAttribute("aria-checked") === "true";
+    m.setAttribute("aria-checked", on ? "false" : "true");
+    if (on) savedOn.delete(name); else savedOn.add(name);
+    showToast(`${on ? "移出" : "加入"} ${name} · 当前 ${savedOn.size} 人`);
+  });
+}
+
+/* ══ 打开 / 关闭 ══ */
+function close(instant) {
+  if (!el) return;
+  const node = el; el = null; open = false;
+
+  if (mode === "flip") {
+    flipOuter.classList.remove("flipped");
+    return;
+  }
+  if (mode === "hud") {
+    node.classList.remove("enter"); node.classList.add("leave");
+    setTimeout(() => node.remove(), 260);
+    return;
+  }
+  node.classList.remove("enter"); node.classList.add("leave");
+  setTimeout(() => node.remove(), 260);
+}
+
+function openPanel() {
+  close(true);
+  const r = openBtn.getBoundingClientRect();
+
+  /* ── ① 气泡 ── */
+  if (mode === "pop") {
+    const p = document.createElement("div");
+    p.className = "pop enter";
+    p.innerHTML = `
+      <div class="pop-head">
+        <span style="color:rgba(53,240,206,.8);font-size:12px">◉</span>
+        <div><div class="t">群设置</div><div class="s">HABITAT CORE</div></div>
+        <span class="live"><i></i>即时生效</span>
+        <button class="x" data-close style="margin-left:8px;border:none;background:transparent;color:rgba(143,169,189,.5);cursor:pointer;font-size:12px;width:22px;height:22px;border-radius:4px">✕</button>
+      </div>
+      <div class="pop-body"><div class="members">${memberHTML(savedOn)}</div></div>`;
+    const W = 320, PAD = 8;
+    const sr = stage.getBoundingClientRect();
+    let left = r.left;
+    if (left + W > sr.right - PAD) left = r.right - W;
+    left = Math.max(sr.left + PAD, Math.min(left, sr.right - W - PAD));
+    let top = r.bottom + 8;
+    if (top + 480 > window.innerHeight - 12) top = Math.max(12, r.top - 480 - 8);
+    p.style.left = left + "px"; p.style.top = top + "px";
+    document.body.appendChild(p);
+    el = p;
+    bindMembers(p.querySelector(".pop-body"));
+    p.addEventListener("click", (e) => { if (e.target.closest("[data-close]")) close(); });
+    open = true;
+    return;
+  }
+
+  /* ── ② 翻转 ── */
+  if (mode === "flip") {
+    back.querySelector("#flipMembers").innerHTML = memberHTML(savedOn);
+    flipOuter.classList.add("flipped");
+    open = true;
+    el = flipOuter;
+    return;
+  }
+
+  /* ── ③ HUD ── */
+  if (mode === "hud") {
+    const mask = document.createElement("div");
+    mask.className = "hud-mask enter";
+    mask.innerHTML = `
+      <div class="hud">
+        <div class="hud-bar"><i></i>GROUP CONFIG · HABITAT CORE<button class="x" data-close>✕</button></div>
+        <div class="hud-body"><div class="members">${memberHTML(savedOn)}</div></div>
+        <div class="hud-foot">
+          <button class="btn ghost" data-close>取消</button>
+          <button class="btn red ml-auto" data-close>应用配置</button>
+        </div>
+      </div>`;
+    mask.addEventListener("click", (e) => { if (e.target === mask) close(); });
+    document.body.appendChild(mask);
+    el = mask;
+    bindMembers(mask.querySelector(".hud-body"));
+    mask.addEventListener("click", (e) => { if (e.target.closest("[data-close]")) close(); });
+    open = true;
+  }
+}
+
+openBtn.addEventListener("click", () => {
+  if (mode === "flip" && flipOuter.classList.contains("flipped")) { close(); return; }
+  open ? close() : openPanel();
+});
+
+document.getElementById("flipClose")?.addEventListener("click", () => close());
+
+document.addEventListener("click", (e) => {
+  if (!open || mode !== "pop") return;
+  if (el && (el.contains(e.target) || e.target === openBtn)) return;
+  close();
+});
+
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && open) close(); });
+
+document.querySelectorAll(".switcher button").forEach((b) => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".switcher button").forEach((x) => x.setAttribute("aria-pressed", "false"));
+    b.setAttribute("aria-pressed", "true");
+    close(true);
+    mode = b.dataset.mode;
+    note.innerHTML = NOTES[mode];
+    modeHint.textContent = TITLES[mode];
+    if (mode === "flip") {
+      flipOuter.classList.add("flipped") ;
+      setTimeout(() => flipOuter.classList.remove("flipped"), 10);
+    }
+  });
+});
+
+note.innerHTML = NOTES.pop;
+modeHint.textContent = TITLES.pop;
+/* 背面成员先渲染一份，翻转时才有内容 */
+back.querySelector("#flipMembers").innerHTML = memberHTML(savedOn);
+bindMembers(back.querySelector("#flipMembers"));
+</script>
+</body>
+</html>
