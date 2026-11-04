@@ -1,5 +1,6 @@
 import { axisBand, dynamicBand, type AxisName, type Persona } from "../data/personas";
 import type { ChatMsg } from "./llm";
+import { groupByBand, BAND_TITLE, BAND_HINT, NEVER_FABRICATE } from "./distortion";
 
 /**
  * 从角色档案组装 system prompt。
@@ -377,12 +378,34 @@ export function buildSystemPrompt(
    * 权重高的排在前面 —— 提权过的记忆会更靠前，也就更容易被提起。
    */
   if (ctx.memories && ctx.memories.length > 0) {
+    /*
+     * 分三档给「讲法」，不是分三档给「内容」。
+     *
+     * 权重高的照常写；权重低的只改口气，不改事实。
+     * 这条线在 docs/TODO.md「一条不能越的线」里定死了：
+     *   编造事实 = bug，承认模糊 = 剧情。
+     */
     const top = ctx.memories.slice(0, 8);
+    const g = groupByBand(top);
+
     lines.push(
       "",
       "【你记得的事】",
-      "（这些是你和他相处中留下来的印象，不是资料。需要的时候自然会想起来，不用逐条汇报。）",
-      ...top.map((m) => `· ${m.text}`),
+      "（这些是你和他相处中留下来的印象，不是资料。需要的时候自然会想起来，不用逐条汇报。）"
+    );
+
+    for (const band of ["clear", "hazy", "blur"] as const) {
+      const list = g[band];
+      if (list.length === 0) continue;
+      lines.push("", BAND_TITLE[band]);
+      const hint = BAND_HINT[band];
+      if (hint) lines.push(hint);
+      lines.push(...list.map((m) => `· ${m.text}`));
+    }
+
+    lines.push(
+      "",
+      NEVER_FABRICATE,
       "",
       "不要主动列举你记得什么，也不要说「我记得」—— 让它自然地影响你怎么说话。"
     );
