@@ -266,3 +266,13 @@
   transition: width 0.5s linear;
 }
 
+
+
+/* 「留住的只是还剩下的」—— 一句必须说清楚的话，别让它抢按钮的视线 */
+.starmap-root .rescue__note {
+  margin-top: 10px;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--ink-dim, rgba(200, 220, 230, 0.42));
+  text-align: center;
+}

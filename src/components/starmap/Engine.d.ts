@@ -62,6 +62,8 @@ export class Engine {
   back(): void;
   press(x?: number, y?: number): void;
   release(): void;
+  /** 让一条记忆开始散开（5 秒内可救，之后不可挽回） */
+  startForgetting(idx: number): void;
   rescueStar(idx: number): boolean;
   setMuted(m: boolean): void;
 

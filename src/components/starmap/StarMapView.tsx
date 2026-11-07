@@ -14,12 +14,20 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Engine, type SeaStats, type EngineStar, type EngineOptions } from "./Engine.js";
 import "./starmap.css";
-import { toStarDefs, summarize, collectForMap } from "../../lib/starMapData";
+import { toStarDefs, summarize, collectForMap, shouldDissolve } from "../../lib/starMapData";
+import { promoteMemory } from "../../lib/memoryNotes";
 
 type Quality = "high" | "mid" | "low";
 
+/*
+ * 初始相位必须是 'outside'。
+ *
+ * 写成 'inside' 会让「进到场景里才点火」那个 effect
+ * 在挂载第一帧就触发 —— 那时人还在闸门页，
+ * 等真正下去时窗口已经关了，或者干脆一次都没演。
+ */
 const EMPTY: SeaStats = {
-  phase: "inside", transit: 0, mode: "idle", clarity: 1, count: 0,
+  phase: "outside", transit: 1, mode: "idle", clarity: 1, count: 0,
   engraved: 0, awake: 0, fading: 0, sunken: 0, lastTouched: null, scrollY: 0,
 };
 
@@ -32,6 +40,24 @@ const HINTS: Record<string, [string, string]> = {
   collapsing: ["回去了", ""],
   returning:  ["回去了", ""],
 };
+
+/*
+ * 「正在散开」那一条的文案。
+ *
+ * 原来写的是「正在消散 / 按住救回」——
+ * **「救回」承诺了做不到的事**：rescueStar 不恢复 mass，
+ * promoteMemory 也只 +0.15。掉的粒子不会回来。
+ *
+ * 改成「留住」：它只承诺「还在」，不承诺「回来」。
+ * 而且「按住」这个动作和「留住」本来就是一件事 ——
+ * 你按住它就在，松手它就继续走。
+ */
+const FADING_COPY = {
+  title: (text: string) => `「${text}」正在散开`,
+  action: "按住，留住它",
+  note: "留住的只是还剩下的",
+  hint: ["它在散", "按住能多留一会儿 · 掉了的回不来"] as [string, string],
+}
 
 function timeAgo(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -56,6 +82,9 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
   const labelTxt = useRef("");
   const [stats, setStats] = useState<SeaStats>(EMPTY);
   const [quality, setQuality] = useState<Quality>("high");
+  /** 挂载时算好「谁该散」，等进到场景里再点火 */
+  const dissolveQueue = useRef<number[]>([]);
+  const dissolveFired = useRef(false);
 
   /* ── 挂载引擎 ── */
   useEffect(() => {
@@ -87,8 +116,31 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
       (window as unknown as { __starmap?: Engine }).__starmap = engine;
     }
 
-    const defs = toStarDefs(collectForMap(conv), Date.now());
+    const now = Date.now();
+    const mems = collectForMap(conv);
+    const defs = toStarDefs(mems, now);
     engine.loadMemories(defs);
+
+    /*
+     * 谁该演「正在散开」—— 这里只**记下来**，不立刻启动。
+     *
+     * 判据在 shouldDissolve 里：权重已经跌破 0.2 **而且** 30 天没被想起。
+     * 两条都满足，演的才是「已经在发生的事」——
+     * 只看权重的话，一条 0.19 的记忆本来还能活几天，
+     * 打开星图反而把它按死了。
+     *
+     * 为什么不在挂载时启动：
+     * 散开的窗口只有 5 秒，而用户要先在闸门页点「进入」，
+     * 再下潜 5.2 秒。挂载就启动的话，等他落到海底，窗口早关了
+     * —— 他会看到一个「已经死了」的画面，从头到尾没参与。
+     * 所以等真正进到场景里（phase === 'inside'）再启动。
+     */
+    dissolveQueue.current = defs
+      .map((d, i) => {
+        const m = mems.find((x) => x.id === d.id);
+        return m && shouldDissolve(m, now) ? i : -1;
+      })
+      .filter((i) => i >= 0);
 
     return () => {
       engine.dispose();
@@ -152,6 +204,15 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
     };
   }, []);
 
+  /* ── 真正进到场景里，才让该散的那条开始散 ── */
+  useEffect(() => {
+    if (stats.phase !== "inside" || dissolveFired.current) return;
+    dissolveFired.current = true;
+    const eng = engineRef.current;
+    if (!eng) return;
+    for (const i of dissolveQueue.current) eng.startForgetting(i);
+  }, [stats.phase]);
+
   /* ── 画质切换 ── */
   useEffect(() => {
     engineRef.current?.setQuality?.(quality);
@@ -169,16 +230,32 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
     return () => window.clearInterval(id);
   }, []);
 
+  /**
+   * 留住一条正在散开的记忆。
+   *
+   * 两步缺一不可：
+   *   ① engine.rescueStar —— 视觉上把粒子拉回来（只托 depth，不恢复 mass）
+   *   ② promoteMemory     —— 权重 +0.15 写回 localStorage
+   *
+   * 只做 ① 的话是空手势：下次打开星图，toStarDefs 会用 effectiveWeight
+   * 重新算一遍，引擎里托起来的那点深度直接被覆盖。
+   *
+   * 用 promoteMemory 而不是 recallMemory ——
+   * 后者直接把权重设成 0.5，会把原有的高低抹平。
+   */
   const handleRescue = useCallback(() => {
     if (!rescue) return;
-    engineRef.current?.rescueStar(rescue.idx);
+    const eng = engineRef.current;
+    const id = eng?.stars[rescue.idx]?.def?.id;
+    eng?.rescueStar(rescue.idx);
+    if (id) promoteMemory(id);
     setRescue(null);
   }, [rescue]);
 
   /* ── HUD 数据 ── */
   const defs = toStarDefs(collectForMap(conv), Date.now());
   const summary = summarize(defs);
-  const [h1, h2] = HINTS[stats.mode] ?? HINTS.idle;
+  const [h1, h2] = rescue ? FADING_COPY.hint : HINTS[stats.mode] ?? HINTS.idle;
 
   const SCROLL_MAX = 5.7;
   const norm = Math.max(0, Math.min(1, (stats.scrollY || 0) / SCROLL_MAX));
@@ -196,8 +273,9 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
 
         {rescue && (
           <div className="rescue">
-            <p className="rescue__text">「{rescue.text}」正在消散</p>
-            <button className="rescue__btn" onClick={handleRescue}>按住救回</button>
+            <p className="rescue__text">{FADING_COPY.title(rescue.text)}</p>
+            <button className="rescue__btn" onClick={handleRescue}>{FADING_COPY.action}</button>
+            <p className="rescue__note">{FADING_COPY.note}</p>
             <div className="rescue__bar">
               <div className="rescue__fill" style={{ width: `${Math.max(0, (1 - rescue.t / 5)) * 100}%` }} />
             </div>

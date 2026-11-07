@@ -10,7 +10,7 @@
 
 import type { Memory } from "./memoryNotes";
 import { loadMemories } from "./memoryNotes";
-import { effectiveWeight } from "./forgetting";
+import { effectiveWeight, MEMORY_THRESHOLD } from "./forgetting";
 
 export interface StarDef {
   id: string;
@@ -138,6 +138,31 @@ export function visibleOnMap(m: Memory, now: number): boolean {
  * @param mems  某个会话的记忆（loadMemories 的结果）
  * @param now   时间基准；不传就用当前时间
  */
+
+/**
+ * 这条记忆该不该在打开星图时演「正在散开」。
+ *
+ * 条件必须是「**它本来就在死**」，不能是「你现在看一眼」。
+ *
+ * 只判 effectiveWeight < 0.2 是不够的 —— 一条 0.19 的记忆
+ * 自然衰减还能活好几天，打开星图反而把它按死了。
+ * 那就变成「看着看着，一条记忆当场死了，因为你没去救」。
+ *
+ * 所以加第二个条件：**已经很久没被想起了**（30 天以上）。
+ * 满足两条，演的才是「已经在发生的事」，不是「因你而起的」。
+ */
+export function shouldDissolve(m: Memory, now: number): boolean {
+  if (m.forgotten || m.suppressed) return false;
+  if (m.reason === "milestone" || m.reason === "rename") return false;   // 刻痕不散
+  if (m.consolidated) return false;                                      // 固化过的不散
+
+  if (effectiveWeight(m, now) >= MEMORY_THRESHOLD) return false;
+
+  const since = m.lastAccessed ?? m.at ?? now;
+  const days = Math.max(0, (now - since) / 86400000);
+  return days >= 30;
+}
+
 export function toStarDefs(mems: Memory[], now = Date.now()): StarDef[] {
   const defs: StarDef[] = [];
 

@@ -4,7 +4,6 @@ import {
   forgetMemory,
   imprintMemory,
   loadMemories,
-  promoteMemory,
   recallMemory,
   suppressMemory,
 } from "../lib/memoryNotes";
