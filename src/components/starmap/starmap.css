@@ -1,0 +1,268 @@
+/* ─────────────────────────────────────────────
+   记忆星图（原 D:\Habitat_Visual_Sandbox）
+   所有规则收进 .starmap-root，避免污染 app 的样式
+   ───────────────────────────────────────────── */.starmap-root {
+  --ink: rgba(150, 185, 205, 0.55);
+  --ink-dim: rgba(120, 150, 170, 0.32);
+  --serif: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --mono: "JetBrains Mono", "SF Mono", "Cascadia Mono", Consolas, monospace;
+}
+
+.starmap-root, .starmap-root * { box-sizing: border-box; margin: 0; padding: 0; }
+
+.starmap-root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #010205;
+  color: var(--ink);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  cursor: none;
+}
+
+.starmap-root .stage { position: fixed; inset: 0; }
+.stage canvas { display: block; }
+
+.mono { font-family: var(--mono); font-weight: 300; }
+
+.hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  padding: clamp(20px, 4vw, 48px);
+}
+.hud > * { opacity: 0; transition: opacity 0.7s ease; }
+
+/* 进出的可见性：外面只有门；下潜途中只有深度计；到底后 HUD 慢慢浮现 */
+.starmap-root .app { position: fixed; inset: 0; }
+.starmap-root .app--outside { cursor: pointer; }
+.starmap-root .app--inside .hud > * { opacity: 1; transition: opacity 2.4s ease; }
+.starmap-root .app--entering .hud__depth { opacity: 1; transition: opacity 1.2s ease 0.8s; }
+.starmap-root .app--leaving .hud__depth { opacity: 0.6; }
+.starmap-root .app:not(.app--inside) .hud__leave { pointer-events: none; visibility: hidden; }
+
+/* 悬停在星上时，旁边浮出的一行小字 */
+.star-label {
+  position: fixed;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  opacity: 0;
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  white-space: nowrap;
+  color: rgba(165, 200, 220, 0.7);
+  will-change: transform, opacity;
+}
+.star-label::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 1px;
+  margin-right: 10px;
+  vertical-align: middle;
+  background: rgba(165, 200, 220, 0.4);
+}
+.starmap-root .app:not(.app--inside) .star-label { display: none; }
+
+.gate {
+  position: fixed;
+  left: 50%;
+  top: calc(50% + 72px);
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.9s ease, transform 2s ease;
+  color: rgba(170, 200, 215, 0.62);
+}
+.starmap-root .app--outside .gate { opacity: 1; transition: opacity 2.6s ease 0.6s, transform 3s ease; }
+.starmap-root .app--entering .gate { transform: translate(-50%, 14px); }
+.gate h1 {
+  font-weight: 300;
+  font-size: 13px;
+  letter-spacing: 1.2em;
+  margin-right: -1.2em;
+}
+.gate__sub {
+  margin-top: 10px;
+  font-size: 9px;
+  letter-spacing: 0.7em;
+  margin-right: -0.7em;
+  color: var(--ink-dim);
+}
+.gate__cta {
+  margin-top: 46px;
+  font-size: 12px;
+  letter-spacing: 0.9em;
+  margin-right: -0.9em;
+  animation: breathe 4.8s ease-in-out infinite;
+}
+.gate__fine {
+  margin-top: 14px;
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  color: var(--ink-dim);
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.9; }
+}
+
+.hud__leave span { margin-left: 0.6em; opacity: 0.6; }
+.hud__leave.is-busy { opacity: 0.35; pointer-events: none; }
+
+.hud__title { position: absolute; top: clamp(20px, 4vw, 48px); left: clamp(20px, 4vw, 48px); }
+.hud__title h1 {
+  font-weight: 300;
+  font-size: 15px;
+  letter-spacing: 0.9em;
+  color: rgba(185, 215, 230, 0.7);
+}
+.hud__title p {
+  margin-top: 10px;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: var(--ink-dim);
+}
+
+.hud__depth {
+  position: absolute;
+  top: clamp(20px, 4vw, 48px);
+  right: clamp(20px, 4vw, 48px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+}
+.hud__depth button {
+  pointer-events: auto;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  transition: color 0.4s;
+}
+.hud__depth button:hover { color: var(--ink); }
+.depth-layer {
+  font-size: 9px;
+  color: rgba(140, 185, 215, 0.55);
+  letter-spacing: 0.35em;
+  font-family: var(--serif);
+}
+
+.hud__hint {
+  position: absolute;
+  left: clamp(20px, 4vw, 48px);
+  bottom: clamp(20px, 4vw, 48px);
+  font-size: 12px;
+  line-height: 2.1;
+  letter-spacing: 0.4em;
+}
+.hud__hint p { animation: hintIn 1.6s ease both; }
+.hud__hint p + p { animation-delay: 0.35s; }
+@keyframes hintIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.hud__fine { font-size: 10px; color: var(--ink-dim); letter-spacing: 0.3em; margin-top: 6px; }
+
+.hud__ledger {
+  position: absolute;
+  right: clamp(20px, 4vw, 48px);
+  bottom: clamp(20px, 4vw, 48px);
+  font-size: 11px;
+  line-height: 2;
+  letter-spacing: 0.2em;
+  text-align: right;
+}
+.hud__ledger span {
+  font-family: var(--serif);
+  color: var(--ink-dim);
+  margin-right: 1.4em;
+  letter-spacing: 0.4em;
+}
+
+/* ── 新版 HUD 账本 ─────────────────────────── */
+.hud__ledger {
+  position: absolute;
+  right: clamp(20px, 4vw, 48px);
+  bottom: clamp(20px, 4vw, 48px);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-align: right;
+}
+.ledger__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 1.2em;
+  line-height: 2;
+}
+.ledger__label { color: var(--ink-dim); }
+.ledger__val { min-width: 1.8em; text-align: right; }
+.ledger__val.engraved { color: rgba(255, 210, 140, 0.75); }
+.ledger__val.fading   { color: rgba(140, 175, 210, 0.60); }
+.ledger__val.sunken   { color: rgba(90, 110, 140, 0.45); }
+.ledger__last {
+  margin-top: 10px;
+  font-size: 9px;
+  color: var(--ink-dim);
+  letter-spacing: 0.18em;
+  opacity: 0.7;
+  animation: hintIn 1s ease both;
+}
+
+/* ── 消散救回提示 ──────────────────────────── */
+.rescue {
+  position: fixed;
+  left: 50%;
+  bottom: clamp(60px, 10vh, 100px);
+  transform: translateX(-50%);
+  text-align: center;
+  animation: hintIn 0.6s ease both;
+  pointer-events: auto;
+  z-index: 10;
+}
+.rescue__text {
+  font-size: 11px;
+  letter-spacing: 0.45em;
+  color: rgba(175, 200, 220, 0.65);
+  margin-bottom: 10px;
+}
+.rescue__btn {
+  display: block;
+  margin: 0 auto 10px;
+  background: none;
+  border: 1px solid rgba(140, 175, 210, 0.35);
+  color: rgba(175, 210, 230, 0.7);
+  font-family: var(--serif);
+  font-size: 11px;
+  letter-spacing: 0.5em;
+  padding: 7px 22px;
+  cursor: pointer;
+  transition: border-color 0.3s, color 0.3s;
+}
+.rescue__btn:hover { border-color: rgba(175, 210, 230, 0.65); color: rgba(200, 225, 240, 0.9); }
+.rescue__bar {
+  width: 120px;
+  height: 1px;
+  background: rgba(140, 175, 210, 0.15);
+  margin: 0 auto;
+  overflow: hidden;
+}
+.rescue__fill {
+  height: 100%;
+  background: rgba(150, 195, 220, 0.55);
+  transition: width 0.5s linear;
+}
+

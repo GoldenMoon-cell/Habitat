@@ -211,7 +211,7 @@
 
 ### 神经元化 —— 从「星图」升级到「神经元网络」
 
-> **2026-11-03 补充。样张已做：`previews/memory-map-neuron.html`**
+> **2026-11-03 补充。样张已做：`D:\Habitat_Archive\星图试验\memory-map-neuron.html`（已移出仓库）**
 
 #### 为什么改名
 
@@ -498,7 +498,7 @@
 
 #### 关于「先把脉冲放电做出来」
 
-**已经做完了。** 见 `previews/memory-map-neuron.html`：
+**已经做完了。** 见 `D:\Habitat_Archive\星图试验\memory-map-neuron.html`（已移出仓库）：
 
 ```
 点击脉冲    ✅ 亮度 ×3.4，900ms 衰减 + 扩张环
@@ -735,7 +735,7 @@ for (const m of live) touchMemory(m.id);   // 注入 = 想起来了
 
 Canvas 2D + 透视投影，~80 行零依赖。相机自动环绕。
 
-样张见 `previews/memory-map-3d.html` |
+样张见 `D:\Habitat_Archive\星图试验\memory-map-3d-a.html`（已移出仓库） |
 | **2** | 点击展开：那颗星的详情 + 衰减曲线 |
 | **3** | 迁移动画：`consolidated` 的星缓慢飘向皮层区 |
 | **4** | 时间轴：拖一条线，看星图从三个月前一路暗到现在 |
@@ -749,7 +749,7 @@ Canvas 2D + 透视投影，~80 行零依赖。相机自动环绕。
 
 | 不做 | 为什么 |
 |---|---|
-| ~~3D 旋转星系~~ | **已推翻并已做** —— 样张见 `previews/memory-map-neuron.html`。
+| ~~3D 旋转星系~~ | **已推翻并已做** —— 样张见 `D:\Habitat_Archive\星图试验\memory-map-neuron.html`（已移出仓库）。
 
 原话：「好看五秒，之后每次打开都要转一遍。看数据不该有操作成本。」
 
@@ -764,7 +764,7 @@ Canvas 2D + 透视投影，~80 行零依赖。相机自动环绕。
 **操作成本用「相机自动环绕」解掉**：默认自己绕，拖拽临时接管，
 松手 2.2 秒后接回轨道。用户不需要任何操作就能看到三维。
 
-样张：`previews/memory-map-3d.html` |
+样张：`D:\Habitat_Archive\星图试验\memory-map-3d-a.html`（已移出仓库） |
 | 记忆之间连边（GraphRAG 那种） | 现在没有语义关系数据，连出来的边都是编的 |
 | 让用户拖动星星摆位置 | 位置一乱，tag 分区就废了。**这张图的意义在于「自动变」** |
 | 用 canvas 画文字 | 中文在 canvas 里渲染质量差，标签要走 DOM 层 |

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import RenameEffect from "./components/RenameEffect";
 import DeathEffect from "./components/DeathEffect";
 import { AnimatePresence, motion } from "motion/react";
@@ -129,6 +129,9 @@ import {
   playSwitch,
 } from "./lib/sound";
 import { readDynamic as readDyn2, commitDynamic as commitDyn2 } from "./lib/dynamic";
+
+/** 星图带 three（~130KB gzip），首屏不该背。按需加载。 */
+const StarMapView = lazy(() => import("./components/starmap/StarMapView"));
 
 /* ── 工具 ─────────────────────────────────────────────────── */
 
@@ -692,6 +695,8 @@ export default function App() {
    * 现在整段删掉：启动动画就 5 秒，让它走完。要退出有窗口的关闭按钮。
    */
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /* 记忆星图 —— 全屏覆盖层 */
+  const [starMapOpen, setStarMapOpen] = useState(false);
   const [godCollapsed, setGodCollapsed] = useState(false);
   /** 正在引用哪条消息（发送时会写进 replyTo） */
   const [quoting, setQuoting] = useState<Message | null>(null);  /** 从搜索结果跳转过来的消息：滚动并短暂高亮 */
@@ -2652,6 +2657,14 @@ export default function App() {
         return;
       }
 
+      /* Ctrl+M —— 记忆星图。
+         M 取 memory；不和输入法冲突（那是 Shift / Ctrl+Space）。 */
+      if (e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        setStarMapOpen(true);
+        return;
+      }
+
       const n = Number(e.key);
       if (!Number.isInteger(n) || n < 1 || n > order.length) return;
 
@@ -3630,6 +3643,27 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      {/*
+        记忆星图 —— 全屏覆盖层。
+
+        为什么放在所有面板之后：它要盖住整个界面（包括设置抽屉）。
+        为什么用 Suspense：three + 引擎 ~130KB gzip，
+        不进首屏，第一次按 Ctrl+M 才加载。
+      */}
+      {starMapOpen && (
+        <div className="fixed inset-0 z-[60] bg-[#04080c]">
+          <Suspense
+            fallback={
+              <div className="grid h-full place-items-center text-[12px] tracking-[0.3em] text-mist/40">
+                正在下潜…
+              </div>
+            }
+          >
+            <StarMapView conv={String(conv)} onClose={() => setStarMapOpen(false)} />
+          </Suspense>
+        </div>
+      )}
     </>
   );
 }

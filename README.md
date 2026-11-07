@@ -50,13 +50,16 @@
 
 <!--
   截图位 —— 正式版发布时放回来。
-  图已经在 docs/previews/ 里：
+
+  ★ 图已经移出仓库了：D:\Habitat_Archive\截图\
+    （2026-11-06 连同视频素材一起移出，避免影响后续视觉设计）
+
     screenshot-main.jpg        1500×904  主界面
     screenshot-relation.jpg    1500×904  关系页
     screenshot-persona.jpg     1500×904  人格页
     screenshot-onboarding.jpg  1200×776  引导页
 
-  放回来时用这个：
+  放回来时先复制到 docs/previews/，再用这个：
 
   ![主界面](docs/previews/screenshot-main.jpg)
 
