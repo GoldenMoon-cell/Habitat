@@ -307,19 +307,24 @@ void main(){
 
   // depth 只影响颜色色温，不再大幅压低 alpha
   // depth=1（清晰）→ 偏暖白；depth=0（朦胧）→ 偏冷蓝
-  vec3 cTextFull  = mix(uTint, vec3(0.88, 0.96, 1.0), 0.5);
+  // [改] 原本混 0.5 向白蓝 —— 展开的字看不出分类。降到 0.18
+  vec3 cTextFull  = mix(uTint, vec3(0.88, 0.96, 1.0), 0.18);
   vec3 cTextFaded = mix(uTint * 0.55, vec3(0.42, 0.58, 0.78), 0.6);
   vec3 cText = mix(cTextFaded, cTextFull, uDepth);
 
   vec3 cHeld = vec3(1.0, 0.93, 0.80);
-  vec3 cEngr = vec3(1.0, 0.84, 0.58);
+  // [改] 原本 (1.0,0.84,0.58) 暖白 —— 和 tint 差太远，一混就灰
+  vec3 cEngr = vec3(1.0, 0.90, 0.74);
   vec3 cAsh  = vec3(0.26, 0.30, 0.35);
   vec3 col = mix(cStar, mix(cText, cHeld, uHold), formed);
-  col = mix(col, cEngr, engraved * 0.85);
+  // [改] 原本 engraved * 0.85 —— 固化的记忆会被拉向暖白，色相全丢。降到 0.28
+  col = mix(col, mix(cEngr, uTint, 0.45), engraved * 0.28);
   col *= flick;
 
-  float aBall = mix(0.15, 0.08, aHalo);
-  float aStar = mix(aBall, 0.045, uHover);
+  // [改] 原本 0.15 / 0.08 —— 最亮的星叠加后 RGB 全到 255，色相被锁死。
+  // 压到 0.105 / 0.062：峰值降下来，蓝/青的色相才留得住。
+  float aBall = mix(0.105, 0.062, aHalo);
+  float aStar = mix(aBall, 0.038, uHover);
   // alpha 主要由 mass（粒子数）决定，depth 只做轻微的 0.03 衰减
   float aText_ = mix(0.10, 0.15, uHold) + engraved * 0.05 - (1.0 - uDepth) * 0.03;
   float alpha = mix(aStar, aText_, formed);

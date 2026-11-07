@@ -330,7 +330,8 @@ export class Engine {
   initPost() {
     const c = (this.composer = new EffectComposer(this.renderer))
     c.addPass(new RenderPass(this.scene, this.camera))
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.95, 0.7, 0.08)
+    // [改] 原本 (256,0.95,0.7,0.08) —— 阈值太低，几乎全部发光，光晕白得盖住底色
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.72, 0.62, 0.32)
     c.addPass(this.bloom)
     this.lens = new ShaderPass(lensShader)
     c.addPass(this.lens)
