@@ -312,6 +312,18 @@ void main(){
   vec3 cTextFaded = mix(uTint * 0.55, vec3(0.42, 0.58, 0.78), 0.6);
   vec3 cText = mix(cTextFaded, cTextFull, uDepth);
 
+  /*
+   * [改] 字必须**能读**。
+   *
+   * 星可以靠加色叠加发亮，字不行 —— 字是 11000 个粒子拼出来的轮廓，
+   * 每个粒子只出一次力。所以直接按 tint 上色的话，
+   * 深蓝的「长期」（0.04,0.20,1.00）拼出来几乎看不见。
+   *
+   * 归一化到最大通道 = 0.95：色相留着，亮度拉满。
+   */
+  float tmx = max(max(cText.r, cText.g), cText.b);
+  cText *= 0.95 / max(tmx, 0.001);
+
   vec3 cHeld = vec3(1.0, 0.93, 0.80);
   // [改] 原本 (1.0,0.84,0.58) 暖白 —— 和 tint 差太远，一混就灰
   vec3 cEngr = vec3(1.0, 0.90, 0.74);
@@ -326,7 +338,8 @@ void main(){
   float aBall = mix(0.105, 0.062, aHalo);
   float aStar = mix(aBall, 0.038, uHover);
   // alpha 主要由 mass（粒子数）决定，depth 只做轻微的 0.03 衰减
-  float aText_ = mix(0.10, 0.15, uHold) + engraved * 0.05 - (1.0 - uDepth) * 0.03;
+  // [改] 原本 0.10 / 0.15 —— 展开后偏暗。提到 0.16 / 0.22
+  float aText_ = mix(0.16, 0.22, uHold) + engraved * 0.05 - (1.0 - uDepth) * 0.03;
   float alpha = mix(aStar, aText_, formed);
   alpha *= 1.0 + uFlash * 2.5 * (1.0 - formed * 0.6);
   alpha *= uLightS;

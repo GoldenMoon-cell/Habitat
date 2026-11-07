@@ -82,6 +82,10 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
      */
     const engine = new Engine(el, (s) => setStats(s), { phase: "outside", onFrame });
     engineRef.current = engine;
+    /* dev 下暴露实例，方便在控制台核对星的位置和状态 */
+    if (import.meta.env.DEV) {
+      (window as unknown as { __starmap?: Engine }).__starmap = engine;
+    }
 
     const defs = toStarDefs(collectForMap(conv), Date.now());
     engine.loadMemories(defs);
