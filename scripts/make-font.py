@@ -21,7 +21,10 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, ".font.json")
+# 优先用合并过的轮廓（merge-outlines.py 的产物）。
+# 重叠矩形浏览器和 fonttools 都吃得下，但 FontLab 吃不下 —— 见那份脚本的头注释。
+_clean = os.path.join(ROOT, ".font-clean.json")
+SRC = _clean if os.path.exists(_clean) else os.path.join(ROOT, ".font.json")
 OUT_DIR = os.path.join(ROOT, "docs", "previews", "fonts")
 FAMILY = "Habitat"
 STYLE = "Regular"
