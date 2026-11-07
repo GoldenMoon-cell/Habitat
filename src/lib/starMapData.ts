@@ -120,7 +120,16 @@ export function collectForMap(conv: string): Memory[] {
 
 export function visibleOnMap(m: Memory, now: number): boolean {
   if (m.forgotten || m.suppressed) return false;
-  return effectiveWeight(m, now) > 0.02;
+  /*
+   * 门槛必须**接近 0**，不能用 MEMORY_THRESHOLD(0.2)。
+   *
+   * 0.2 以下意味着「她已经想不起来了」—— 而那正是星图最该画的东西：
+   * 一道快没了的痕。用 0.02 试过，会把 0.0169 这种刚好滤掉。
+   *
+   * 真正消失只有两种：忘了（forgotten）、被压下去（suppressed）。
+   * 权重再低也只是「很淡」，不是「不存在」。
+   */
+  return effectiveWeight(m, now) > 0.002;
 }
 
 /**
@@ -182,8 +191,28 @@ export function toStarDefs(mems: Memory[], now = Date.now()): StarDef[] {
  *   沉入海床  快没了
  */
 export function summarize(defs: StarDef[]) {
-  const engraved = defs.filter((d) => d.engrave > 0.2).length;
-  const sunken = defs.filter((d) => d.mass < 0.2).length;
-  const fading = defs.length - engraved - sunken;
-  return { total: defs.length, engraved, awake: Math.max(0, fading), sunken };
+  /*
+   * 三档必须**互斥**，否则「刻于心里 4 / 随风飘荡 0 / 沉入海床 1」
+   * 加不出总数，看起来像 bug。
+   *
+   * 之前的写法有两个问题：
+   *   ① 只按 engrave 分档 —— 我这边大部分记忆是 consolidated，
+   *      于是四条全进「刻于心里」，剩下的一格永远是 0
+   *   ② 用 total - engraved - sunken 反推中间那档，减去重叠的部分就成了负数
+   *
+   * 现在按「还记不记得住」分：
+   *   刻于心里  engrave>0.2（固化/里程碑）**而且**现在还记得（mass>=0.3）
+   *   沉入海床  mass < 0.2 —— 快没了
+   *   随风飘荡  其余 —— 还在，但会掉
+   *
+   * 判据顺序很重要：沉底优先于刻痕判断 ——
+   * 一条固化过的记忆也可能已经淡到 0.1，那时它该算「快没了」而不是「刻于心里」。
+   */
+  let engraved = 0, drifting = 0, sunken = 0;
+  for (const d of defs) {
+    if (d.mass < 0.2) sunken++;
+    else if (d.engrave > 0.2 && d.mass >= 0.3) engraved++;
+    else drifting++;
+  }
+  return { total: defs.length, engraved, drifting, sunken };
 }

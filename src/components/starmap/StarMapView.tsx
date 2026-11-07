@@ -73,8 +73,14 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
       lab.style.transform = `translate(${f.x + 26}px, ${f.y - 34}px)`;
     };
 
-    // phase:'inside' → 直接进场景，不显示「进入」闸门
-    const engine = new Engine(el, (s) => setStats(s), { phase: "inside", onFrame });
+    /*
+     * phase:'outside' → 先停在水面外，等用户点「进入」再下潜。
+     *
+     * 这段下潜是 5.2 秒（Engine 的 ENTER_DUR），不是过场动画 ——
+     * 它把「进入记忆」这件事演出来：光柱从头顶压下来，海雪扑到脸上。
+     * 直接跳进 inside 就少了这个仪式。
+     */
+    const engine = new Engine(el, (s) => setStats(s), { phase: "outside", onFrame });
     engineRef.current = engine;
 
     const defs = toStarDefs(collectForMap(conv), Date.now());
@@ -97,6 +103,14 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
       if (!eng) return;
       const key = e instanceof KeyboardEvent;
       if (key && e.repeat) return;
+
+      /* 还没进去 —— 任何一下都算「进入」（和沙盒原版一致） */
+      if (eng.phase === "outside" || eng.phase === "leaving") {
+        if (key && e.code !== "Enter" && e.code !== "Space") return;
+        if (key) e.preventDefault();
+        void eng.enter();
+        return;
+      }
 
       if (key) {
         if (e.code === "Escape") { e.preventDefault(); eng.back(); return; }
@@ -169,7 +183,10 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
 
   return (
     <div className="starmap-root">
-      <div className="app app--inside" style={{ position: "absolute", inset: 0 }}>
+      <div
+        className={`app app--${stats.phase}`}
+        style={{ position: "absolute", inset: 0 }}
+      >
         <div ref={mountRef} className="stage" />
         <div ref={labelRef} className="star-label mono" />
 
@@ -180,6 +197,18 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
             <div className="rescue__bar">
               <div className="rescue__fill" style={{ width: `${Math.max(0, (1 - rescue.t / 5)) * 100}%` }} />
             </div>
+          </div>
+        )}
+
+        {/* 闸门 —— 停在水面外，点一下才下潜 */}
+        {stats.phase !== "inside" && (
+          <div className="gate">
+            <h1>沉积</h1>
+            <p className="gate__sub">SEDIMENT</p>
+            <p className="gate__cta">进入</p>
+            <p className="gate__fine mono">
+              {stats.phase === "entering" ? "正在下潜…" : "点击，或按 ENTER"}
+            </p>
           </div>
         )}
 
@@ -218,7 +247,7 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
             </div>
             <div className="ledger__row">
               <span className="ledger__label">随风飘荡</span>
-              <span className="ledger__val fading">{summary.awake}</span>
+              <span className="ledger__val fading">{summary.drifting}</span>
             </div>
             <div className="ledger__row">
               <span className="ledger__label">沉入海床</span>
