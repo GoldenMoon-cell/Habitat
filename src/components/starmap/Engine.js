@@ -686,6 +686,35 @@ export class Engine {
             // TODO：彻底移除这颗星，或留作幽灵
           }
         }
+
+        /*
+         * [改] 让粒子**真的掉下来**。
+         *
+         * 原来这里只改 s.mass / s.depth 两个数字 ——
+         * 而画面上的粒子剥落是由 aLostAt 这个顶点属性驱动的，
+         * 它只在 makeStar（建几何时）和 dissolve（松开记忆）里写。
+         * 于是散开的时候：数字在掉，肉眼什么都看不见，
+         * 直到某一帧整颗凭空消失。实测截图：mass 0.96 → 0.38，画面无差别。
+         *
+         * 这里把 mass 反推成 lostThresh，用和 dissolve 同一套写法
+         * 逐粒子打上「掉落的时刻」。刻进去的部分（engrave）永远不掉。
+         */
+        const cap = 1 - s.def.engrave
+        const next = Math.min(cap, 1 - s.mass)
+        if (next > s.lostThresh + 1e-6) {
+          const now = this.timer.getElapsed()
+          const span = Math.max(1e-6, next - s.lostThresh)
+          const arr = s.lostAttr.array
+          for (let k = 0; k < arr.length; k++) {
+            const sd = s.seeds[k]
+            if (sd >= s.lostThresh && sd < next) {
+              // 散开比松开更急：0.35 秒的错峰，不是 0.9
+              arr[k] = now + ((sd - s.lostThresh) / span) * 0.35 + Math.random() * 0.12
+            }
+          }
+          s.lostAttr.needsUpdate = true
+          s.lostThresh = next
+        }
       }
 
       // 压抑：锁死 depth
