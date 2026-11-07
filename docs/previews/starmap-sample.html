@@ -4,8 +4,13 @@
 <meta charset="utf-8" />
 <title>生境 · 记忆星图（样板）</title>
 <style>
-  html, body { margin:0; height:100%; background:#04080c; overflow:hidden;
-    font-family: ui-sans-serif, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  html, body { margin:0; height:100%; background:#04080c; overflow:hidden; }
+  /* ★ 和原设计一致：正文宋体，数字/等宽用 --mono。
+     我第一版这里写的是 ui-sans-serif（黑体），所以看起来「怪」。 */
+  #hud, #gate, #rescue { font-family: "Source Han Serif SC", "Noto Serif SC",
+    "Songti SC", "STSong", "SimSun", serif; }
+  .mono { font-family: "JetBrains Mono", "SF Mono", "Cascadia Mono", Consolas, monospace;
+    font-weight: 300; }
   #root { position:fixed; inset:0; }
   .mono { font-family: var(--mono, ui-monospace, Consolas, monospace); }
   #hud { position:fixed; inset:0; pointer-events:none; opacity:0;
@@ -36,6 +41,7 @@
 </style>
 </head>
 <body>
+<div class="starmap-root" style="position:fixed;inset:0">
 <div id="app" class="app app--outside" style="position:fixed;inset:0">
   <div id="root"></div>
 
