@@ -467,6 +467,23 @@
 }
 
 /* 游标：一条 7px 的横杠，加一点光 */
+.starmap-root .depthbar__label {
+  position: absolute;
+  /* 条在 1px 宽，标签贴在它左边，右对齐过去 */
+  right: 11px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--serif);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  pointer-events: none;
+}
+/* 越深越实 —— 和星、和条本身一样的规律 */
+.starmap-root .depthbar__label.l-surface { color: rgba(143, 169, 189, 0.26); }
+.starmap-root .depthbar__label.l-mid     { color: rgba(143, 169, 189, 0.40); }
+.starmap-root .depthbar__label.l-deep    { color: rgba(53, 240, 206, 0.52); }
+
 .starmap-root .depthbar__cursor {
   position: absolute;
   left: -5px;

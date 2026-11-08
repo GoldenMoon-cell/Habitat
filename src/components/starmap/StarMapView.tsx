@@ -643,6 +643,16 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
             <span className="depthbar__band b-mid" style={{ top: "20%", height: "40%" }} />
             <span className="depthbar__band b-deep" style={{ top: "60%", height: "40%" }} />
             <span className="depthbar__cursor" style={{ top: `${norm * 100}%` }} />
+
+            {/*
+              文字刻度：各段的中点。
+              条在最右边，到边缘只剩 26px ——
+              所以标签贴在条的**左侧**，右对齐过去。
+              颜色跟着段走：越深越实（和星一样）。
+            */}
+            <span className="depthbar__label l-surface" style={{ top: "10%" }}>将要浮起</span>
+            <span className="depthbar__label l-mid" style={{ top: "40%" }}>渐渐褪色</span>
+            <span className="depthbar__label l-deep" style={{ top: "80%" }}>清晰如昨</span>
           </div>
 
           <div className="hud__hint" key={stats.mode}>
@@ -673,17 +683,22 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
 
               固化不再是单独一档 —— 它是星身上的髓鞘光环，本来就看得见。
             */}
+            {/*
+              顺序必须和右边深度条一致：上 → 下 = 浅 → 深。
+              原来这里是「清晰如昨」打头，而条子上是「将要浮起」在顶 ——
+              同一个界面里两套方向，看的人会下意识对错位置。
+            */}
             <div className="ledger__row">
-              <span className="ledger__label">清晰如昨</span>
-              <span className="ledger__val engraved">{summary.deep}</span>
+              <span className="ledger__label">将要浮起</span>
+              <span className="ledger__val sunken">{summary.surface}</span>
             </div>
             <div className="ledger__row">
               <span className="ledger__label">渐渐褪色</span>
               <span className="ledger__val fading">{summary.middle}</span>
             </div>
             <div className="ledger__row">
-              <span className="ledger__label">将要浮起</span>
-              <span className="ledger__val sunken">{summary.surface}</span>
+              <span className="ledger__label">清晰如昨</span>
+              <span className="ledger__val engraved">{summary.deep}</span>
             </div>
             {stats.lastTouched && (
               <div className="ledger__last">
