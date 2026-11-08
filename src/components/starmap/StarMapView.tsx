@@ -464,18 +464,25 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
               三档 = 三个层，按 mass 分。
               因为 y = (0.5 - w) * 6.4，**mass 就是深度** ——
               数出来的就是画面上三段里各有几颗，抬头能对上。
-              固化不再是单独一档：它是星身上的髓鞘光环，本来就看得见。
+
+              三个词各带一个维度，而且都在水的语言里：
+                清晰如昨  时间（像昨天）
+                渐渐褪色  过程（正在褪）
+                将要浮起  方向（往上，还没到水面）
+              画面和文字说的是同一件事的不同时态。
+
+              固化不再是单独一档 —— 它是星身上的髓鞘光环，本来就看得见。
             */}
             <div className="ledger__row">
-              <span className="ledger__label">深层</span>
+              <span className="ledger__label">清晰如昨</span>
               <span className="ledger__val engraved">{summary.deep}</span>
             </div>
             <div className="ledger__row">
-              <span className="ledger__label">中层</span>
+              <span className="ledger__label">渐渐褪色</span>
               <span className="ledger__val fading">{summary.middle}</span>
             </div>
             <div className="ledger__row">
-              <span className="ledger__label">海面</span>
+              <span className="ledger__label">将要浮起</span>
               <span className="ledger__val sunken">{summary.surface}</span>
             </div>
             {stats.lastTouched && (
