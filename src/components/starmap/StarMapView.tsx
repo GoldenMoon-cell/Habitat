@@ -11,7 +11,7 @@
  * 只在 Engine.js 里加过 setPaused / setQuality 两个方法。
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Engine, type SeaStats, type EngineStar, type EngineOptions } from "./Engine.js";
 import "./starmap.css";
 import { toStarDefs, summarize, collectForMap, shouldDissolve } from "../../lib/starMapData";
@@ -618,6 +618,31 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
    * 所以按 id 回 memsRef 里取。stats.mode 变化时组件会重渲，
    * 这里跟着读到最新的 active。
    */
+  /*
+   * 拖动时间轴时，三档计数必须按**那一刻**重算。
+   *
+   * 否则画面在变、数字不动 —— 星都浮上去了，
+   * 右下角还写着「清晰如昨 2」。数字和画面对不上，
+   * 比不给数字更糟。
+   *
+   * 判据和 summarize 保持一致（mass < 0.2 / >= 0.6 / 其余），
+   * 可见性也用 visibleOnMap 那条 0.002 的地板。
+   */
+  const liveSummary = useMemo(() => {
+    if (rewind < 0.5) return summary;
+    const tt = Date.now() - rewind * 86400000;
+    let deep = 0, middle = 0, surface = 0;
+    for (const m of memsRef.current.values()) {
+      if (m.forgotten || m.suppressed) continue;
+      const w = effectiveWeight(m, tt);
+      if (w <= 0.002) continue;
+      if (w < MEMORY_THRESHOLD) surface++;
+      else if (w >= 0.6) deep++;
+      else middle++;
+    }
+    return { total: deep + middle + surface, deep, middle, surface };
+  }, [rewind, summary]);
+
   const activeId = engineRef.current?.active?.def?.id;
   const detailMem = activeId ? memsRef.current.get(activeId) : undefined;
 
@@ -820,15 +845,15 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
             */}
             <div className="ledger__row">
               <span className="ledger__label">将要浮起</span>
-              <span className="ledger__val sunken">{summary.surface}</span>
+              <span className="ledger__val sunken">{liveSummary.surface}</span>
             </div>
             <div className="ledger__row">
               <span className="ledger__label">渐渐褪色</span>
-              <span className="ledger__val fading">{summary.middle}</span>
+              <span className="ledger__val fading">{liveSummary.middle}</span>
             </div>
             <div className="ledger__row">
               <span className="ledger__label">清晰如昨</span>
-              <span className="ledger__val engraved">{summary.deep}</span>
+              <span className="ledger__val engraved">{liveSummary.deep}</span>
             </div>
             {stats.lastTouched && (
               <div className="ledger__last">
