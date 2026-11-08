@@ -50,6 +50,12 @@ export interface EngineStar {
    * 迁移时把每帧位移写进来，尾迹就出来了。
    */
   vel: { x: number; y: number; z: number; set(x: number, y: number, z: number): void };
+  /**
+   * 时间轴回溯时由外部接管深度（第 4 期）。
+   * null = 正常模式，引擎自己按 decayRate 衰减。
+   * 设成数字 = 钉在那一刻的 effectiveWeight。
+   */
+  timelineDepth: number | null;
 }
 
 export class Engine {

@@ -45,6 +45,59 @@ type Quality = "high" | "mid" | "low";
  */
 const CONSOLIDATED_KEY = "3w:starmap-consolidated";
 
+/** 时间轴最多能倒回多少天 —— 设计里说的「三个月」 */
+const REWIND_DAYS = 90;
+
+/**
+ * 把星图挪到「days 天前」的那一刻。
+ *
+ * 这是第 4 期的核心，而它之所以可能，全因为
+ * `effectiveWeight(m, now)` 是个**纯函数** ——
+ * 传不同的 now 就得到不同时刻的权重，不需要任何新存储、
+ * 不需要快照、不需要历史表。
+ *
+ * 每颗星改两个数：
+ *   def.at[1]        位置（y = (0.5-w)*6.4，w 变了位置就变）
+ *   timelineDepth    深度（引擎在回溯模式下令它作准，不再自己衰减）
+ */
+function applyRewind(eng: Engine, mems: Map<string, Memory>, days: number) {
+  const t = Date.now() - days * 86400000;
+  for (const star of eng.stars) {
+    const m = mems.get(star.def.id);
+    if (!m) continue;
+    const w = effectiveWeight(m, t);
+    star.def.at[1] = (0.5 - w) * 6.4;
+    star.timelineDepth = w;
+  }
+}
+
+/** 松手后：从当前回溯位置一路快放到现在。那 2.5 秒就是「她这三个月忘了多少」。 */
+function playForward(
+  eng: Engine,
+  mems: Map<string, Memory>,
+  from: number,
+  onTick: (d: number) => void,
+  raf: React.MutableRefObject<number>,
+) {
+  const t0 = performance.now();
+  const DUR = 2500;
+  cancelAnimationFrame(raf.current);
+  const step = () => {
+    const u = Math.min(1, (performance.now() - t0) / DUR);
+    const e = 1 - Math.pow(1 - u, 3);
+    const d = from * (1 - e);
+    onTick(d);
+    applyRewind(eng, mems, d);
+    if (u < 1) raf.current = requestAnimationFrame(step);
+    else {
+      onTick(0);
+      for (const s of eng.stars) s.timelineDepth = null;   // 交还给引擎
+    }
+  };
+  raf.current = requestAnimationFrame(step);
+}
+
+
 function readSeen(): Set<string> {
   try {
     const raw = localStorage.getItem(CONSOLIDATED_KEY);
@@ -303,6 +356,15 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
   const dissolveFired = useRef(false);
   /** 迁移只演一次（每次打开算一次） */
   const migrationFired = useRef(false);
+
+  /* ── 第 4 期：时间轴 ── */
+  /** 往回看了几天。0 = 现在，90 = 三个月前。 */
+  const [rewind, setRewind] = useState(0);
+  /** 拖动中（松手后会自动快放回现在） */
+  const [scrubbing, setScrubbing] = useState(false);
+  const rewindRef = useRef(0);
+  /** 拖动结束后往回放的动画句柄 */
+  const rewindRaf = useRef(0);
   /** 这颗星是什么时候被点开的（算「上次想起距今」用） */
   const openedAt = useRef(0);
 
@@ -430,6 +492,9 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
       document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
+
+  /* 卸载时停掉回放动画 */
+  useEffect(() => () => cancelAnimationFrame(rewindRaf.current), []);
 
   /* ── 真正进到场景里，才让该散的那条开始散 ── */
   useEffect(() => {
@@ -667,6 +732,71 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
           */}
           {detailMem && (stats.mode === "shown" || stats.mode === "holding" || stats.mode === "released") && (
             <StarDetail m={detailMem} opened={openedAt.current} />
+          )}
+
+          {/*
+            ── 第 4 期：时间轴 ──
+            拖回去看「三个月前」，松手自动快放到现在。
+
+            为什么这条能成立：effectiveWeight(m, now) 是纯函数，
+            传不同的 now 就是不同时刻。不需要任何新存储。
+          */}
+          {stats.phase === "inside" && (
+            <div className={`timeline${scrubbing ? " is-scrubbing" : ""}`}>
+              <span className="timeline__end mono">{REWIND_DAYS} 天前</span>
+              <div
+                className="timeline__track"
+                onPointerDown={(e) => {
+                  const eng = engineRef.current;
+                  if (!eng) return;
+                  const el = e.currentTarget;
+                  el.setPointerCapture(e.pointerId);
+                  setScrubbing(true);
+                  cancelAnimationFrame(rewindRaf.current);
+                  const apply = (clientX: number) => {
+                    const r = el.getBoundingClientRect();
+                    const u = Math.min(1, Math.max(0, 1 - (clientX - r.left) / r.width));
+                    const d = u * REWIND_DAYS;
+                    rewindRef.current = d;
+                    setRewind(d);
+                    applyRewind(eng, memsRef.current, d);
+                  };
+                  apply(e.clientX);
+                  const move = (ev: PointerEvent) => apply(ev.clientX);
+                  const up = () => {
+                    el.removeEventListener("pointermove", move);
+                    el.removeEventListener("pointerup", up);
+                    el.removeEventListener("pointercancel", up);
+                    setScrubbing(false);
+                    playForward(eng, memsRef.current, rewindRef.current, (d) => {
+                      rewindRef.current = d;
+                      setRewind(d);
+                    }, rewindRaf);
+                  };
+                  el.addEventListener("pointermove", move);
+                  el.addEventListener("pointerup", up);
+                  el.addEventListener("pointercancel", up);
+                }}
+              >
+                <span className="timeline__fill" style={{ width: `${(rewind / REWIND_DAYS) * 100}%` }} />
+                <span className="timeline__knob" style={{ left: `${(rewind / REWIND_DAYS) * 100}%` }} />
+                {/*
+                  当前值跟着游标浮在上面。
+                  原来写的是「左右两端都显示值」，拖到最左边时
+                  两边都成了「90 天前」，读起来像 bug。
+                  现在两端固定（起点 / 终点），值只出现在游标处。
+                */}
+                {rewind > 0.5 && (
+                  <span
+                    className="timeline__value mono"
+                    style={{ left: `${(rewind / REWIND_DAYS) * 100}%` }}
+                  >
+                    {Math.round(rewind)} 天前
+                  </span>
+                )}
+              </div>
+              <span className="timeline__end mono">现在</span>
+            </div>
           )}
 
           <div className="hud__ledger mono">

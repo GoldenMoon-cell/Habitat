@@ -494,3 +494,82 @@
   transform: translateY(-0.5px);
   transition: top 120ms linear;
 }
+
+
+/* ── 时间轴（第 4 期）────────────────────────────────────
+   底部一条细尺。拖回过去 → 松手 → 自动快放到现在。
+   平时几乎看不见（1px 轨道），拖动时才亮起来。
+*/
+.starmap-root .timeline {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 34px;
+  /*
+   * .hud 整体是 pointer-events: none —— 子元素要自己开回来
+   * （.hud__leave 和 .rescue 都这么干的）。
+   * 第一版漏了这条：时间轴画出来、看得见，但点不动，
+   * 因为点击穿过去落到画布上了。
+   */
+  pointer-events: auto;
+  width: min(620px, calc(100vw - 420px));
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  opacity: 0.42;
+  transition: opacity 260ms ease;
+}
+.starmap-root .timeline.is-scrubbing,
+.starmap-root .timeline:hover { opacity: 1; }
+
+.starmap-root .timeline__end {
+  flex: none;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: rgba(143, 169, 189, 0.6);
+  white-space: nowrap;
+}
+
+.starmap-root .timeline__track {
+  position: relative;
+  flex: 1;
+  height: 15px;
+  cursor: ew-resize;
+  /* 轨道本身只有 1px，但点击区域是 15px —— 看得细，抓得住 */
+}
+.starmap-root .timeline__track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 7px;
+  height: 1px;
+  background: rgba(143, 169, 189, 0.22);
+}
+.starmap-root .timeline__fill {
+  position: absolute;
+  right: 0;
+  top: 7px;
+  height: 1px;
+  background: rgba(53, 240, 206, 0.55);
+}
+.starmap-root .timeline__value {
+  position: absolute;
+  bottom: 16px;
+  transform: translateX(-50%);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: rgba(53, 240, 206, 0.85);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.starmap-root .timeline__knob {
+  position: absolute;
+  top: 3px;
+  width: 1px;
+  height: 9px;
+  margin-left: -0.5px;
+  background: rgba(53, 240, 206, 0.95);
+  box-shadow: 0 0 6px rgba(53, 240, 206, 0.6);
+}

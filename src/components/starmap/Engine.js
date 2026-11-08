@@ -734,7 +734,20 @@ export class Engine {
 
       // 时间流逝 → 遗忘：depth 缓慢降低（不影响压抑和已遗忘的星）
       if (!isActive && !s.forgetting && !s.suppressed && !s.dead) {
+        /*
+       * [改] 时间轴回溯时，深度由外部接管，引擎不再自己衰减。
+       *
+       * 原来只有这一行 —— 每帧 `s.depth -= decayRate * dt`。
+       * 第 4 期要把星图倒回三个月前看，就得逐帧把深度钉在
+       * 「那一刻的 effectiveWeight」。引擎自己衰减会和它打架。
+       *
+       * timelineDepth 只在拖动时被设成数字，松手后置回 null。
+       */
+      if (s.timelineDepth == null) {
         s.depth = Math.max(0, s.depth - s.decayRate * dt)
+      } else {
+        s.depth = s.timelineDepth
+      }
       }
 
       // 所有星始终可见，不做分层过滤
