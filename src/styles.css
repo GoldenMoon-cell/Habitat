@@ -1,5 +1,34 @@
 @import "tailwindcss";
 
+/*
+ * Habitat Sans —— 更纱黑体 Mono SC 子集
+ *
+ * 选它的理由只有一个：**中文和西文严格等宽对齐**。
+ * 它 = Iosevka（西文）+ 思源黑体（中文），
+ * Mono 变体把西文压成半宽，一个汉字正好 = 两个西文字宽。
+ * 这对 HUD、控制台、数字面板、表格是决定性的 ——
+ * 雅黑下这些永远对不齐。
+ *
+ * 子集：ASCII + 拉丁补充区 + 通用/中日韩标点 + 全角
+ *      + app 实际用字 + GB2312 全部 6763 汉字
+ * 13.4 MB → 943 KB。生僻字走系统回退。
+ *
+ * 两套字体分工：
+ *   这一套  = 界面层（设置、列表、按钮、表格、控制台）
+ *   宋体栈  = 标题 / HUD / 星图（那里需要有性格）
+ *
+ * 已知：数字 0 是斜杠零 Ø，这是 Iosevka 的默认形态。
+ */
+@font-face {
+  font-family: "Habitat Sans";
+  src: url("./assets/fonts/SarasaMonoSC-sub.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+
 /* ═══════════════════════════════════════════════════════════════
    三鲸空间 · 设计令牌
    深海断面配色：从 abyss 到 shelf，主色是生物磷光青。
@@ -19,10 +48,29 @@
   --color-mist: #8fa9bd;
   --color-ink: #e6f2fb;
 
+  /*
+   * [改] --font-sans 保持系统字体，**没有**换成 Habitat Sans。
+   *
+   * 试过整屏换成更纱黑体，A/B 对比后否掉了：
+   * 它是中性的程序员字体，整屏换完这个讲记忆和情绪的软件
+   * 变成了 IDE —— 控制台好看了，但对话区和标题失去了味道。
+   *
+   * 更纱黑体真正赢的地方是「要对齐」的位置，见下面的 --font-mono。
+   */
   --font-sans: "Segoe UI Variable Text", "Segoe UI", -apple-system,
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Cascadia Mono", "SF Mono", ui-monospace,
-    Consolas, "Liberation Mono", monospace;
+  /*
+   * [改] 数字 / 控制台 / 事件流 / HUD 读数走内置的更纱黑体子集。
+   *
+   * 理由是这一层唯一的硬需求：**中西文严格等宽对齐**
+   * （一个汉字 = 两个西文字宽，数字列能竖向对齐）。
+   * 别的等宽西文字体做不到这件事，因为它们没有中文。
+   *
+   * 兜底链保留 —— 子集只覆盖 GB2312，生僻字会落到 JetBrains Mono
+   * 或系统等宽字体上。
+   */
+  --font-mono: "Habitat Sans", "JetBrains Mono", "Cascadia Mono", "SF Mono",
+    ui-monospace, Consolas, "Liberation Mono", monospace;
 }
 
 @layer base {
