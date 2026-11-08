@@ -3672,7 +3672,16 @@ export default function App() {
               </div>
             }
           >
-            <StarMapView conv={String(conv)} onClose={() => setStarMapOpen(false)} />
+            <StarMapView
+                conv={String(conv)}
+                personas={personas.map((a) => ({
+                  id: String(a.id),
+                  name: a.name,
+                  color: a.color,
+                }))}
+                onSwitchConv={(id) => setConv(id as ConvId)}
+                onClose={() => setStarMapOpen(false)}
+              />
           </Suspense>
         </div>
       )}

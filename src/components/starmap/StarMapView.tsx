@@ -338,10 +338,25 @@ function timeAgo(ms: number): string {
 export interface StarMapProps {
   /** 看哪个会话的记忆 */
   conv: string;
+  /**
+   * 左侧那一列 —— 有几颗大脑。
+   *
+   * 星图本来就是「一个角色的记忆」，但只从一个入口进来
+   * 就永远只能看一个人。列在这里，换一片星域不用退出。
+   */
+  personas?: { id: string; name: string; color: string }[];
+  /**
+   * 换人。
+   *
+   * **这会同时改主界面的 conv** —— 关掉星图之后落在你刚才看的那个人那里。
+   * 理由是：你刚盯着她的记忆看了半天，ESC 之后却回到另一个人那里会很愣。
+   * 而且整个 app 只有一份 conv，不跟反而要维护两份。
+   */
+  onSwitchConv?: (id: string) => void;
   onClose: () => void;
 }
 
-export default function StarMapView({ conv, onClose }: StarMapProps) {
+export default function StarMapView({ conv, personas, onSwitchConv, onClose }: StarMapProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<Engine | null>(null);
   const labelRef = useRef<HTMLDivElement>(null);
@@ -359,6 +374,8 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
 
   /* ── 第 4 期：时间轴 ── */
   /** 往回看了几天。0 = 现在，90 = 三个月前。 */
+  /** 换角色时的淡出（换一片星域，不是闪一下） */
+  const [swapping, setSwapping] = useState(false);
   const [rewind, setRewind] = useState(0);
   /** 拖动中（松手后会自动快放回现在） */
   const [scrubbing, setScrubbing] = useState(false);
@@ -398,6 +415,34 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
       (window as unknown as { __starmap?: Engine }).__starmap = engine;
     }
 
+    /*
+     * 记忆**不在这里加载** —— 挪到下面那个 [conv] 的 effect 里。
+     *
+     * 原来建引擎和加载记忆写在同一个 effect，依赖是 [conv]。
+     * 于是在星图里换角色（onSwitchConv 改 conv）会把**整个 Engine 重建**，
+     * 新引擎的 phase 从 'outside' 开始 —— 画面直接退回闸门页，
+     * 用户看到「沉积 / 进入」，刚才还在水里。
+     *
+     * 拆开：这个 effect 只建引擎（[] 依赖，只跑一次），
+     * 换角色只换数据，不换引擎。
+     */
+
+    return () => {
+      engine.dispose();
+      engineRef.current = null;
+    };
+  }, []);
+
+  /*
+   * ── 加载 / 换角色 ──
+   *
+   * 挂载跑一次，之后每次 conv 变都跑一次。
+   * 只换星，不碰引擎 —— 换角色时人还站在水里，只是面前那片记忆换了。
+   */
+  useEffect(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
     const now = Date.now();
     const mems = collectForMap(conv);
     memsRef.current = new Map(mems.map((m) => [m.id, m]));
@@ -425,10 +470,14 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
       })
       .filter((i) => i >= 0);
 
-    return () => {
-      engine.dispose();
-      engineRef.current = null;
-    };
+    /*
+     * 换角色时，新的 DissolveQueue 要能在「已经在场景里」的情况下立刻生效 ——
+     * 否则新那片星域里该散的那条要等到下次进出才演。
+     */
+    if (engine.phase === "inside") {
+      dissolveFired.current = false;
+      setStats((s) => ({ ...s, phase: "inside" }));
+    }
   }, [conv]);
 
   /* ── 输入 ── */
@@ -659,7 +708,7 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
   const layer = norm >= 0.62 ? "深层" : norm >= 0.28 ? "中层" : "海面";
 
   return (
-    <div className="starmap-root">
+    <div className={"starmap-root" + (swapping ? " is-swapping" : "")}>
       <div
         className={`app app--${stats.phase}`}
         style={{ position: "absolute", inset: 0 }}
@@ -695,6 +744,48 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
             <h1>沉积</h1>
             <p>SEDIMENT — 所有落下的，都不会再浮上来</p>
           </header>
+
+          {/*
+            ── 左侧：换一片星域 ──
+
+            设计里写「conv = 哪颗大脑，切换角色 = 换一片星域」。
+            原来只能关掉星图、切角色、再按 Ctrl+M 进来 —— 三步，中间还得退出。
+
+            这里换人就调 onSwitchConv，主界面的 conv 跟着变，
+            而本组件的加载 effect 依赖 [conv]，会自动重载。
+            换的时候做一次短促的淡出淡入，读作「换了一片水」而不是「闪了一下」。
+          */}
+          {personas && personas.length > 1 && (
+            <ul className="hud__brains">
+              {personas.map((p) => {
+                const here = String(p.id) === conv;
+                return (
+                  <li key={String(p.id)}>
+                    <button
+                      className={"brain" + (here ? " is-here" : "")}
+                      style={{ ["--c" as string]: p.color }}
+                      onClick={() => {
+                        if (here || !onSwitchConv) return;
+                        setSwapping(true);
+                        /*
+                         * 180ms 淡出 → 换 conv → 换完 effect 会重载 → 420ms 淡入。
+                         * 用 setTimeout 而不是 transitionend：淡出可能被中断，
+                         * transitionend 不一定来。
+                         */
+                        window.setTimeout(() => {
+                          onSwitchConv(String(p.id));
+                          window.setTimeout(() => setSwapping(false), 60);
+                        }, 180);
+                      }}
+                    >
+                      <span className="brain__dot" />
+                      <span className="brain__name">{p.name}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
 
           <div className="hud__depth">
             <span className="mono">−{depth.toLocaleString("en-US")} m</span>

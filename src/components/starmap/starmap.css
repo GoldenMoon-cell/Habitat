@@ -584,3 +584,70 @@
   background: rgba(53, 240, 206, 0.95);
   box-shadow: 0 0 6px rgba(53, 240, 206, 0.6);
 }
+
+
+/* ── 左侧：换一片星域 ─────────────────────────────────────
+   标题下面一列角色名。星图本来就是「一个角色的记忆」，
+   但只从一个入口进来就永远只能看一个人。
+
+   位置：标题读到 y≈110，这里从 140 起，底部提示在 900，
+   中间这一大段本来是空的。
+*/
+.starmap-root .hud__brains {
+  position: absolute;
+  left: clamp(20px, 4vw, 48px);
+  top: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: auto;
+  max-height: calc(100vh - 340px);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.starmap-root .hud__brains::-webkit-scrollbar { display: none; }
+
+.starmap-root .brain {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 3px 8px 3px 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--serif);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgba(143, 169, 189, 0.42);
+  transition: color 220ms ease;
+  text-align: left;
+}
+.starmap-root .brain:hover { color: rgba(200, 226, 240, 0.85); }
+
+/* 当前这一颗：亮起来，前面的点用角色自己的颜色 */
+.starmap-root .brain.is-here {
+  color: rgba(226, 244, 255, 0.95);
+  cursor: default;
+}
+.starmap-root .brain__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--c);
+  opacity: 0.28;
+  flex: none;
+  transition: opacity 220ms ease, box-shadow 220ms ease;
+}
+.starmap-root .brain.is-here .brain__dot {
+  opacity: 1;
+  box-shadow: 0 0 6px var(--c);
+}
+
+/* 换角色时整片淡出 —— 读作「换了一片水」，不是「闪了一下」 */
+.starmap-root canvas {
+  transition: opacity 420ms ease;
+}
+.starmap-root.is-swapping canvas {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
