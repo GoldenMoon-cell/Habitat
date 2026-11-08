@@ -2982,6 +2982,7 @@ export default function App() {
       ) : (
         <GodRail
           conv={conv}
+          onOpenStarMap={() => setStarMapOpen(true)}
           onCommand={handleCommand}
           onScript={handleScript}
           engine={engine}

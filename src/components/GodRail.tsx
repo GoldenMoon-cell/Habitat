@@ -351,6 +351,7 @@ export default function GodRail({
   onScript,
   engine,
   onCollapse,
+  onOpenStarMap,
 }: {
   conv: ConvId;
   onCommand: (e: CommandEvent) => void;
@@ -358,6 +359,13 @@ export default function GodRail({
   onScript: (s: { label: string; text: string }) => void;
   engine: EngineConfig;
   onCollapse?: () => void;
+  /**
+   * 打开「沉积」（记忆星图）。
+   *
+   * 只在角色私聊里有 —— 群聊不是一颗大脑，没有「她的记忆」这回事。
+   * 群聊里这个入口整个不渲染，而不是渲染出来点不动。
+   */
+  onOpenStarMap?: () => void;
 }) {
   /*
    * 快捷命令折叠。
@@ -648,8 +656,29 @@ export default function GodRail({
             >
               <div className="mb-2 flex items-center justify-between">
                 <span className="label">memory stream</span>
-                <button
-                  onClick={toggleAll}
+                <div className="flex items-center gap-2.5">
+                  {/*
+                    沉积的入口。
+                    和「全部展开」同一个分量 —— 两个都是对这份记忆的操作，
+                    一个逐条展开，一个整体看。
+
+                    群聊里不渲染：群不是一个角色，没有「她记得什么」。
+                  */}
+                  {!isGroup && onOpenStarMap && (
+                    <button
+                      onClick={onOpenStarMap}
+                      className="flex items-center gap-1 rounded-[4px] px-1 py-[1px] font-mono text-[9.5px]
+                        text-mist/42 transition-colors hover:bg-white/5 hover:text-halo/85"
+                      title="沉积 —— 看这片记忆的整体形状（Ctrl+M）"
+                    >
+                      沉积
+                      {/* 和「全部展开」同一个朝向 —— 都是「往这个方向打开」。
+                        原来写的 -rotate-90（朝上），读起来像「收起」。 */}
+                      <IconChevron size={9} />
+                    </button>
+                  )}
+                  <button
+                    onClick={toggleAll}
                   className="flex items-center gap-1 rounded-[4px] px-1 py-[1px] font-mono text-[9.5px] text-mist/55 transition-colors hover:bg-white/[0.05] hover:text-biolum/80"
                 >
                   {allOpen ? "收起" : "全部展开"}
@@ -659,6 +688,7 @@ export default function GodRail({
                   />
                 </button>
               </div>
+                </div>
 
               <motion.div
                 key={`mem-${conv}`}
