@@ -284,17 +284,37 @@
    风格和 hud 一致：细线、低对比、等宽数字。 */
 .starmap-root .detail {
   position: absolute;
-  right: 44px;
+  right: 38px;
   /* ledger 是 right/bottom clamp(20px,4vw,48px)，三行 + last 行约 90px 高。
      面板压到 168px 才不打架 —— 132px 会盖住最上面那行「刻于心里」。 */
   bottom: 168px;
-  width: 232px;
-  padding: 14px 14px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 7px;
-  background: rgba(6, 18, 26, 0.55);
-  backdrop-filter: blur(9px);
+  width: 244px;
+  padding: 26px 20px 24px;
+
+  /*
+   * 不用卡片。
+   *
+   * 整个星图里没有任何一张带边框的卡 ——
+   * HUD 的标题、深度、计数全是裸文字。
+   * 这里加一张卡就是引入一个新的视觉名词，而且它是唯一一张。
+   *
+   * 改成上下淡入淡出的暗色：读起来像「一片更深的水」，
+   * 是这个世界里本来就有的东西。
+   *
+   * 为什么不用「完全无底 + 文字阴影」：
+   * 相机会自己环绕，星星会从面板后面漂过去 ——
+   * 一颗亮星压到「0.42 → 0.17」后面，那行数字就没了。
+   * 渐隐层的边缘完全透明（不切景），中间 0.62 的暗底（够读）。
+   */
+  background: linear-gradient(
+    180deg,
+    rgba(3, 10, 15, 0) 0%,
+    rgba(3, 10, 15, 0.55) 18%,
+    rgba(3, 10, 15, 0.62) 82%,
+    rgba(3, 10, 15, 0) 100%
+  );
   animation: detail-in 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
 }
 @keyframes detail-in {
   from { opacity: 0; transform: translateY(7px); }
