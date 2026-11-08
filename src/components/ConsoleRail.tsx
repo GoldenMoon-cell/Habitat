@@ -376,7 +376,7 @@ export default function ConsoleRail({
             · 右边显示模型数 / 没配
         */}
         {links.length === 0 ? (
-          <div className="px-1 py-2 font-mono text-[9.5px] leading-relaxed text-mist/32">
+          <div className="px-1 py-2 text-[9.5px] leading-relaxed text-mist/32">
             还没有接口。
             <br />
             设置 → API 接入

@@ -406,7 +406,7 @@ function ChatStageInner({
           >
             <div className="flex items-center gap-2.5 py-1">
               <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/[0.08]" />
-              <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.14em] text-mist/52">
+              <span className="flex items-center gap-1.5 text-[10px] tracking-[0.14em] text-mist/52">
                 <IconTail size={11} className="opacity-60" />
                 {isGroup
                   ? "群聊上下文 · 与私聊完全隔离"
