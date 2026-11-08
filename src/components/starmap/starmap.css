@@ -342,6 +342,16 @@
   line-height: 1.7;
   color: rgba(214, 235, 246, 0.9);
   letter-spacing: 0.01em;
+
+  /*
+   * 长记忆（50 字以上）在 244px 里会换到 4 行，
+   * 把面板撑得很高、压到粒子字那一带。
+   * 截到 3 行 —— 点开的是「那颗星」，不是读全文的地方。
+   */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .starmap-root .detail__grid {

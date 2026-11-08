@@ -214,10 +214,24 @@ export class Engine {
   }
 
   // 句子所在平面的可见宽度
+  /**
+   * 粒子字最宽能占多少（世界单位）。
+   *
+   * [改] 0.86 → 0.60。
+   *
+   * 0.86 让字最宽铺到视口的 86%（1600px 下 112..1488），
+   * 而详情面板的左边缘在 1292 —— 长句会钻到面板底下。
+   * 实测一条 37 字的记忆已经到 1301，和面板只差 9px，
+   * 再来十几个字就压上了。
+   *
+   * 收到 0.60 之后最宽 960px（居中 320..1280），
+   * 让开面板。**短句完全不受影响** —— 它们本来就没到上限，
+   * 只有长句会缩小，而长句本来也不该铺满整屏。
+   */
   textW() {
     const d = CAM_Z - TEXT_Z
     const h = 2 * d * Math.tan(THREE.MathUtils.degToRad(45 / 2))
-    return Math.min(h * this.camera.aspect * 0.86, 9.5)
+    return Math.min(h * this.camera.aspect * 0.6, 9.5)
   }
 
   makeStar(m, i) {
