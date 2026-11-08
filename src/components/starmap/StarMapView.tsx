@@ -69,21 +69,66 @@ function writeSeen(ids: string[]) {
  * 用 ease-out（先快后慢）：它已经「落定」了，减速比加速合理。
  * 时长 5 秒 —— 短了像瞬移，长了会让用户以为卡住。
  */
-function sinkStar(star: EngineStar, fromY: number, toY: number, ms = 5000, delay = 0) {
+function sinkStar(star: EngineStar, fromY: number, toY: number, sy: number, ms = 5000, delay = 0) {
   star.def.at[1] = fromY;
+  let prev = fromY;
+  let last = performance.now();
   const t0 = performance.now() + delay;
+
   const step = () => {
-    const u = (performance.now() - t0) / ms;
+    const nowT = performance.now();
+    const u = (nowT - t0) / ms;
+
     if (u >= 1) {
       star.def.at[1] = toY;
+      star.vel.set(0, 0, 0);
       return;
     }
     if (u <= 0) {
+      last = nowT;
       requestAnimationFrame(step);
       return;
     }
+
     const e = 1 - Math.pow(1 - u, 3);
-    star.def.at[1] = fromY + (toY - fromY) * e;
+    const y = fromY + (toY - fromY) * e;
+    star.def.at[1] = y;
+
+    /*
+     * ── 尾迹 ──
+     *
+     * shader 里早就有这个机制：
+     *   uniform vec3 uVel;    // 星的速度，用来拖出彗尾
+     *   home -= uVel * (0.04 + aRand.y * 0.26);
+     *
+     * 每个粒子沿速度方向往后让一点，错峰随机 → 看起来就是彗尾。
+     *
+     * 但它一直是 0：因为 home 是每帧直接 copy 过去的，
+     * 星在「瞬移」，没有速度。所以彗尾从来没出现过。
+     *
+     * 这里把每帧的位移写进 vel，尾迹自己就出来了。
+     * 乘 sy 是因为 at[1] 是布局单位，而 home 用的是世界单位。
+     */
+    /*
+     * 尾迹长度要按**世界单位**想，不能按「每帧位移」想。
+     *
+     * 第一版写的是 `dy * 0.55`（dy 是每帧位移，约 0.0016）——
+     * shader 乘完 0.04~0.30 只剩 0.0005 个世界单位，
+     * 而星本身的直径约 0.1。**小了两百倍，等于没有。**
+     *
+     * 反推：shader 里尾巴长度 ≈ uVel.y * 0.3（取那个乘数的中值）。
+     * 想要尾巴约 0.35 个世界单位（≈ 三个星径），uVel.y 就要 ≈ 1.2。
+     *
+     * 用「速度」而不是「位移」来算，这样帧率变化不影响尾长：
+     *   vy = dy / dt  （世界单位/秒）
+     *   再乘一个经验系数把量级抬到 1 附近
+     */
+    const dt = Math.max(0.001, (nowT - last) / 1000);
+    const vy = ((y - prev) * sy) / dt;
+    star.vel.y = vy * 2.4;
+    prev = y;
+    last = nowT;
+
     requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -451,7 +496,7 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
 
     /* 错峰：一起沉会像整片塌下来 */
     fresh.slice(0, 6).forEach((f, i) => {
-      sinkStar(f.star, f.fromY, f.toY, 5000, i * 420);
+      sinkStar(f.star, f.fromY, f.toY, eng.sy ?? 1, 5000, i * 420);
     });
 
     writeSeen(nowConsolidated);
@@ -576,6 +621,28 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
             <button onClick={onClose} className="hud__leave">
               收起 <span className="mono">ESC</span>
             </button>
+          </div>
+
+          {/*
+            ── 深度条 ──
+            尺子，不是缩略图。
+
+            挂两个东西：
+              · 相机现在在哪（游标）
+              · 三段的分界（将要浮起 / 渐渐褪色 / 清晰如昨）
+
+            不挂每颗星的点 —— 星的位置本身已经在说相对深度了，
+            再画一排点就是第二张更小的同一张图，而且会互相压住。
+
+            刻度位置不是随手定的：y = (0.5 - w) * 6.4，
+            而 norm = scrollY / 5.7 正好等于 w ——
+            所以条的 0/0.2/0.6/1 就是四档权重的边界。
+          */}
+          <div className="depthbar" aria-hidden>
+            <span className="depthbar__band b-surface" style={{ top: 0, height: "20%" }} />
+            <span className="depthbar__band b-mid" style={{ top: "20%", height: "40%" }} />
+            <span className="depthbar__band b-deep" style={{ top: "60%", height: "40%" }} />
+            <span className="depthbar__cursor" style={{ top: `${norm * 100}%` }} />
           </div>
 
           <div className="hud__hint" key={stats.mode}>

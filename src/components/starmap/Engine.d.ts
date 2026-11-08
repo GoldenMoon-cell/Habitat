@@ -42,6 +42,14 @@ export interface EngineStar {
   forgetting: boolean;
   rescuable: boolean;
   forgettingT: number;
+  /**
+   * 星的速度。shader 拿它拖彗尾：
+   *   home -= uVel * (0.04 + aRand.y * 0.26)
+   *
+   * 平时是 0（home 每帧直接 copy，没有速度）。
+   * 迁移时把每帧位移写进来，尾迹就出来了。
+   */
+  vel: { x: number; y: number; z: number; set(x: number, y: number, z: number): void };
 }
 
 export class Engine {
@@ -59,6 +67,8 @@ export class Engine {
    * 详情面板靠它找到「打开的是哪一条记忆」。
    */
   active: EngineStar | null;
+  /** 布局缩放。at[1] 是布局单位，世界坐标要乘它。 */
+  sy: number;
 
   /** 塞数据。会清掉旧的星重建。 */
   loadMemories(defs: StarDef[]): void;

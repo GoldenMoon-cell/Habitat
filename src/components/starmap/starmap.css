@@ -420,3 +420,60 @@
   letter-spacing: 0.06em;
   color: rgba(143, 169, 189, 0.34);
 }
+
+
+/* ── 深度条 ────────────────────────────────────────────────
+   右侧边缘的尺子。不画星的点 —— 星的位置已经在说相对深度了，
+   再画一排点就是第二张更小的同一张图。
+
+   条顶 = 海面（norm 0），条底 = 深层（norm 1）。
+   而 norm 正好等于权重 w，所以分段边界就是权重的边界：
+     0 ~ 0.2   将要浮起
+     0.2 ~ 0.6  渐渐褪色
+     0.6 ~ 1    清晰如昨
+*/
+.starmap-root .depthbar {
+  position: absolute;
+  right: clamp(14px, 2vw, 26px);
+  top: 168px;
+  bottom: 168px;
+  width: 1px;
+  pointer-events: none;
+  /* 刻度起点太淡了 —— 第一版 bands 只有 0.10~0.26 的透明度，
+     1px 宽，在深色底上几乎看不见。整体抬高，再加一点光。 */
+  filter: drop-shadow(0 0 3px rgba(53, 240, 206, 0.18));
+}
+
+.starmap-root .depthbar__band {
+  position: absolute;
+  left: 0;
+  width: 1px;
+}
+/* 越深越亮 —— 和星一样，深处的东西更实 */
+.starmap-root .depthbar__band.b-surface { background: rgba(143, 169, 189, 0.16); }
+.starmap-root .depthbar__band.b-mid     { background: rgba(143, 169, 189, 0.30); }
+.starmap-root .depthbar__band.b-deep    { background: rgba(53, 240, 206, 0.42); }
+
+/* 两条分界线的小刻痕：让「三段」看得见，不然只是一根渐变的线 */
+.starmap-root .depthbar__band.b-mid::before,
+.starmap-root .depthbar__band.b-deep::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 0;
+  width: 5px;
+  height: 1px;
+  background: rgba(196, 219, 232, 0.35);
+}
+
+/* 游标：一条 7px 的横杠，加一点光 */
+.starmap-root .depthbar__cursor {
+  position: absolute;
+  left: -5px;
+  width: 11px;
+  height: 1px;
+  background: rgba(53, 240, 206, 0.95);
+  box-shadow: 0 0 8px rgba(53, 240, 206, 0.65);
+  transform: translateY(-0.5px);
+  transition: top 120ms linear;
+}
