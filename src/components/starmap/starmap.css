@@ -284,133 +284,105 @@
    风格和 hud 一致：细线、低对比、等宽数字。 */
 .starmap-root .detail {
   position: absolute;
-  right: 40px;
+  left: 50%;
+  transform: translateX(-50%);
   /*
-   * 放右上，不放右下。
+   * 横向脚注，平铺在粒子字下面。
    *
-   * 粒子字在**垂直居中**的位置，横向可以铺到视口的 86%。
-   * 面板只要占右边那一列，就一定会和长句抢地方 ——
-   * 之前靠把字缩到 60% 来避让，那是因小失大。
+   * 原来是右下角一张竖卡片 —— 既占了粒子字的横向范围
+   * （字最宽铺到视口 86%），又像另一个 app 的面板。
    *
-   * 挪到字**上方**就没有这个问题：
-   * 右上角在深度的读数（−0 m / 海面 / 画质 / 收起）下面，
-   * 再往下到字那一带之间有整块空白。
-   *
-   * top: 176px —— 深度那组读到 y≈146，留 30px。
+   * 现在贴在句子下方当「脚注」：
+   *   上面那行大字是原文，这里只回答「它现在什么状态」。
+   *   所以不放原文 —— 抄一遍是噪音。
    */
-  top: 176px;
-  width: 244px;
-  padding: 26px 20px 24px;
-
-  /*
-   * 不用卡片。
-   *
-   * 整个星图里没有任何一张带边框的卡 ——
-   * HUD 的标题、深度、计数全是裸文字。
-   * 这里加一张卡就是引入一个新的视觉名词，而且它是唯一一张。
-   *
-   * 改成上下淡入淡出的暗色：读起来像「一片更深的水」，
-   * 是这个世界里本来就有的东西。
-   *
-   * 为什么不用「完全无底 + 文字阴影」：
-   * 相机会自己环绕，星星会从面板后面漂过去 ——
-   * 一颗亮星压到「0.42 → 0.17」后面，那行数字就没了。
-   * 渐隐层的边缘完全透明（不切景），中间 0.62 的暗底（够读）。
-   */
-  /*
-   * 底色交给 ::before —— linear-gradient(180deg) 只淡上下，
-   * 左右是硬边，放大能看到一条竖直分界线。
-   *
-   * 改成伪元素 + 径向遮罩：四边都淡出去，字本身不受影响
-   * （直接给元素加 mask 会把文字也削掉）。
-   */
-  background: none;
-  animation: detail-in 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  bottom: 118px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 11px 22px 12px;
+  max-width: min(880px, calc(100vw - 320px));
+  white-space: nowrap;
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  color: rgba(196, 219, 232, 0.72);
   pointer-events: none;
+  animation: detail-in 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* 文字下面的那层暗底：四边淡出，不制造边界 */
 .starmap-root .detail::before {
   content: "";
   position: absolute;
-  inset: -20px -26px;
+  inset: -14px -30px;
   z-index: -1;
-  background: rgba(3, 10, 15, 0.66);
+  background: rgba(3, 10, 15, 0.6);
   -webkit-mask-image: radial-gradient(
-    ellipse 78% 76% at 50% 50%, #000 38%, transparent 100%
+    ellipse 72% 100% at 50% 50%, #000 30%, transparent 100%
   );
   mask-image: radial-gradient(
-    ellipse 78% 76% at 50% 50%, #000 38%, transparent 100%
+    ellipse 72% 100% at 50% 50%, #000 30%, transparent 100%
   );
 }
-@keyframes detail-in {
-  from { opacity: 0; transform: translateY(7px); }
-  to   { opacity: 1; transform: none; }
-}
 
-.starmap-root .detail__text {
-  margin: 0 0 11px;
-  font-family: var(--serif);
-  font-size: 11.5px;
-  line-height: 1.7;
-  color: rgba(214, 235, 246, 0.9);
-  letter-spacing: 0.01em;
-
-  /*
-   * 长记忆（50 字以上）在 244px 里会换到 4 行，
-   * 把面板撑得很高、压到粒子字那一带。
-   * 截到 3 行 —— 点开的是「那颗星」，不是读全文的地方。
-   */
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.starmap-root .detail__grid {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 3px 10px;
-  font-size: 9.5px;
-  letter-spacing: 0.04em;
-}
-.starmap-root .detail__k { color: rgba(143, 169, 189, 0.42); }
-.starmap-root .detail__v { color: rgba(196, 219, 232, 0.78); }
-.starmap-root .detail__v b { font-weight: 400; color: #35f0ce; }
-.starmap-root .detail__badge {
-  display: inline-block;
-  margin-left: 7px;
-  padding: 1px 5px;
+.starmap-root .detail__item { display: inline-flex; align-items: baseline; gap: 9px; }
+.starmap-root .detail__item i {
   font-style: normal;
-  font-size: 8px;
+  color: rgba(143, 169, 189, 0.4);
   letter-spacing: 0.1em;
+}
+.starmap-root .detail__item b { font-weight: 400; color: #35f0ce; }
+.starmap-root .detail__badge {
+  font-style: normal;
+  margin-left: 5px;
+  padding: 1px 4px;
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
   color: rgba(255, 196, 107, 0.9);
   border: 1px solid rgba(255, 196, 107, 0.22);
   border-radius: 3px;
 }
 
 .starmap-root .detail__curve {
-  display: block;
-  margin-top: 12px;
+  flex: none;
+  margin-left: 4px;
   overflow: visible;
 }
-/* 阈值横线：跌破它就算「沉入海床」 */
 .starmap-root .detail__thr {
-  stroke: rgba(255, 255, 255, 0.09);
+  stroke: rgba(255, 255, 255, 0.1);
   stroke-width: 1;
   stroke-dasharray: 2 3;
 }
-/* 已经发生的衰减 */
 .starmap-root .detail__past {
   fill: none;
-  stroke: rgba(53, 240, 206, 0.72);
-  stroke-width: 1.2;
+  stroke: rgba(53, 240, 206, 0.75);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
 }
-/* 还没发生的那段：虚线 */
 .starmap-root .detail__future {
   fill: none;
-  stroke: rgba(53, 240, 206, 0.24);
+  stroke: rgba(53, 240, 206, 0.26);
   stroke-width: 1;
   stroke-dasharray: 2 3;
+  vector-effect: non-scaling-stroke;
 }
+.starmap-root .detail__now {
+  stroke: rgba(143, 169, 189, 0.3);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.starmap-root .detail__nowlabel {
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  fill: rgba(143, 169, 189, 0.4);
+}
+
+@keyframes detail-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(7px); }
+  to   { opacity: 1; transform: translateX(-50%); }
+}
+
 .starmap-root .detail__nowlabel {
   font-family: var(--mono);
   font-size: 7px;

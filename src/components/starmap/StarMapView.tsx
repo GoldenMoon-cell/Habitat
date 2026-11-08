@@ -86,33 +86,40 @@ function StarDetail({ m, opened }: { m: Memory; opened: number }) {
   const ago = opened > 0 ? Math.max(0, (now - opened) / 864e5) : null;
 
   return (
-    <div className="detail">
-      <p className="detail__text">{m.text}</p>
+    <div className="detail mono">
+      {/*
+        横向平铺在粒子字下面，当那句话的「脚注」。
+        原来是一张竖卡片挂在角落 —— 既占了字的横向范围，
+        又像另一个 app 的面板。
 
-      <div className="detail__grid mono">
-        <span className="detail__k">来源</span>
-        <span className="detail__v">{m.source || "—"}</span>
+        **这里不放原文**：上面那行粒子字就是原文。
+        再抄一遍是噪音。脚注只回答「这条记忆现在什么状态」。
+      */}
+      <span className="detail__item">
+        <i>来源</i>
+        {m.source || "—"}
+      </span>
+      <span className="detail__item">
+        <i>分类</i>
+        {m.tag}
+      </span>
+      <span className="detail__item">
+        <i>写入</i>
+        {Math.round(days)} 天前
+      </span>
+      <span className="detail__item">
+        <i>权重</i>
+        {w0.toFixed(2)} → <b>{wNow.toFixed(2)}</b>
+        {permanent && <em className="detail__badge">刻痕</em>}
+      </span>
+      <span className="detail__item">
+        <i>被想起</i>
+        {m.accessCount ?? 0} 次
+        {ago !== null && ` · ${ago < 1 ? "今天" : Math.round(ago) + " 天前"}`}
+      </span>
 
-        <span className="detail__k">分类</span>
-        <span className="detail__v">{m.tag}</span>
-
-        <span className="detail__k">写入</span>
-        <span className="detail__v">{Math.round(days)} 天前</span>
-
-        <span className="detail__k">权重</span>
-        <span className="detail__v">
-          {w0.toFixed(2)} → <b>{wNow.toFixed(2)}</b>
-          {permanent && <em className="detail__badge">刻痕 · 不衰减</em>}
-        </span>
-
-        <span className="detail__k">被想起</span>
-        <span className="detail__v">
-          {m.accessCount ?? 0} 次
-          {ago !== null && ` · ${ago < 1 ? "今天" : Math.round(ago) + " 天前"}`}
-        </span>
-      </div>
-
-      <svg className="detail__curve" width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+      <svg className="detail__curve" width={132} height={26} viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none">
         {/* 阈值横线 —— 跌破它就算「沉入海床」 */}
         <line x1="0" y1={thrY} x2={W} y2={thrY} className="detail__thr" />
         {/* 现在之后的虚线：还没发生 */}
@@ -128,19 +135,7 @@ function StarDetail({ m, opened }: { m: Memory; opened: number }) {
           className="detail__past"
         />
         <line x1={nowX} y1="0" x2={nowX} y2={H} className="detail__now" />
-        <text x={nowX + 3} y="7" className="detail__nowlabel">现在</text>
       </svg>
-      {/*
-        轴只标首尾。
-        原来三个标签（过去 / 现在 / 未来）挤在 186px 里必然重叠 ——
-        「现在」的位置又取决于写了多久（写 12 天、未来 30 天，
-        就在 28.6% 处），没法靠 justify-between 摆。
-        所以「现在」挪进图里贴竖线顶端，轴只留首尾两个。
-      */}
-      <div className="detail__axis mono">
-        <span style={{ left: 0 }}>{Math.round(days)} 天前</span>
-        <span style={{ right: 0 }}>+30 天</span>
-      </div>
     </div>
   );
 }
