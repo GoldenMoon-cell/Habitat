@@ -120,7 +120,7 @@ function StarDetail({ m, opened }: { m: Memory; opened: number }) {
 
       <svg className="detail__curve" width={132} height={26} viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none">
-        {/* 阈值横线 —— 跌破它就算「沉入海床」 */}
+        {/* 阈值横线 —— 跌破它就从「中层」浮到「海面」 */}
         <line x1="0" y1={thrY} x2={W} y2={thrY} className="detail__thr" />
         {/* 现在之后的虚线：还没发生 */}
         <path
@@ -381,7 +381,14 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
   const SCROLL_MAX = 5.7;
   const norm = Math.max(0, Math.min(1, (stats.scrollY || 0) / SCROLL_MAX));
   const depth = Math.round(4280 * norm);
-  const layer = norm >= 0.85 ? "海床" : norm >= 0.55 ? "深层" : norm >= 0.25 ? "中层" : "海面";
+  /*
+   * 三层：海面 / 中层 / 深层。
+   *
+   * 没有「海床」。原来最深那档叫海床 —— 但那暗示了一个「沉淀下来就不动」的
+   * 地板，而这张图上没有那样的东西：固化的是**沉得深**，不是落在某个平面上。
+   * 深海没有底，只有更深。
+   */
+  const layer = norm >= 0.62 ? "深层" : norm >= 0.28 ? "中层" : "海面";
 
   return (
     <div className="starmap-root">
@@ -454,15 +461,15 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
 
           <div className="hud__ledger mono">
             <div className="ledger__row">
-              <span className="ledger__label">刻于心里</span>
+              <span className="ledger__label">深层</span>
               <span className="ledger__val engraved">{summary.engraved}</span>
             </div>
             <div className="ledger__row">
-              <span className="ledger__label">随风飘荡</span>
+              <span className="ledger__label">中层</span>
               <span className="ledger__val fading">{summary.drifting}</span>
             </div>
             <div className="ledger__row">
-              <span className="ledger__label">沉入海床</span>
+              <span className="ledger__label">海面</span>
               <span className="ledger__val sunken">{summary.sunken}</span>
             </div>
             {stats.lastTouched && (
