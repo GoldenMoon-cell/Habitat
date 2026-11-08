@@ -460,17 +460,23 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
           )}
 
           <div className="hud__ledger mono">
+            {/*
+              三档 = 三个层，按 mass 分。
+              因为 y = (0.5 - w) * 6.4，**mass 就是深度** ——
+              数出来的就是画面上三段里各有几颗，抬头能对上。
+              固化不再是单独一档：它是星身上的髓鞘光环，本来就看得见。
+            */}
             <div className="ledger__row">
               <span className="ledger__label">深层</span>
-              <span className="ledger__val engraved">{summary.engraved}</span>
+              <span className="ledger__val engraved">{summary.deep}</span>
             </div>
             <div className="ledger__row">
               <span className="ledger__label">中层</span>
-              <span className="ledger__val fading">{summary.drifting}</span>
+              <span className="ledger__val fading">{summary.middle}</span>
             </div>
             <div className="ledger__row">
               <span className="ledger__label">海面</span>
-              <span className="ledger__val sunken">{summary.sunken}</span>
+              <span className="ledger__val sunken">{summary.surface}</span>
             </div>
             {stats.lastTouched && (
               <div className="ledger__last">

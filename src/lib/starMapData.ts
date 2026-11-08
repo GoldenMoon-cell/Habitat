@@ -228,27 +228,30 @@ export function toStarDefs(mems: Memory[], now = Date.now()): StarDef[] {
  */
 export function summarize(defs: StarDef[]) {
   /*
-   * 三档必须**互斥**，否则「深层 4 / 中层 0 / 海面 1」
-   * 加不出总数，看起来像 bug。
+   * 三档 = 三个层。判据必须和「星画在哪儿」是同一件事。
    *
-   * 之前的写法有两个问题：
-   *   ① 只按 engrave 分档 —— 我这边大部分记忆是 consolidated，
-   *      于是四条全进「刻于心里」，剩下的一格永远是 0
-   *   ② 用 total - engraved - sunken 反推中间那档，减去重叠的部分就成了负数
+   * ── 改了什么 ──
    *
-   * 现在按「还记不记得住」分：
-   *   刻于心里  engrave>0.2（固化/里程碑）**而且**现在还记得（mass>=0.3）
-   *   沉入海床  mass < 0.2 —— 快没了
-   *   随风飘荡  其余 —— 还在，但会掉
+   * 原来是：mass<0.2 → 沉底；engrave>0.2 且 mass>=0.3 → 刻于心里；其余飘荡。
+   * 那套判据下的「沉底」统计的是**快忘了的**，而垂直轴掰正之后，
+   * 沉在下面的是**记得最牢的**。名字改了、判据没改，两套东西对不上。
    *
-   * 判据顺序很重要：沉底优先于刻痕判断 ——
-   * 一条固化过的记忆也可能已经淡到 0.1，那时它该算「快没了」而不是「刻于心里」。
+   * 现在直接按 mass 分 —— 因为 y = (0.5 - w) * 6.4，
+   * **mass 就是深度**。数出来的这三档，就是画面上三段里各有几颗。
+   * 抬头看下层那几颗亮点，回到右上角能对上数。
+   *
+   * 两条分界线都不是随手取的：
+   *   0.6  深/中的界 —— 视觉上「明显还亮着」
+   *   0.2  MEMORY_THRESHOLD —— 她已经想不起来了，正在往上浮
+   *
+   * 固化（engrave）不再单独占一档 —— 它是星身上的**髓鞘光环**，
+   * 本来就看得见，不需要再数一遍。
    */
-  let engraved = 0, drifting = 0, sunken = 0;
+  let deep = 0, middle = 0, surface = 0;
   for (const d of defs) {
-    if (d.mass < 0.2) sunken++;
-    else if (d.engrave > 0.2 && d.mass >= 0.3) engraved++;
-    else drifting++;
+    if (d.mass < MEMORY_THRESHOLD) surface++;
+    else if (d.mass >= 0.6) deep++;
+    else middle++;
   }
-  return { total: defs.length, engraved, drifting, sunken };
+  return { total: defs.length, deep, middle, surface };
 }
