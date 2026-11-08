@@ -3304,11 +3304,22 @@ export default function App() {
             <span className="text-[10.5px] font-medium tracking-[0.14em] text-ink/55">
               {appName}
             </span>
-            <span className="font-mono text-[10px] tracking-[0.1em] text-mist/46">
+            {/*
+              [改] HABITAT 和 slogan 原来用 font-mono。
+              原来的 --font-mono 是 Consolas，笔画够粗；
+              换成内置的更纱黑体（Iosevka）后它只有 Regular 一个字重，
+              和旁边 font-medium 的「生境」放在一起，分量差一倍 ——
+              放大看像「一个粗标题 + 一行细线」。
+
+              这两个是**品牌名和 slogan**，不是要对齐的数据，
+              本来就不属于等宽那一层。改回 sans，
+              并且和「生境」用同样的字重。
+            */}
+            <span className="text-[10px] font-medium tracking-[0.1em] text-mist/46">
               {appName === DEFAULT_APP_NAME ? "HABITAT" : ""}
             </span>
             {appName === DEFAULT_APP_NAME && (
-              <span className="hidden font-mono text-[9.5px] tracking-[0.04em] text-mist/40 xl:inline">
+              <span className="hidden text-[9.5px] tracking-[0.04em] text-mist/40 xl:inline">
                 Systemic Ecosystem for Agents
               </span>
             )}
