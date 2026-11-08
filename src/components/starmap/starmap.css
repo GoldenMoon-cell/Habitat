@@ -306,15 +306,29 @@
    * 一颗亮星压到「0.42 → 0.17」后面，那行数字就没了。
    * 渐隐层的边缘完全透明（不切景），中间 0.62 的暗底（够读）。
    */
-  background: linear-gradient(
-    180deg,
-    rgba(3, 10, 15, 0) 0%,
-    rgba(3, 10, 15, 0.55) 18%,
-    rgba(3, 10, 15, 0.62) 82%,
-    rgba(3, 10, 15, 0) 100%
-  );
+  /*
+   * 底色交给 ::before —— linear-gradient(180deg) 只淡上下，
+   * 左右是硬边，放大能看到一条竖直分界线。
+   *
+   * 改成伪元素 + 径向遮罩：四边都淡出去，字本身不受影响
+   * （直接给元素加 mask 会把文字也削掉）。
+   */
+  background: none;
   animation: detail-in 420ms cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
+}
+.starmap-root .detail::before {
+  content: "";
+  position: absolute;
+  inset: -20px -26px;
+  z-index: -1;
+  background: rgba(3, 10, 15, 0.66);
+  -webkit-mask-image: radial-gradient(
+    ellipse 78% 76% at 50% 50%, #000 38%, transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 78% 76% at 50% 50%, #000 38%, transparent 100%
+  );
 }
 @keyframes detail-in {
   from { opacity: 0; transform: translateY(7px); }
