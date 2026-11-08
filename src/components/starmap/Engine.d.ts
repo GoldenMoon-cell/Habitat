@@ -54,6 +54,11 @@ export class Engine {
   phase: "outside" | "entering" | "inside" | "leaving";
   mode: string;
   stars: EngineStar[];
+  /**
+   * 当前被点开的那颗星（idle 时为 null）。
+   * 详情面板靠它找到「打开的是哪一条记忆」。
+   */
+  active: EngineStar | null;
 
   /** 塞数据。会清掉旧的星重建。 */
   loadMemories(defs: StarDef[]): void;

@@ -15,6 +15,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Engine, type SeaStats, type EngineStar, type EngineOptions } from "./Engine.js";
 import "./starmap.css";
 import { toStarDefs, summarize, collectForMap, shouldDissolve } from "../../lib/starMapData";
+import { effectiveWeight, MEMORY_THRESHOLD } from "../../lib/forgetting";
+import type { Memory } from "../../lib/memoryNotes";
 import { promoteMemory } from "../../lib/memoryNotes";
 
 type Quality = "high" | "mid" | "low";
@@ -40,6 +42,108 @@ const HINTS: Record<string, [string, string]> = {
   collapsing: ["回去了", ""],
   returning:  ["回去了", ""],
 };
+
+
+
+/**
+ * 点开一颗星时，右下角浮出的详情。
+ *
+ * 第 2 期的内容：**那颗星的详情 + 衰减曲线**。
+ * 之前点开只有粒子字，看不到「它是什么、还剩多少、在怎么掉」。
+ *
+ * 曲线不是画好看的 —— 它用的是和全软件同一个函数
+ * `effectiveWeight(m, now)`，所以图上任何一点都能对上
+ * HUD 的读数。传不同的 now 就是不同的时刻，
+ * 这也正是第 4 期时间轴的算法基础。
+ */
+function StarDetail({ m, opened }: { m: Memory; opened: number }) {
+  const now = Date.now();
+  const t0 = m.at ?? now;
+  const w0 = m.weight;
+  const wNow = effectiveWeight(m, now);
+  const permanent = m.reason === "milestone" || m.reason === "rename";
+
+  /* 曲线：从写入那天，一直画到 30 天后 */
+  const HORIZON = 30 * 864e5;
+  const end = now + HORIZON;
+  const N = 72;
+  const pts: [number, number][] = [];
+  for (let i = 0; i <= N; i++) {
+    const tt = t0 + ((end - t0) * i) / N;
+    pts.push([tt, effectiveWeight(m, tt)]);
+  }
+
+  const W = 186, H = 36;
+  const xOf = (tt: number) => ((tt - t0) / (end - t0)) * W;
+  const yOf = (w: number) => H - Math.max(0, Math.min(1, w)) * H;
+  const path = pts.map(([tt, w], i) => `${i ? "L" : "M"}${xOf(tt).toFixed(1)} ${yOf(w).toFixed(1)}`).join(" ");
+
+  /* 「现在」那条竖线，和阈值那条横线 */
+  const nowX = xOf(now);
+  const thrY = yOf(MEMORY_THRESHOLD);
+
+  const days = Math.max(0, (now - t0) / 864e5);
+  const ago = opened > 0 ? Math.max(0, (now - opened) / 864e5) : null;
+
+  return (
+    <div className="detail">
+      <p className="detail__text">{m.text}</p>
+
+      <div className="detail__grid mono">
+        <span className="detail__k">来源</span>
+        <span className="detail__v">{m.source || "—"}</span>
+
+        <span className="detail__k">分类</span>
+        <span className="detail__v">{m.tag}</span>
+
+        <span className="detail__k">写入</span>
+        <span className="detail__v">{Math.round(days)} 天前</span>
+
+        <span className="detail__k">权重</span>
+        <span className="detail__v">
+          {w0.toFixed(2)} → <b>{wNow.toFixed(2)}</b>
+          {permanent && <em className="detail__badge">刻痕 · 不衰减</em>}
+        </span>
+
+        <span className="detail__k">被想起</span>
+        <span className="detail__v">
+          {m.accessCount ?? 0} 次
+          {ago !== null && ` · ${ago < 1 ? "今天" : Math.round(ago) + " 天前"}`}
+        </span>
+      </div>
+
+      <svg className="detail__curve" width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+        {/* 阈值横线 —— 跌破它就算「沉入海床」 */}
+        <line x1="0" y1={thrY} x2={W} y2={thrY} className="detail__thr" />
+        {/* 现在之后的虚线：还没发生 */}
+        <path
+          d={pts.filter(([tt]) => tt >= now).map(([tt, w], i) =>
+            `${i ? "L" : "M"}${xOf(tt).toFixed(1)} ${yOf(w).toFixed(1)}`).join(" ")}
+          className="detail__future"
+        />
+        {/* 已经发生的：实线 */}
+        <path
+          d={pts.filter(([tt]) => tt <= now).map(([tt, w], i) =>
+            `${i ? "L" : "M"}${xOf(tt).toFixed(1)} ${yOf(w).toFixed(1)}`).join(" ")}
+          className="detail__past"
+        />
+        <line x1={nowX} y1="0" x2={nowX} y2={H} className="detail__now" />
+        <text x={nowX + 3} y="7" className="detail__nowlabel">现在</text>
+      </svg>
+      {/*
+        轴只标首尾。
+        原来三个标签（过去 / 现在 / 未来）挤在 186px 里必然重叠 ——
+        「现在」的位置又取决于写了多久（写 12 天、未来 30 天，
+        就在 28.6% 处），没法靠 justify-between 摆。
+        所以「现在」挪进图里贴竖线顶端，轴只留首尾两个。
+      */}
+      <div className="detail__axis mono">
+        <span style={{ left: 0 }}>{Math.round(days)} 天前</span>
+        <span style={{ right: 0 }}>+30 天</span>
+      </div>
+    </div>
+  );
+}
 
 /*
  * 「正在散开」那一条的文案。
@@ -83,8 +187,13 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
   const [stats, setStats] = useState<SeaStats>(EMPTY);
   const [quality, setQuality] = useState<Quality>("high");
   /** 挂载时算好「谁该散」，等进到场景里再点火 */
+  /** id → 原始 Memory。引擎只吃 StarDef（渲染用），
+   *  但详情面板要 source / tag / accessCount / 时间 —— 那些 StarDef 没保留。 */
+  const memsRef = useRef<Map<string, Memory>>(new Map());
   const dissolveQueue = useRef<number[]>([]);
   const dissolveFired = useRef(false);
+  /** 这颗星是什么时候被点开的（算「上次想起距今」用） */
+  const openedAt = useRef(0);
 
   /* ── 挂载引擎 ── */
   useEffect(() => {
@@ -118,6 +227,7 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
 
     const now = Date.now();
     const mems = collectForMap(conv);
+    memsRef.current = new Map(mems.map((m) => [m.id, m]));
     const defs = toStarDefs(mems, now);
     engine.loadMemories(defs);
 
@@ -173,6 +283,12 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
         if (e.code === "Space") { e.preventDefault(); eng.press(); }
         return;
       }
+      /*
+       * 记下点开的时刻 —— 详情面板里的「上次想起距今」用它。
+       * 放在 press 之前：press 之后引擎可能立刻进 shown，
+       * 那一次重渲就会读这个值。
+       */
+      if (eng.mode === "idle" || eng.mode === "returning") openedAt.current = Date.now();
       eng.press((e as PointerEvent).clientX, (e as PointerEvent).clientY);
     };
 
@@ -257,6 +373,16 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
   const summary = summarize(defs);
   const [h1, h2] = rescue ? FADING_COPY.hint : HINTS[stats.mode] ?? HINTS.idle;
 
+  /*
+   * 当前打开的那颗星对应的原始记忆。
+   *
+   * 引擎的 active 只有 StarDef（渲染用），没有 source / tag / 时间。
+   * 所以按 id 回 memsRef 里取。stats.mode 变化时组件会重渲，
+   * 这里跟着读到最新的 active。
+   */
+  const activeId = engineRef.current?.active?.def?.id;
+  const detailMem = activeId ? memsRef.current.get(activeId) : undefined;
+
   const SCROLL_MAX = 5.7;
   const norm = Math.max(0, Math.min(1, (stats.scrollY || 0) / SCROLL_MAX));
   const depth = Math.round(4280 * norm);
@@ -321,6 +447,15 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
             <p>{h1}</p>
             {h2 && <p className="hud__fine">{h2}</p>}
           </div>
+
+          {/*
+            第 2 期：点开一颗星时，右下角浮出它的详情和衰减曲线。
+            只在「已经打开」的三种状态下出现 ——
+            returning / collapsing 时字已经在飞回去了，再挂面板会打架。
+          */}
+          {detailMem && (stats.mode === "shown" || stats.mode === "holding" || stats.mode === "released") && (
+            <StarDetail m={detailMem} opened={openedAt.current} />
+          )}
 
           <div className="hud__ledger mono">
             <div className="ledger__row">

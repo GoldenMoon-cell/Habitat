@@ -276,3 +276,110 @@
   color: var(--ink-dim, rgba(200, 220, 230, 0.42));
   text-align: center;
 }
+
+
+/* ── 记忆详情（第 2 期）──────────────────────────────────
+   点开一颗星时右下角浮出。位置压在 ledger 上面 ——
+   两者不同时出现（开星时 ledger 还在，所以给它让位）。
+   风格和 hud 一致：细线、低对比、等宽数字。 */
+.starmap-root .detail {
+  position: absolute;
+  right: 44px;
+  /* ledger 是 right/bottom clamp(20px,4vw,48px)，三行 + last 行约 90px 高。
+     面板压到 168px 才不打架 —— 132px 会盖住最上面那行「刻于心里」。 */
+  bottom: 168px;
+  width: 232px;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 7px;
+  background: rgba(6, 18, 26, 0.55);
+  backdrop-filter: blur(9px);
+  animation: detail-in 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes detail-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.starmap-root .detail__text {
+  margin: 0 0 11px;
+  font-family: var(--serif);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: rgba(214, 235, 246, 0.9);
+  letter-spacing: 0.01em;
+}
+
+.starmap-root .detail__grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+.starmap-root .detail__k { color: rgba(143, 169, 189, 0.42); }
+.starmap-root .detail__v { color: rgba(196, 219, 232, 0.78); }
+.starmap-root .detail__v b { font-weight: 400; color: #35f0ce; }
+.starmap-root .detail__badge {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 5px;
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 196, 107, 0.9);
+  border: 1px solid rgba(255, 196, 107, 0.22);
+  border-radius: 3px;
+}
+
+.starmap-root .detail__curve {
+  display: block;
+  margin-top: 12px;
+  overflow: visible;
+}
+/* 阈值横线：跌破它就算「沉入海床」 */
+.starmap-root .detail__thr {
+  stroke: rgba(255, 255, 255, 0.09);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+/* 已经发生的衰减 */
+.starmap-root .detail__past {
+  fill: none;
+  stroke: rgba(53, 240, 206, 0.72);
+  stroke-width: 1.2;
+}
+/* 还没发生的那段：虚线 */
+.starmap-root .detail__future {
+  fill: none;
+  stroke: rgba(53, 240, 206, 0.24);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.starmap-root .detail__nowlabel {
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  fill: rgba(143, 169, 189, 0.42);
+}
+.starmap-root .detail__now {
+  stroke: rgba(143, 169, 189, 0.32);
+  stroke-width: 1;
+}
+
+/* 首尾两个标签各自贴边 —— 靠绝对定位。
+   不加这条的话两个 span 会按行内流排在一起，
+   变成「12 天前+30 天」挤成一串。 */
+.starmap-root .detail__axis span {
+  position: absolute;
+  top: 0;
+}
+.starmap-root .detail__axis {
+  /* 轴只标首尾，「现在」画在图里 —— 见 JSX 里的注释 */
+  position: relative;
+  height: 12px;
+  margin-top: 4px;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  color: rgba(143, 169, 189, 0.34);
+}
