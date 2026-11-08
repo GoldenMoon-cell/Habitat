@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Habitat · 光学测量</title>
+<style>
+@font-face{font-family:"Habitat";src:url("fonts/Habitat-Regular.woff2") format("woff2");
+  font-weight:400;font-display:block;}
+body{background:#fff;color:#000;margin:0;font-family:"Habitat",monospace;}
+#probe{position:absolute;left:-9999px;font-size:200px;line-height:1;}
+#para{font-size:15px;line-height:1.6;padding:20px;width:520px;letter-spacing:0.02em;}
+#parasm{font-size:9px;line-height:1.55;padding:20px;width:420px;}
+</style>
+</head>
+<body>
+<div id="probe"></div>
+<div id="para">HANDGLOW QUICKLY MOVED THE BOX OF JAM. Every good font must survive this test: five boxing wizards jump quickly. Sphinx of black quartz, judge my vow. The quick brown fox jumps over the lazy dog. ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789</div>
+<div id="parasm">HANDGLOW QUICKLY MOVED THE BOX OF JAM. Every good font must survive this test: five boxing wizards jump quickly. Sphinx of black quartz, judge my vow. The quick brown fox jumps over the lazy dog.</div>
+<script>
+window.measure = async () => {
+  await document.fonts.ready;
+  const probe = document.getElementById("probe");
+
+  /* ── ① 光学高度：每个字形的实际墨迹上/下边界 ── */
+  const cv = document.createElement("canvas");
+  cv.width = 600; cv.height = 900;
+  const ctx = cv.getContext("2d", { willReadFrequently: true });
+
+  function inkBox(ch) {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = "#000";
+    ctx.font = '200px Habitat';
+    ctx.textBaseline = "alphabetic";
+    const x = 100, y = 700;
+    ctx.fillText(ch, x, y);
+    const d = ctx.getImageData(0, 0, cv.width, cv.height).data;
+    let top = 1e9, bot = -1e9, left = 1e9, right = -1e9, ink = 0;
+    for (let py = 0; py < cv.height; py++) {
+      for (let px = 0; px < cv.width; px++) {
+        const a = d[(py * cv.width + px) * 4 + 3];
+        if (a > 40) {
+          ink++;
+          if (py < top) top = py;
+          if (py > bot) bot = py;
+          if (px < left) left = px;
+          if (px > right) right = px;
+        }
+      }
+    }
+    return { top: y - top, bot: y - bot, ink, w: right - left, h: bot - top };
+  }
+
+  const glyphs = "HONCOAVWXZSEXLIT".split("");
+  const boxes = {};
+  for (const g of glyphs) boxes[g] = inkBox(g);
+
+  /* ── ② 灰度块：整段的小字号墨迹密度 ── */
+  function blockDensity(el) {
+    const r = el.getBoundingClientRect();
+    const c2 = document.createElement("canvas");
+    c2.width = Math.ceil(r.width); c2.height = Math.ceil(r.height);
+    const x2 = c2.getContext("2d");
+    // 用 SVG foreignObject 太麻烦，改为按行统计：逐字符 measure + 简单估计不靠谱
+    // 这里改用另一个办法：统计元素内文字的"墨量/面积"，用 canvas 重绘同样的文本
+    return null;
+  }
+
+  return { boxes };
+};
+
+/* 逐字母墨迹密度：找出排成段落后会"变黑"或"变空"的字 */
+window.density = async () => {
+  await document.fonts.ready;
+  const cv = document.createElement("canvas");
+  cv.width = 400; cv.height = 400;
+  const ctx = cv.getContext("2d", { willReadFrequently: true });
+  const out = {};
+  const test = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  for (const ch of test) {
+    ctx.clearRect(0, 0, 400, 400);
+    ctx.fillStyle = "#000";
+    ctx.font = "160px Habitat";
+    ctx.fillText(ch, 60, 300);
+    const d = ctx.getImageData(0, 0, 400, 400).data;
+    let ink = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 40) ink++;
+    out[ch] = ink;
+  }
+  return out;
+};
+</script>
+</body>
+</html>
