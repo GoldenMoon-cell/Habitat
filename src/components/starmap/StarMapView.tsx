@@ -15,11 +15,80 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Engine, type SeaStats, type EngineStar, type EngineOptions } from "./Engine.js";
 import "./starmap.css";
 import { toStarDefs, summarize, collectForMap, shouldDissolve } from "../../lib/starMapData";
-import { effectiveWeight, MEMORY_THRESHOLD } from "../../lib/forgetting";
+import { effectiveWeight, MEMORY_THRESHOLD, isConsolidated } from "../../lib/forgetting";
 import type { Memory } from "../../lib/memoryNotes";
 import { promoteMemory } from "../../lib/memoryNotes";
 
 type Quality = "high" | "mid" | "low";
+
+
+/**
+ * 第 3 期：迁移。
+ *
+ * ── 为什么需要它 ──
+ *
+ * 一条记忆被想起够多次之后会固化（`isConsolidated`），衰减变慢，
+ * 于是它的权重更高、位置更深 —— **这一步本来就是自动的**。
+ * 但用户看不到：上次打开在中间，这次打开在底下，中间发生了什么没人知道。
+ *
+ * 所以要**演出来**：这次发现「它固化了」，就让它从原来的深度
+ * 一路沉到新的深度，走 5 秒左右。
+ *
+ * ── 怎么做 ──
+ *
+ * `Engine.homeAt()` 每帧读 `s.def.at[1]` 当家的位置，
+ * 所以只要插值改这个数，星就会跟着走 —— 不用动引擎。
+ *
+ * 起始位置用「上一次的 accessCount」重新算一遍权重得到，
+ * 不是随便给个偏移。这样它沉下来的距离和「多想起了一次」
+ * 是同一件事。
+ */
+const CONSOLIDATED_KEY = "3w:starmap-consolidated";
+
+function readSeen(): Set<string> {
+  try {
+    const raw = localStorage.getItem(CONSOLIDATED_KEY);
+    const arr = raw ? (JSON.parse(raw) as string[]) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeSeen(ids: string[]) {
+  try {
+    localStorage.setItem(CONSOLIDATED_KEY, JSON.stringify(ids));
+  } catch {
+    /* 存不进去就算了 —— 下次当没见过，最多重演一次 */
+  }
+}
+
+/**
+ * 让一颗星从 fromY 平滑走到 toY。
+ *
+ * 用 ease-out（先快后慢）：它已经「落定」了，减速比加速合理。
+ * 时长 5 秒 —— 短了像瞬移，长了会让用户以为卡住。
+ */
+function sinkStar(star: EngineStar, fromY: number, toY: number, ms = 5000, delay = 0) {
+  star.def.at[1] = fromY;
+  const t0 = performance.now() + delay;
+  const step = () => {
+    const u = (performance.now() - t0) / ms;
+    if (u >= 1) {
+      star.def.at[1] = toY;
+      return;
+    }
+    if (u <= 0) {
+      requestAnimationFrame(step);
+      return;
+    }
+    const e = 1 - Math.pow(1 - u, 3);
+    star.def.at[1] = fromY + (toY - fromY) * e;
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 
 /*
  * 初始相位必须是 'outside'。
@@ -187,6 +256,8 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
   const memsRef = useRef<Map<string, Memory>>(new Map());
   const dissolveQueue = useRef<number[]>([]);
   const dissolveFired = useRef(false);
+  /** 迁移只演一次（每次打开算一次） */
+  const migrationFired = useRef(false);
   /** 这颗星是什么时候被点开的（算「上次想起距今」用） */
   const openedAt = useRef(0);
 
@@ -322,6 +393,68 @@ export default function StarMapView({ conv, onClose }: StarMapProps) {
     const eng = engineRef.current;
     if (!eng) return;
     for (const i of dissolveQueue.current) eng.startForgetting(i);
+  }, [stats.phase]);
+
+  /*
+   * ── 第 3 期：迁移 ──
+   *
+   * 等真正进到场景里再演（和「正在散开」同一个道理：
+   * 挂载时人还在闸门页，演了也看不到）。
+   *
+   * 只演「这次才发现已固化」的那些 —— 靠 localStorage 记上次见过谁。
+   * 不然每次打开都重演一遍，第二次就变成噪音了。
+   */
+  useEffect(() => {
+    if (stats.phase !== "inside") return;
+    const eng = engineRef.current;
+    if (!eng || migrationFired.current) return;
+    migrationFired.current = true;
+
+    const mems = memsRef.current;
+    const seen = readSeen();
+    const nowConsolidated: string[] = [];
+    const fresh: { star: EngineStar; fromY: number; toY: number }[] = [];
+    const now = Date.now();
+
+    for (const star of eng.stars) {
+      const m = mems.get(star.def.id);
+      if (!m) continue;
+      if (!isConsolidated(m)) continue;
+      nowConsolidated.push(m.id);
+      if (seen.has(m.id)) continue;      // 上次就见过，不重演
+      /* 刻痕（milestone / rename）永不衰减，effectiveWeight 直接返回原值 ——
+         它没有「固化前」的位置，不该演迁移。 */
+      if (m.reason === "milestone" || m.reason === "rename") continue;
+
+      /*
+       * 「原来在哪」= **假如它还没固化**。
+       *
+       * 第一版写的是「accessCount 减一」，那是错的：
+       * 固化的记忆衰减本来就慢（B_CONSOLIDATED 很小），
+       * accessCount 少一次对权重几乎没影响 ——
+       * 算出来的起点和终点几乎重合，于是全被下面的阈值滤掉，
+       * 一次都没演过。
+       *
+       * 真正让位置跳变的是 `consolidated` 这个布尔本身：
+       *   base = isConsolidated ? B_CONSOLIDATED : B[tag]
+       * 从 B[tag] 换到 B_CONSOLIDATED，衰减速率整个降一档，
+       * 权重跟着上去，位置跟着沉下来。
+       *
+       * 所以起点用 `{ ...m, consolidated: false }` 算。
+       */
+      const before = { ...m, consolidated: false };
+      const y0 = (0.5 - effectiveWeight(before, now)) * 6.4;
+      const y1 = star.def.at[1];
+      if (Math.abs(y1 - y0) < 0.02) continue;   // 几乎没动，不值得演
+      fresh.push({ star, fromY: y0, toY: y1 });
+    }
+
+    /* 错峰：一起沉会像整片塌下来 */
+    fresh.slice(0, 6).forEach((f, i) => {
+      sinkStar(f.star, f.fromY, f.toY, 5000, i * 420);
+    });
+
+    writeSeen(nowConsolidated);
   }, [stats.phase]);
 
   /* ── 画质切换 ── */
