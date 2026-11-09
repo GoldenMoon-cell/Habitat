@@ -1015,6 +1015,25 @@ export default function App() {
    * 放在 refs 这一段，是因为 scheduleReply 在上面就要用到它。
    */
   const replyGate = useRef(makeEpochGate()).current;
+
+  /*
+   * ── 气泡定时器单独的桶 ──
+   *
+   * 一条回复太长会被拆成 2~3 个气泡，后面几个靠定时器依次冒出来
+   * （间隔 bubbleDelay = 780~1400ms）。
+   *
+   * 这些定时器原来和「回复链」共用一个 `timers` —— 而 scheduleReply
+   * 一开头就把 timers 全部清空（那是为了让新回复取消上一个排队中的回复）。
+   *
+   * 于是剧本模式下必然出事：
+   *   每 1400ms 调一次 scheduleReply（下一个成员）
+   *   而第 2 个气泡的定时器正好是 780~1400ms
+   *   → 下一个人的回复一到，清空 → **第 2 个气泡永远不会出现**
+   *
+   * 气泡定时器不属于「下一条回复」，它属于**这一条消息本身**。
+   * 所以它单独一个桶：新回复不清它，只有离开会话才清。
+   */
+  const bubbleTimers = useRef(new Set<number>());
   const replyRequestSeq = useRef(0);
   const activeTyping = useRef(new Map<number, TypingMark<ConvId>>());
 
@@ -1740,15 +1759,19 @@ export default function App() {
             for (let i = 1; i < parts.length; i++) {
               delay += bubbleDelay(i - 1);
               const isLast = i === parts.length - 1;
-              timers.current.push(
-                window.setTimeout(() => {
-                  push(target, { author: responder, text: parts[i] });
-                  if (isLast) {
-                    /* 整组说完才轮到下一个人 —— 不是每个气泡算一回合 */
-                    afterAiTurnRef.current(target, text, String(responder));
-                  }
-                }, delay)
-              );
+              /*
+               * 进 bubbleTimers，不是 timers —— 下一条回复不该把这些掐掉。
+               * 触发之后自己从桶里摘掉，免得越攒越多。
+               */
+              const id = window.setTimeout(() => {
+                bubbleTimers.current.delete(id);
+                push(target, { author: responder, text: parts[i] });
+                if (isLast) {
+                  /* 整组说完才轮到下一个人 —— 不是每个气泡算一回合 */
+                  afterAiTurnRef.current(target, text, String(responder));
+                }
+              }, delay);
+              bubbleTimers.current.add(id);
             }
           }
         } catch (e) {
@@ -2758,6 +2781,13 @@ export default function App() {
       window.clearTimeout(autoTimer.current);
       autoTimer.current = null;
     }
+
+    /*
+     * 气泡定时器也要清 —— 但要在这里清，不在 scheduleReply 里。
+     * 判据是「离没离开这个会话」，不是「有没有下一条回复」。
+     */
+    bubbleTimers.current.forEach((x) => window.clearTimeout(x));
+    bubbleTimers.current.clear();
 
     replyQueue.current = [];
     activeTyping.current.clear();
