@@ -87,14 +87,24 @@ export function makeEpochGate(): EpochGate {
 export interface TypingMark<T> {
   conv: T;
   ticket: number;
+  requestId: number;
 }
 
-export function clearTypingIf<T>(
+/** Keep the lane busy until every request from the same conversation epoch ends. */
+export function releaseTyping<T>(
   current: TypingMark<T> | null,
-  mine: TypingMark<T>,
+  finished: TypingMark<T>,
+  active: Iterable<TypingMark<T>>,
 ): TypingMark<T> | null {
   if (!current) return null;
-  return current.conv === mine.conv && current.ticket === mine.ticket
-    ? null
-    : current;
+  if (
+    current.conv !== finished.conv ||
+    current.ticket !== finished.ticket ||
+    current.requestId !== finished.requestId
+  ) return current;
+
+  for (const mark of active) {
+    if (mark.conv === finished.conv && mark.ticket === finished.ticket) return mark;
+  }
+  return null;
 }

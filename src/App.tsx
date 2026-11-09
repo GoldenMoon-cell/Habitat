@@ -42,7 +42,7 @@ import { subscribeClock, timeOffset, timeOffsetLabel } from "./lib/clock";
 import { dueDeadlines, clearDeadline, deadlineOf } from "./lib/deadline";
 import { hasProfile, ownerName, readProfile } from "./lib/profile";
 import { log } from "./lib/eventLog";
-import { makeEpochGate, clearTypingIf } from "./lib/replyGate";
+import { makeEpochGate, releaseTyping, type TypingMark } from "./lib/replyGate";
 import { extract, isDuplicate, worthAsking, weightForTag } from "./lib/extract";
 import { MEMORY_CHANGED } from "./lib/memoryNotes";
 import { rememberRename } from "./lib/nameHistory";
@@ -492,7 +492,7 @@ export default function App() {
    * 因为「切走再切回同一个会话」时 id 又对上了，
    * 但那是另一代；只比 id 会让旧请求误清新请求的状态。
    */
-  const [typing, setTyping] = useState<{ conv: ConvId; ticket: number } | null>(null);
+  const [typing, setTyping] = useState<TypingMark<ConvId> | null>(null);
   /** 本地 Ollama 是否可用。启动探一次，决定发消息走真实调用还是 mock。 */
   const [llmProbe, setLlmProbe] = useState<LLMProbe | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -1015,6 +1015,19 @@ export default function App() {
    * 放在 refs 这一段，是因为 scheduleReply 在上面就要用到它。
    */
   const replyGate = useRef(makeEpochGate()).current;
+  const replyRequestSeq = useRef(0);
+  const activeTyping = useRef(new Map<number, TypingMark<ConvId>>());
+
+  const beginTyping = (mark: TypingMark<ConvId>) => {
+    activeTyping.current.set(mark.requestId, mark);
+    setTyping(mark);
+  };
+
+  const finishTyping = (mark: TypingMark<ConvId>) => {
+    activeTyping.current.delete(mark.requestId);
+    const active = [...activeTyping.current.values()];
+    setTyping((current) => releaseTyping(current, mark, active));
+  };
   /**
    * 为什么用 ref 转一道：
    * scheduleReply 要用 afterAiTurn，afterAiTurn 要用 scheduleReply —— 循环。
@@ -1244,6 +1257,11 @@ export default function App() {
 
       /* 开一张票。下面每个「准备写回会话」的地方都拿它对一下。 */
       const ticket = replyGate.ticket();
+      const typingMark: TypingMark<ConvId> = {
+        conv: target,
+        ticket,
+        requestId: ++replyRequestSeq.current,
+      };
       const stale = () => replyGate.stale(ticket);
 
       /* 群聊只能在「群成员」里选人 —— 之前的随机池是全部角色，
@@ -1286,7 +1304,7 @@ export default function App() {
 
       /* ── 真实调用：优先用户配的云端，其次本地 Ollama ── */
       if (cred || llmProbe?.ok) {
-        setTyping({ conv: target, ticket });
+        beginTyping(typingMark);
         try {
           const roster = isGroupId(target)
             ? (getGroup(target)?.members ?? []).map((id) => personaMap[id]?.name ?? "")
@@ -1549,7 +1567,7 @@ export default function App() {
                * 声音是个副作用，副作用也要验票。
                */
               if (stale()) {
-                setTyping((cur) => clearTypingIf(cur, { conv: target, ticket }));
+                finishTyping(typingMark);
                 return;
               }
               playError();
@@ -1564,7 +1582,7 @@ export default function App() {
              * 而后面的重试其实被闸门挡掉了。**提示和实际行为对不上。**
              */
             if (stale()) {
-              setTyping((cur) => clearTypingIf(cur, { conv: target, ticket }));
+              finishTyping(typingMark);
               return;
             }
             log.llmFail(agent.model, info.brief);
@@ -1598,11 +1616,11 @@ export default function App() {
              *
              * 用一个函数式更新，判断当前是不是自己。
              */
-            setTyping((cur) => clearTypingIf(cur, { conv: target, ticket }));
+            finishTyping(typingMark);
             return;
           }
 
-          setTyping(null);
+          finishTyping(typingMark);
           if (!text) throw new Error("模型返回了空内容");
 
           /*
@@ -1726,7 +1744,6 @@ export default function App() {
                 window.setTimeout(() => {
                   push(target, { author: responder, text: parts[i] });
                   if (isLast) {
-                    setTyping(null);
                     /* 整组说完才轮到下一个人 —— 不是每个气泡算一回合 */
                     afterAiTurnRef.current(target, text, String(responder));
                   }
@@ -1735,9 +1752,12 @@ export default function App() {
             }
           }
         } catch (e) {
-          setTyping(null);
           /* 同上：这条报错属于已经离开的那个会话，不往这儿贴 */
-          if (stale()) return;
+          if (stale()) {
+            finishTyping(typingMark);
+            return;
+          }
+          finishTyping(typingMark);
           const info = explainLlmError(e);
 
           push(target, {
@@ -1792,10 +1812,16 @@ export default function App() {
       const text = poolTexts[Math.floor(Math.random() * poolTexts.length)];
 
       timers.current.push(
-        window.setTimeout(() => setTyping({ conv: target, ticket }), 620),
         window.setTimeout(() => {
-          setTyping(null);
           if (stale()) return;
+          beginTyping(typingMark);
+        }, 620),
+        window.setTimeout(() => {
+          if (stale()) {
+            finishTyping(typingMark);
+            return;
+          }
+          finishTyping(typingMark);
           push(target, { author: responder, text });
           /* 演示模式也走同一套循环 —— 不然「还没配 API」的人看不到这个功能 */
           afterAiTurnRef.current(target, text, String(responder));
@@ -2734,6 +2760,7 @@ export default function App() {
     }
 
     replyQueue.current = [];
+    activeTyping.current.clear();
     replyGate.bump();
   }, []);
 

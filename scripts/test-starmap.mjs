@@ -28,7 +28,7 @@ globalThis.localStorage = {
 const { collectForMap, shouldDissolve } = await import("../src/lib/starMapData.ts");
 const { effectiveWeight } = await import("../src/lib/forgetting.ts");
 const { promoteMemory } = await import("../src/lib/memoryNotes.ts");
-const { makeEpochGate, clearTypingIf } = await import("../src/lib/replyGate.ts");
+const { makeEpochGate, releaseTyping } = await import("../src/lib/replyGate.ts");
 
 let pass = 0, fail = 0;
 const t = (name, fn) => {
@@ -252,12 +252,17 @@ t("★ 过期请求只清自己的 typing，不动新会话的", () => {
   /* 无条件 setTyping(null) 会把新会话的「正在想」掐掉，
      而队列出口靠 typing 调度 —— 于是一个过期请求
      把另一个会话的节奏打乱了。 */
-  eq(clearTypingIf({ conv: "甲", ticket: 3 }, { conv: "甲", ticket: 3 }), null, "自己的 → 清");
-  /* eq 是 !== 比引用，对象要逐字段看 */
-  const other = clearTypingIf({ conv: "乙", ticket: 1 }, { conv: "甲", ticket: 3 });
-  eq(other && other.conv, "乙", "别人的 → 会话不该变");
-  eq(other && other.ticket, 1, "别人的 → 票不该变");
-  eq(clearTypingIf(null, { conv: "甲", ticket: 3 }), null, "本来就空 → 还是空");
+  const mine = { conv: "甲", ticket: 3, requestId: 7 };
+  eq(releaseTyping(mine, mine, []), null, "自己的 → 清");
+  const other = releaseTyping(
+    { conv: "乙", ticket: 1, requestId: 4 },
+    mine,
+    [],
+  );
+  eq(other?.conv, "乙", "别人的 → 会话不该变");
+  eq(other?.ticket, 1, "别人的 → 票不该变");
+  eq(other?.requestId, 4, "别人的 → 请求不该变");
+  eq(releaseTyping(null, mine, []), null, "本来就空 → 还是空");
 });
 
 t("★ 切走再切回同一会话：id 对上了，但不是同一代 —— 不能清", () => {
@@ -266,16 +271,25 @@ t("★ 切走再切回同一会话：id 对上了，但不是同一代 —— �
        → A 的旧请求（ticket=2）返回
      id 一样，但票不同。只比 id 的话，旧请求会把新请求的状态清掉，
      然后 A 的队列提前放出去。 */
-  const cur = { conv: "A", ticket: 5 };      // 新请求占着
-  const oldReq = { conv: "A", ticket: 2 };   // 旧请求回来了
-  eq(clearTypingIf(cur, oldReq), cur, "旧票不许清新票");
+  const cur = { conv: "A", ticket: 5, requestId: 12 };      // 新请求占着
+  const oldReq = { conv: "A", ticket: 2, requestId: 8 };    // 旧请求回来了
+  eq(releaseTyping(cur, oldReq, []), cur, "旧票不许清新票");
 });
 
 t("同一张票、同一个会话才清得掉", () => {
-  const cur = { conv: "A", ticket: 5 };
-  eq(clearTypingIf(cur, { conv: "A", ticket: 5 }), null, "对上了 → 清");
-  eq(clearTypingIf(cur, { conv: "A", ticket: 6 }), cur, "票不对 → 不动");
-  eq(clearTypingIf(cur, { conv: "B", ticket: 5 }), cur, "会话不对 → 不动");
+  const cur = { conv: "A", ticket: 5, requestId: 12 };
+  eq(releaseTyping(cur, cur, []), null, "对上了 → 清");
+  eq(releaseTyping(cur, { conv: "A", ticket: 5, requestId: 13 }, []), cur, "请求不对 → 不动");
+  eq(releaseTyping(cur, { conv: "A", ticket: 6, requestId: 12 }, []), cur, "票不对 → 不动");
+  eq(releaseTyping(cur, { conv: "B", ticket: 5, requestId: 12 }, []), cur, "会话不对 → 不动");
+});
+
+t("同一会话同一代有并发请求时，结束一条仍保留另一条的 typing", () => {
+  const first = { conv: "群", ticket: 9, requestId: 21 };
+  const second = { conv: "群", ticket: 9, requestId: 22 };
+  eq(releaseTyping(first, first, [second]), second, "第二条仍运行，typing 不能清");
+  eq(releaseTyping(second, first, [second]), second, "非当前请求结束不改变当前标记");
+  eq(releaseTyping(second, second, []), null, "最后一条结束后才能清");
 });
 
 console.log(`\n${fail === 0 ? "通过" : "失败"} —— ${pass} 通过 / ${fail} 失败\n`);
