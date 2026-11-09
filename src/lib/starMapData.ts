@@ -100,9 +100,26 @@ function pickKernel(text: string): string {
 /**
  * 取星图要画的数据。
  *
- * `conv === "*"` 读全部会话。也用于「当前会话一条记忆都没有」的兜底：
- * 新用户刚打开群聊，那里是空的，但私聊里可能已经有记忆了。
- * 空着一张海图，比看到别的会话的记忆更让人困惑。
+ * ── 去掉了跨会话兜底 ──
+ *
+ * 原来这里写的是：
+ *   return own.length > 0 ? own : collectForMap("*");
+ * 理由是「空着一张海图，比看到别的会话的记忆更让人困惑」。
+ *
+ * 这个理由在当时成立，现在不成立了 ——
+ * **第 4 期加了星图内的角色切换**：
+ * 切到一个还没记忆的角色，会把它当成「这个人的星域」，
+ * 而里面装的是所有人的记忆。
+ *
+ * 那是数据隔离问题，不是显示问题：
+ * 一条记忆是甲对你说的话，出现在乙的海里，
+ * 哪怕只是灰点，也已经是串门了。
+ *
+ * 现在：一个人没记忆，就给他的空海。
+ * 空是诚实的，串门不是。
+ *
+ * `"*"` 仍然保留 —— 那是**显式**读全部（群聊视图用），
+ * 不是「查不到就随便给人看」的兜底。
  */
 export function collectForMap(conv: string): Memory[] {
   if (conv === "*") {
@@ -114,8 +131,7 @@ export function collectForMap(conv: string): Memory[] {
       return [];
     }
   }
-  const own = loadMemories(conv, true);
-  return own.length > 0 ? own : collectForMap("*");
+  return loadMemories(conv, true);
 }
 
 export function visibleOnMap(m: Memory, now: number): boolean {

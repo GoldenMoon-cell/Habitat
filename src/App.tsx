@@ -2616,6 +2616,16 @@ export default function App() {
       setQuoting(null);
       timers.current.forEach((t) => window.clearTimeout(t));
       timers.current = [];
+      /*
+       * 剧本定时器也要清。
+       *
+       * 它们单独放在 scriptTimers 里（见上方 scheduleScript），
+       * 不和 timers 混 —— 但清理的时候漏了这一组。
+       * 后果：离开群聊之后，那些预排好的「每人回一句」
+       * 还会继续对**原来那个群**触发。
+       */
+      scriptTimers.current.forEach((t) => window.clearTimeout(t));
+      scriptTimers.current = [];
       setConv(id);
     },
     [conv]

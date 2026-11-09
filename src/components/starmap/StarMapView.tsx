@@ -836,6 +836,17 @@ export default function StarMapView({ conv, personas, onSwitchConv, onClose }: S
             <span className="depthbar__label l-deep" style={{ top: "80%" }}>清晰如昨</span>
           </div>
 
+          {/*
+            空星域。
+            现在一个人没记忆就是空海（不再拿别人的记忆兜底），
+            所以给一行字 —— 否则一片黑水和「加载失败」长得一样。
+            只在真正进到水里之后才显示，闸门页不需要。
+          */}
+          {stats.phase === "inside" && stats.mode === "idle" && summary.total === 0 && (
+            <p className="starmap-empty">她还没记住什么。</p>
+          )}
+
+
           <div className="hud__hint" key={stats.mode}>
             <p>{h1}</p>
             {h2 && <p className="hud__fine">{h2}</p>}

@@ -651,3 +651,21 @@
   opacity: 0;
   transition: opacity 180ms ease;
 }
+
+
+/* ── 空星域 ────────────────────────────────────────────────
+   一个人还没记忆时的一句。原来这种情况会拿别人的记忆兜底，
+   现在不兜了 —— 空就空着，但要说一句，不能是一片黑水。
+*/
+.starmap-root .starmap-empty {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: rgba(143, 169, 189, 0.34);
+  pointer-events: none;
+}
