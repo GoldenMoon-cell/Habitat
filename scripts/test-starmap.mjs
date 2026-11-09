@@ -252,9 +252,30 @@ t("★ 过期请求只清自己的 typing，不动新会话的", () => {
   /* 无条件 setTyping(null) 会把新会话的「正在想」掐掉，
      而队列出口靠 typing 调度 —— 于是一个过期请求
      把另一个会话的节奏打乱了。 */
-  eq(clearTypingIf("甲", "甲"), null, "是自己的 → 清");
-  eq(clearTypingIf("乙", "甲"), "乙", "是别人的 → 别动");
-  eq(clearTypingIf(null, "甲"), null, "本来就空 → 还是空");
+  eq(clearTypingIf({ conv: "甲", ticket: 3 }, { conv: "甲", ticket: 3 }), null, "自己的 → 清");
+  /* eq 是 !== 比引用，对象要逐字段看 */
+  const other = clearTypingIf({ conv: "乙", ticket: 1 }, { conv: "甲", ticket: 3 });
+  eq(other && other.conv, "乙", "别人的 → 会话不该变");
+  eq(other && other.ticket, 1, "别人的 → 票不该变");
+  eq(clearTypingIf(null, { conv: "甲", ticket: 3 }), null, "本来就空 → 还是空");
+});
+
+t("★ 切走再切回同一会话：id 对上了，但不是同一代 —— 不能清", () => {
+  /* 这是最容易漏的一种：
+       A 的旧请求在等 → 切到 B → 切回 A → A 发起新回复（typing 标成 A，ticket=5）
+       → A 的旧请求（ticket=2）返回
+     id 一样，但票不同。只比 id 的话，旧请求会把新请求的状态清掉，
+     然后 A 的队列提前放出去。 */
+  const cur = { conv: "A", ticket: 5 };      // 新请求占着
+  const oldReq = { conv: "A", ticket: 2 };   // 旧请求回来了
+  eq(clearTypingIf(cur, oldReq), cur, "旧票不许清新票");
+});
+
+t("同一张票、同一个会话才清得掉", () => {
+  const cur = { conv: "A", ticket: 5 };
+  eq(clearTypingIf(cur, { conv: "A", ticket: 5 }), null, "对上了 → 清");
+  eq(clearTypingIf(cur, { conv: "A", ticket: 6 }), cur, "票不对 → 不动");
+  eq(clearTypingIf(cur, { conv: "B", ticket: 5 }), cur, "会话不对 → 不动");
 });
 
 console.log(`\n${fail === 0 ? "通过" : "失败"} —— ${pass} 通过 / ${fail} 失败\n`);

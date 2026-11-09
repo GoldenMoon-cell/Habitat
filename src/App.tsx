@@ -485,7 +485,14 @@ export default function App() {
     }
     return out;
   });
-  const [typing, setTyping] = useState<ConvId | null>(null);
+  /*
+   * 「她正在想」。
+   *
+   * 带的不是会话 id，而是 { conv, ticket } ——
+   * 因为「切走再切回同一个会话」时 id 又对上了，
+   * 但那是另一代；只比 id 会让旧请求误清新请求的状态。
+   */
+  const [typing, setTyping] = useState<{ conv: ConvId; ticket: number } | null>(null);
   /** 本地 Ollama 是否可用。启动探一次，决定发消息走真实调用还是 mock。 */
   const [llmProbe, setLlmProbe] = useState<LLMProbe | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -1279,7 +1286,7 @@ export default function App() {
 
       /* ── 真实调用：优先用户配的云端，其次本地 Ollama ── */
       if (cred || llmProbe?.ok) {
-        setTyping(target);
+        setTyping({ conv: target, ticket });
         try {
           const roster = isGroupId(target)
             ? (getGroup(target)?.members ?? []).map((id) => personaMap[id]?.name ?? "")
@@ -1534,7 +1541,17 @@ export default function App() {
               /*
                * 真的没救了 —— 这是系统故障，不是操作被拒。
                * 三声警报 + 低频底，让人停下看一眼。
+               *
+               * **但先验票。**
+               * 用户已经切走了的话，这个故障属于他离开的那个会话 ——
+               * 人正看着另一个人的对话，耳边突然三声警报，
+               * 而且新界面里没有任何东西能解释它在报什么。
+               * 声音是个副作用，副作用也要验票。
                */
+              if (stale()) {
+                setTyping((cur) => clearTypingIf(cur, { conv: target, ticket }));
+                return;
+              }
               playError();
               throw first;
             }
@@ -1547,7 +1564,7 @@ export default function App() {
              * 而后面的重试其实被闸门挡掉了。**提示和实际行为对不上。**
              */
             if (stale()) {
-              setTyping((cur) => clearTypingIf(cur, target));
+              setTyping((cur) => clearTypingIf(cur, { conv: target, ticket }));
               return;
             }
             log.llmFail(agent.model, info.brief);
@@ -1581,7 +1598,7 @@ export default function App() {
              *
              * 用一个函数式更新，判断当前是不是自己。
              */
-            setTyping((cur) => clearTypingIf(cur, target));
+            setTyping((cur) => clearTypingIf(cur, { conv: target, ticket }));
             return;
           }
 
@@ -1775,7 +1792,7 @@ export default function App() {
       const text = poolTexts[Math.floor(Math.random() * poolTexts.length)];
 
       timers.current.push(
-        window.setTimeout(() => setTyping(target), 620),
+        window.setTimeout(() => setTyping({ conv: target, ticket }), 620),
         window.setTimeout(() => {
           setTyping(null);
           if (stale()) return;
@@ -3037,7 +3054,7 @@ export default function App() {
         <ChatStage
           conv={conv}
           messages={threads[conv] ?? []}
-          typing={typing === conv}
+          typing={typing?.conv === conv}
           onSend={handleSend}
           onSendNow={(v) => handleSend(v, true)}
           onVoice={handleVoice}

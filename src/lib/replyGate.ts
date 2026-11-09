@@ -66,12 +66,35 @@ export function makeEpochGate(): EpochGate {
  * typing 一变 null，新会话排着队的回复就被提前放出去了。
  * 一个过期的请求，搅乱了另一个会话的节奏。
  *
+ * ── 为什么还要带 ticket ──
+ *
+ * 只比对会话 id 是不够的。这个序列会出错：
+ *
+ *   A 的旧请求在等
+ *   切到 B
+ *   切回 A，A 发起新回复      → typing 标成 A
+ *   A 的**旧**请求返回        → 看到的 typing 也是 A
+ *                             → 误以为是自己的，清掉
+ *                             → A 的队列提前放出
+ *
+ * **id 又对上了，但那是另一代。**
+ * 所以 typing 里除了 conv 还要记 ticket，两个都对上才算自己的。
+ *
  * ── 用法 ──
  *
- *   setTyping((cur) => clearTypingIf(cur, target));
- *
- * 纯函数，可测：「不是我的就别动」。
+ *   setTyping((cur) => clearTypingIf(cur, { conv: target, ticket }));
  */
-export function clearTypingIf<T>(current: T | null, mine: T): T | null {
-  return current === mine ? null : current;
+export interface TypingMark<T> {
+  conv: T;
+  ticket: number;
+}
+
+export function clearTypingIf<T>(
+  current: TypingMark<T> | null,
+  mine: TypingMark<T>,
+): TypingMark<T> | null {
+  if (!current) return null;
+  return current.conv === mine.conv && current.ticket === mine.ticket
+    ? null
+    : current;
 }
