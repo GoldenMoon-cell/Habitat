@@ -2601,6 +2601,32 @@ export default function App() {
     [conv, push, pushToast]
   );
 
+  /*
+   * ── 换会话 = 丢掉上一个会话的待发回复 ──
+   *
+   * 这是一条**规则**，不是某一个入口的事。
+   *
+   * 原来只在 handleSelect 里清 timers，漏了 scriptTimers；
+   * 而星图侧栏换角色走的是裸 setConv（onSwitchConv），
+   * 连 handleSelect 都不过 —— 那条路径上一个都清不掉。
+   *
+   * 所以两处一起做：
+   *   · clearPendingReplies() 给已知入口用（立刻生效）
+   *   · 下面那个 [conv] 的 effect 兜所有路径（包括星图内的切换）
+   *
+   * 「离开一个会话，就停掉它的回话」—— 靠在入口旁边补，
+   * 迟早还会有第三个入口。
+   */
+  const clearPendingReplies = useCallback(() => {
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [];
+    scriptTimers.current.forEach((t) => window.clearTimeout(t));
+    scriptTimers.current = [];
+  }, []);
+
+  /** 换到别的会话时，把上一个会话排着队的回复全掐掉。覆盖所有 setConv 路径。 */
+  useEffect(() => clearPendingReplies, [conv, clearPendingReplies]);
+
   const handleSelect = useCallback(
     (id: ConvId) => {
       if (id === conv) return;
@@ -2614,18 +2640,7 @@ export default function App() {
       stopSpeaking();
       setTyping(null);
       setQuoting(null);
-      timers.current.forEach((t) => window.clearTimeout(t));
-      timers.current = [];
-      /*
-       * 剧本定时器也要清。
-       *
-       * 它们单独放在 scriptTimers 里（见上方 scheduleScript），
-       * 不和 timers 混 —— 但清理的时候漏了这一组。
-       * 后果：离开群聊之后，那些预排好的「每人回一句」
-       * 还会继续对**原来那个群**触发。
-       */
-      scriptTimers.current.forEach((t) => window.clearTimeout(t));
-      scriptTimers.current = [];
+      clearPendingReplies();
       setConv(id);
     },
     [conv]
@@ -3689,7 +3704,10 @@ export default function App() {
                   name: a.name,
                   color: a.color,
                 }))}
-                onSwitchConv={(id) => setConv(id as ConvId)}
+                onSwitchConv={(id) => {
+                  clearPendingReplies();
+                  setConv(id as ConvId);
+                }}
                 onClose={() => setStarMapOpen(false)}
               />
           </Suspense>

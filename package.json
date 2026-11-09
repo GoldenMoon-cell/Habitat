@@ -24,8 +24,9 @@
     "test:distortion": "node scripts/test-distortion.mjs",
     "test:senddelay": "node scripts/test-senddelay.mjs",
     "test:memory": "node --import ./scripts/with-ts.mjs scripts/test-memory.mjs",
+    "test:starmap": "node --import ./scripts/with-ts.mjs scripts/test-starmap.mjs",
     "test:irreversible": "node --import ./scripts/with-ts.mjs scripts/test-irreversible.mjs",
-    "test:all": "npm run test:conversation && npm run test:judge && npm run test:bubbles && npm run test:distortion && npm run test:senddelay && npm run test:memory && npm run test:irreversible && npm run test:import && npm run test:cred && npm run test:l1"
+    "test:all": "npm run test:conversation && npm run test:judge && npm run test:bubbles && npm run test:distortion && npm run test:senddelay && npm run test:memory && npm run test:starmap && npm run test:irreversible && npm run test:import && npm run test:cred && npm run test:l1"
   },
   "build": {
     "appId": "com.goldenmoon.habitat",

@@ -318,11 +318,28 @@ function StarDetail({ m, opened }: { m: Memory; opened: number }) {
  * 而且「按住」这个动作和「留住」本来就是一件事 ——
  * 你按住它就在，松手它就继续走。
  */
+/*
+ * ── 关于这三句（v0.3 改了措辞）──
+ *
+ * 原来的 hint 是「按住能多留一会儿 · 掉了的回不来」，
+ * 那句在承诺一件数据层做不到的事：
+ * 掉下去的粒子只在引擎内存里，关掉再开就按存档重新生成。
+ *
+ * 真正持久化的只有「按住」—— 它走 promoteMemory，会把权重写回去。
+ *
+ * 所以这三句现在只说自己真做到的事：
+ *   · 散开是这一次观看里的演出
+ *   · 按住会真的让它重一点（写盘）
+ *   · 松开之后它继续按原来的速度衰减（那是真实的时间在走）
+ *
+ * 要让「掉了的回不来」成真，得新增一个持久化的星体损耗字段 ——
+ * 那是数据模型的事，不该在文案里先把它说成已经做到了。
+ */
 const FADING_COPY = {
   title: (text: string) => `「${text}」正在散开`,
   action: "按住，留住它",
-  note: "留住的只是还剩下的",
-  hint: ["它在散", "按住能多留一会儿 · 掉了的回不来"] as [string, string],
+  note: "按住会让它重一点",
+  hint: ["它在散", "按住会让它重一点 · 松开就继续"] as [string, string],
 }
 
 function timeAgo(ms: number): string {
@@ -870,10 +887,19 @@ export default function StarMapView({ conv, personas, onSwitchConv, onClose }: S
 
           {/*
             ── 第 4 期：时间轴 ──
-            拖回去看「三个月前」，松手自动快放到现在。
 
-            为什么这条能成立：effectiveWeight(m, now) 是纯函数，
-            传不同的 now 就是不同时刻。不需要任何新存储。
+            **它画的不是历史，是反推。**
+
+            存储里只有每条记忆的「最后一次被想起」和「一共想起几次」，
+            没有访问时间线 —— 所以还原不出某天真实的星图。
+
+            它能做的是：拿现在的 lastAccessed / accessCount，
+            套一个更早的 now 去算 effectiveWeight。
+            对「lastAccessed 之后」那段是准的，
+            对之前那段是**假定它一直满着**，于是偏乐观。
+
+            所以游标上写明「反推」，不叫「回到那天」。
+            真历史回放要等存了访问时间线再做。
           */}
           {stats.phase === "inside" && (
             <div className={`timeline${scrubbing ? " is-scrubbing" : ""}`}>
@@ -925,7 +951,7 @@ export default function StarMapView({ conv, personas, onSwitchConv, onClose }: S
                     className="timeline__value mono"
                     style={{ left: `${(rewind / REWIND_DAYS) * 100}%` }}
                   >
-                    {Math.round(rewind)} 天前
+                    {Math.round(rewind)} 天前 · 反推
                   </span>
                 )}
               </div>
