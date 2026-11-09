@@ -42,7 +42,7 @@ import { subscribeClock, timeOffset, timeOffsetLabel } from "./lib/clock";
 import { dueDeadlines, clearDeadline, deadlineOf } from "./lib/deadline";
 import { hasProfile, ownerName, readProfile } from "./lib/profile";
 import { log } from "./lib/eventLog";
-import { makeEpochGate } from "./lib/replyGate";
+import { makeEpochGate, clearTypingIf } from "./lib/replyGate";
 import { extract, isDuplicate, worthAsking, weightForTag } from "./lib/extract";
 import { MEMORY_CHANGED } from "./lib/memoryNotes";
 import { rememberRename } from "./lib/nameHistory";
@@ -1539,6 +1539,17 @@ export default function App() {
               throw first;
             }
 
+            /*
+             * 这条系统提示同样属于**发起它的那个会话**。
+             *
+             * 原来它在验票之前就 push 了 —— 用户切走之后，
+             * 旧会话里会冒出一条「已临时换到 xxx 重试」，
+             * 而后面的重试其实被闸门挡掉了。**提示和实际行为对不上。**
+             */
+            if (stale()) {
+              setTyping((cur) => clearTypingIf(cur, target));
+              return;
+            }
             log.llmFail(agent.model, info.brief);
             push(target, {
               author: "me",
@@ -1560,7 +1571,17 @@ export default function App() {
            * 用户会觉得「它在背后自己说话了」。
            */
           if (stale()) {
-            setTyping(null);
+            /*
+             * 只清「属于这一条」的 typing。
+             *
+             * 原来这里无条件 setTyping(null) —— 如果用户已经切走，
+             * 而新会话正在回话，这一句会把**新会话的「正在想」掐掉**。
+             * 而队列出口是个 [typing] 依赖的 effect：
+             * typing 一变 null，新会话排着队的回复就被提前放出去了。
+             *
+             * 用一个函数式更新，判断当前是不是自己。
+             */
+            setTyping((cur) => clearTypingIf(cur, target));
             return;
           }
 
@@ -1849,6 +1870,17 @@ export default function App() {
       const scheduledAt = Date.now();
       autoTimer.current = window.setTimeout(async () => {
         autoTimer.current = null;
+        /*
+         * 开票。
+         *
+         * 这一段里有个 await judge(...) —— 判断模型那一次调用可能要几秒。
+         * 期间用户完全可能切走。
+         *
+         * 光靠 scheduleReply 内部的票不行：它是**之后**才开的，
+         * 那时已经是新的一代，票是有效的 ——
+         * 于是旧群照样回话。所以票要在**这一段的开头**就开。
+         */
+        const autoTicket = replyGate.ticket();
         try {
 
         /*
@@ -1989,6 +2021,14 @@ export default function App() {
            * 否则模型看到最近一条是你的问题，会重新回答一遍，
            * 结果同一个人先说自己瘫着、后说自己出门了。
            */
+          /*
+           * judge 回来了 —— 先看用户还在不在这个群。
+           *
+           * 不在就不发起下一轮。不然：用户切走、判断模型过几秒才回、
+           * 旧群里又冒出一句。
+           */
+          if (replyGate.stale(autoTicket)) return;
+
           const cont =
             picked.via === "continue" ? { selfText: text } : undefined;
           void scheduleReply(target, chosenId as never, cont);

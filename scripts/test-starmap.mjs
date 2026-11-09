@@ -28,7 +28,7 @@ globalThis.localStorage = {
 const { collectForMap, shouldDissolve } = await import("../src/lib/starMapData.ts");
 const { effectiveWeight } = await import("../src/lib/forgetting.ts");
 const { promoteMemory } = await import("../src/lib/memoryNotes.ts");
-const { makeEpochGate } = await import("../src/lib/replyGate.ts");
+const { makeEpochGate, clearTypingIf } = await import("../src/lib/replyGate.ts");
 
 let pass = 0, fail = 0;
 const t = (name, fn) => {
@@ -229,6 +229,32 @@ t("多张并发票：换代一起作废", () => {
   const a = g.ticket(), b = g.ticket(), c = g.ticket();
   g.bump();
   ok(g.stale(a) && g.stale(b) && g.stale(c), "三张都作废");
+});
+
+t("★ 接力在判断模型等待期间切走 → 不发起下一轮", () => {
+  /* autoTimer 里有个 await judge(...)，几秒。
+     期间切走的话，「发起 reply」这一步必须被挡住 ——
+     否则 scheduleReply 会在新一代里开一张有效票，旧群照样回话。
+     所以票要在那段开头就开，judge 回来之后验。 */
+  const g = makeEpochGate();
+  const autoTicket = g.ticket();      // autoTimer 开头
+  g.bump();                            // await judge 期间用户切走
+  eq(g.stale(autoTicket), true, "judge 回来后不该发起 scheduleReply");
+});
+
+t("没切走的话，judge 回来照常发起下一轮", () => {
+  const g = makeEpochGate();
+  const autoTicket = g.ticket();
+  eq(g.stale(autoTicket), false, "不该误拦");
+});
+
+t("★ 过期请求只清自己的 typing，不动新会话的", () => {
+  /* 无条件 setTyping(null) 会把新会话的「正在想」掐掉，
+     而队列出口靠 typing 调度 —— 于是一个过期请求
+     把另一个会话的节奏打乱了。 */
+  eq(clearTypingIf("甲", "甲"), null, "是自己的 → 清");
+  eq(clearTypingIf("乙", "甲"), "乙", "是别人的 → 别动");
+  eq(clearTypingIf(null, "甲"), null, "本来就空 → 还是空");
 });
 
 console.log(`\n${fail === 0 ? "通过" : "失败"} —— ${pass} 通过 / ${fail} 失败\n`);

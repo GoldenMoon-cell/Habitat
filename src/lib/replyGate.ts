@@ -52,3 +52,26 @@ export function makeEpochGate(): EpochGate {
     current: () => epoch,
   };
 }
+
+/**
+ * 「正在想」这个状态，只在**属于自己**时才清。
+ *
+ * ── 它解决什么 ──
+ *
+ * 一个请求过期返回时，原来无条件 `setTyping(null)`。
+ * 但如果用户已经切走、新会话正在回话 ——
+ * 这一句会把**新会话的「正在想」掐掉**。
+ *
+ * 而队列出口是个 `[typing]` 依赖的 effect：
+ * typing 一变 null，新会话排着队的回复就被提前放出去了。
+ * 一个过期的请求，搅乱了另一个会话的节奏。
+ *
+ * ── 用法 ──
+ *
+ *   setTyping((cur) => clearTypingIf(cur, target));
+ *
+ * 纯函数，可测：「不是我的就别动」。
+ */
+export function clearTypingIf<T>(current: T | null, mine: T): T | null {
+  return current === mine ? null : current;
+}
