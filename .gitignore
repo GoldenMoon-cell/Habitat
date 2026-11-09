@@ -68,6 +68,9 @@ ob-*.png
 
 # 发布清单（含隐私审计细节）不公开
 # docs/v0.2-发布清单.md  ← dev 分支跟踪，公开分支忽略
+# docs/v0.3-plan.md  ← dev 分支跟踪，公开分支忽略
+# docs/v0.3-发布清单.md  ← dev 分支跟踪，公开分支忽略
+# docs/fontlab-mcp-handoff.md  ← dev 分支跟踪，公开分支忽略
 
 # 视频素材（截图 / 参考片，112 MB，不进仓库）
 视频素材/
