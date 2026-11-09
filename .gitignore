@@ -74,3 +74,7 @@ ob-*.png
 
 # 视频素材（截图 / 参考片，112 MB，不进仓库）
 视频素材/
+
+# 自制西文字体的中间产物（scripts/ 里可重新生成）
+.font.json
+.font-clean.json

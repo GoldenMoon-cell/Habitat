@@ -53,7 +53,7 @@
 <!--
   截图位 —— 正式版发布时放回来。
 
-  ★ 图已经移出仓库了：D:\Habitat_Archive\截图\
+  ★ 截图暂未收录（素材在本机，不进仓库）
     （2026-11-06 连同视频素材一起移出，避免影响后续视觉设计）
 
     screenshot-main.jpg        1500×904  主界面
@@ -139,6 +139,7 @@ npm run desktop   # 连 vite dev server，有热更新（写代码时用）
 | **6 秒待发窗口** | 发出去之前可以取回或丢弃。**发出去之后没有撤回** |
 | **语音** | 三档：关 / 系统自带 / 任填 OpenAI 兼容服务。点才念，不自动播 |
 | **24 个音效** | 全部代码合成，零素材，零版权 |
+| **内置中文等宽字体** | 更纱黑体子集（6763 常用字）。**中英宽度 2 : 1，表格能对齐**；不依赖系统字体，换台机器长得一样 |
 
 ### 给你自己用的
 
@@ -763,7 +764,7 @@ docs/previews/     演示页（音效试听 / 各阶段 UI 预览）
 ## 技术栈
 
 React 19 + Vite 6 + Tailwind v4（`@tailwindcss/vite`，设计令牌在 `@theme`）+ Motion 12。
-记忆星图用 **three.js + postprocessing**（WebGL2，11000 颗粒子，Bloom → 镜头 → 颗粒 四段后处理）。
+记忆星图用 **three.js + postprocessing**（WebGL2）。**每条**记忆压成 11000 颗粒子，另加 18900 颗海雪和光斑；后处理三段：泛光 → 镜头 → 颗粒。
 桌面壳用 **Electron 38**（`electron/main.cjs`），`frame: false` + 自定义 `app://` 协议 + `safeStorage`（DPAPI）加密凭据。
 
 Tauri 2 的代码完整保留在 `src-tauri/`，能编译出 3.1 MB 的 exe，但本机 WebView2 环境下窗口起不来。
