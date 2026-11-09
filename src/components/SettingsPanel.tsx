@@ -955,7 +955,7 @@ export default function SettingsPanel({
                   className="flex w-full items-center justify-between rounded-[6px] border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-left transition-colors hover:border-white/[0.14]"
                 >
                   <span className="font-mono text-[10.5px] text-ink/70">
-                    HABITAT · v0.1.0
+                    HABITAT · v{__APP_VERSION__}
                   </span>
                   <span className="text-[10px] text-mist/50">{showAbout ? "收起" : "展开"}</span>
                 </button>

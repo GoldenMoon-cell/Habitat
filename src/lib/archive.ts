@@ -86,7 +86,7 @@ export function collectArchive(scope: ExportScope, personaId?: string): ArchiveB
       version: ARCHIVE_VERSION,
       exportedAt: new Date().toISOString(),
       scope,
-      app: { name: "生境", version: "0.1.0" },
+      app: { name: "生境", version: __APP_VERSION__ },
       data: { personas },
     };
   }
@@ -106,7 +106,7 @@ export function collectArchive(scope: ExportScope, personaId?: string): ArchiveB
       version: ARCHIVE_VERSION,
       exportedAt: new Date().toISOString(),
       scope,
-      app: { name: "生境", version: "0.1.0" },
+      app: { name: "生境", version: __APP_VERSION__ },
       data: {
         personas: one,
         threads: picked,
@@ -128,7 +128,7 @@ export function collectArchive(scope: ExportScope, personaId?: string): ArchiveB
     version: ARCHIVE_VERSION,
     exportedAt: new Date().toISOString(),
     scope: "full",
-    app: { name: "生境", version: "0.1.0" },
+    app: { name: "生境", version: __APP_VERSION__ },
     data: {
       personas,
       threads: loadThreads() as Record<string, Message[]>,

@@ -501,7 +501,7 @@ export default function ConsoleRail({
       {/* ── 页脚 ── */}
       <div className="mt-auto flex items-center justify-between border-t border-white/[0.055] px-4 py-2.5">
         <span className="font-mono text-[10px] tracking-wider text-mist/55">
-          v0.1.0 · local
+          v{__APP_VERSION__} · local
         </span>
 
         {/* 控制台唤出入口 */}

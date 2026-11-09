@@ -1103,7 +1103,7 @@ export default function ContactsRail({
 
         <div className="mt-1.5 flex items-center justify-between border-t border-white/[0.045] pt-1.5">
           <span className="font-mono text-[9.5px] tracking-wider text-mist/46">
-            v0.1.0 · local
+            v{__APP_VERSION__} · local
           </span>
           <span className="flex items-center gap-1 font-mono text-[9.5px] text-mist/46">
             <span className="h-[3px] w-[3px] rounded-full bg-biolum/70 pulse-dot" />

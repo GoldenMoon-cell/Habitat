@@ -32,7 +32,7 @@ async function boot() {
    * 这条会出现在左栏的 EVENT STREAM 里。它是整个流的第一条，
    * 因为在你做任何事之前，确实只发生了「程序启动了」。
    */
-  log.boot("0.1.0");
+  log.boot(__APP_VERSION__);
 
   try {
     await bootstrapRestore();
