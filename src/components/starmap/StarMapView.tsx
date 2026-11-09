@@ -847,10 +847,17 @@ export default function StarMapView({ conv, personas, onSwitchConv, onClose }: S
           )}
 
 
-          <div className="hud__hint" key={stats.mode}>
-            <p>{h1}</p>
-            {h2 && <p className="hud__fine">{h2}</p>}
-          </div>
+          {/*
+            空星域时不要给「靠近一颗星 / 点击，打开它」——
+            一颗星都没有，那句话是错的。
+            中间那行「她还没记住什么」已经把话说完了。
+          */}
+          {summary.total > 0 && (
+            <div className="hud__hint" key={stats.mode}>
+              <p>{h1}</p>
+              {h2 && <p className="hud__fine">{h2}</p>}
+            </div>
+          )}
 
           {/*
             第 2 期：点开一颗星时，右下角浮出它的详情和衰减曲线。
