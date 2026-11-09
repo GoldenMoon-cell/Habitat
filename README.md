@@ -13,14 +13,16 @@
 
 ## 【关于已知边界的声明】
 
-这是一个 Alpha 构建。**133 条单元断言全绿，只代表代码逻辑闭环，不代表行为稳定。**
+这是一个 Alpha 构建。**251 条单元断言全绿，只代表代码逻辑闭环，不代表行为稳定。**
 
 每个模块的测试覆盖：
 
 ```
-有测试       conversation · judge · bubbles · distortion · sanitize · 导入
-没有测试     forgetting（衰减/固化）· awakenLedger · graveyard
-            persist / archive · contextWindow · extract · tts · llm
+有测试       conversation · judge · bubbles · distortion · senddelay
+            memory（衰减/固化，50 条）· starmap（星图，26 条）
+            irreversible · sanitize · 导入 · 凭据 · L1 解析
+没有测试     awakenLedger · graveyard · persist / archive
+            contextWindow · extract · tts · llm
 ```
 
 ### 可能发生什么
@@ -120,6 +122,7 @@ npm run desktop   # 连 vite dev server，有热更新（写代码时用）
 | | |
 |---|---|
 | **记忆会忘** | 幂函数衰减 · 四类命运 · 被提取三次就搬进皮层 · 最深的那种永不衰减 |
+| **能看见她在忘** | 记忆的星图：沉的记得牢、浮的快忘。拖时间轴能看她这三个月掉了多少 |
 | **从对话里自动提取** | 本地规则判断，不调模型。**漏掉的多，记错的没有** |
 | **改名两个方向** | 强制：越过她的意愿，向下坠落。自愿：她自己提，向上飘起 |
 | **她怎么看你** | 四轴雷达 + 动态三轴，随互动漂移 —— 不由你拨 |
@@ -283,6 +286,43 @@ b' = b / (1 + accessCount × 0.6)
 **② 不乘「意义权重」修正值。**
 
 `tag` 已经在控制 `b` 了。再加一个 `×1.5` 的乘法修正，等于同一个东西调两遍，而且会让 `weight` 溢出 1。
+
+---
+
+## 沉积
+
+**记忆是能看的。**
+
+一个列表能告诉你「她记得哪些事」，回答不了「她**整体**上还记得多少」。
+所以有一张图：按 `Ctrl+M`（或右栏「记忆」标题行右侧的 `沉积`）。
+
+进去是下潜 —— 五秒，光柱从头顶压下来，海雪扑到脸上。然后是一片海底。
+
+```
+一个发光的点 = 一条记忆
+```
+
+那些点会自己游到一起，排成一句话。然后你能从图上读出三件事：
+
+| 看什么 | 是什么 |
+|---|---|
+| **亮不亮** | 她还记不记得 |
+| **沉得多深** | 记得越牢沉在海底，快忘的浮在上面，浮到水面就散 |
+| **什么颜色** | 偏好 / 长期 / 短期 / 情绪 |
+
+点开一颗星，下面浮出一条小注解 —— 来源、分类、写了多久、权重、被想起几次，
+还有一条**衰减曲线**：从过去画到现在，再画到以后。
+
+正在散的记忆可以按住，它会多留一会儿。
+
+**顶上有一条时间轴。** 拖回 90 天前，松手会自动快放到现在（2.5 秒）。
+那 2.5 秒里能看见它们一条一条浮上去、暗下去。
+
+> ⚠️ **它不是历史回放，是反推。** 存储里只有「最后一次被想起」和「一共几次」，
+> 没有访问时间线，还原不出某天真实的星图。游标上标着「反推」。
+
+星图是**按角色分**的：在谁的对话里按，就看谁的那片海。群聊里没有这个入口 ——
+群不是一个脑子。进去之后左侧可以换人，换一片星域。
 
 ---
 
@@ -660,6 +700,7 @@ src/
   App.tsx          四栏装配 + 全部顶层状态
   components/      界面，一个文件一个组件
   data/            静态数据与类型（角色档案 / 引擎 / 群）
+  components/starmap/  记忆星图（Engine / 着色器 / 采样器）
   lib/             纯逻辑，不碰 React
     llm.ts           统一调用层（Ollama / OpenAI 兼容，流式）
     prompt.ts        拼 system prompt + 记忆注入 + 历史截断
@@ -670,6 +711,9 @@ src/
     eventLog.ts      真实事件日志
     archive.ts       数据导入导出
     consoleCmd.ts    控制台指令
+    forgetting.ts    衰减与固化
+    starMapData.ts   记忆 → 星（位置 / 权重 / 可见性）
+    replyGate.ts     回复代次：切走之后不该再回话
   store/           跨组件状态（角色 / 群 / 凭据）
 electron/          主进程 + preload
 scripts/           工具脚本
@@ -711,6 +755,7 @@ docs/previews/     演示页（音效试听 / 各阶段 UI 预览）
 | [`docs/manual.md`](docs/manual.md) | 操作手册：控制台指令、配 API、排错 |
 | [`docs/tauri-notes.md`](docs/tauri-notes.md) | Tauri / WebView2 的调试全过程（血泪记录） |
 | [`docs/testing.md`](docs/testing.md) | 测试脚本说明 |
+| [`docs/v0.3-release-notes.md`](docs/v0.3-release-notes.md) | 这一版改了什么（含「没验过」的部分） |
 | [`docs/previews/sound-lab.html`](docs/previews/sound-lab.html) | 音效试听页 |
 
 ---
@@ -718,6 +763,7 @@ docs/previews/     演示页（音效试听 / 各阶段 UI 预览）
 ## 技术栈
 
 React 19 + Vite 6 + Tailwind v4（`@tailwindcss/vite`，设计令牌在 `@theme`）+ Motion 12。
+记忆星图用 **three.js + postprocessing**（WebGL2，11000 颗粒子，Bloom → 镜头 → 颗粒 四段后处理）。
 桌面壳用 **Electron 38**（`electron/main.cjs`），`frame: false` + 自定义 `app://` 协议 + `safeStorage`（DPAPI）加密凭据。
 
 Tauri 2 的代码完整保留在 `src-tauri/`，能编译出 3.1 MB 的 exe，但本机 WebView2 环境下窗口起不来。
@@ -734,6 +780,7 @@ Tauri 2 的代码完整保留在 `src-tauri/`，能编译出 3.1 MB 的 exe，�
 | `⌘B` / `Ctrl+B` | 折叠 / 展开上帝面板 |
 | `` ⌘` `` / `` Ctrl+` `` | 控制台 |
 | `⌘1` … `⌘9` | 切换会话 |
+| `⌘M` / `Ctrl+M` | 打开记忆星图（沉积）。在谁的对话里按，就看谁的那片海 |
 | `Esc` | 关最上层弹层（栈式，不会一次关两个） |
 | `Enter` | 发送（**6 秒待发窗口** —— 期间可收回，再按一次立即发出） |
 | `Shift+Enter` | 换行 |
@@ -746,7 +793,7 @@ Tauri 2 的代码完整保留在 `src-tauri/`，能编译出 3.1 MB 的 exe，�
 npm run pack
 ```
 
-产物在 `release/`，文件名带时间戳（`Habitat-Setup-0.1.0-p1031-2254.exe`）。
+产物在 `release/`，文件名带时间戳（`Habitat-Setup-0.3.0-p1109-1825.exe`）。
 
 **为什么要时间戳**：Windows 的图标缓存按**完整路径**索引。在同一个路径上替换 exe，图标不变。
 `scripts/run-pack.mjs` 会自动加 `p<MMdd>-<HHmm>` 后缀绕开它。
