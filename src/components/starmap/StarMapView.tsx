@@ -18,6 +18,7 @@ import { toStarDefs, summarize, collectForMap, shouldDissolve } from "../../lib/
 import { effectiveWeight, MEMORY_THRESHOLD, isConsolidated } from "../../lib/forgetting";
 import type { Memory } from "../../lib/memoryNotes";
 import { promoteMemory } from "../../lib/memoryNotes";
+import { isGroupId } from "../../data/mock";
 
 type Quality = "high" | "mid" | "low";
 
@@ -854,13 +855,22 @@ export default function StarMapView({ conv, personas, onSwitchConv, onClose }: S
           </div>
 
           {/*
-            空星域。
-            现在一个人没记忆就是空海（不再拿别人的记忆兜底），
-            所以给一行字 —— 否则一片黑水和「加载失败」长得一样。
+            空星域 —— 两种空法，两句话。
+
+            ① 群聊：这里本来就没有「一个人的记忆」
+               群不是一个脑子，所以开口是一张空海是正常的
+            ② 角色：她还没开始记
+               刚建好的角色，那片海是真的一片空白
+
+            空的原因不一样，话就该不一样。原来只有一句「她还没记住什么」——
+            放在群聊里会指向一个不存在的人。
+
             只在真正进到水里之后才显示，闸门页不需要。
           */}
           {stats.phase === "inside" && stats.mode === "idle" && summary.total === 0 && (
-            <p className="starmap-empty">她还没记住什么。</p>
+            <p className="starmap-empty">
+              {isGroupId(conv) ? "这片海域，尚无任何记忆沉积。" : "她脑海里的这片海，目前还是空的。"}
+            </p>
           )}
 
 
