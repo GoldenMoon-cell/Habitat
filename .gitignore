@@ -55,22 +55,22 @@ ob-*.png
 # ── 内部工程文件：不公开 ──
 # 设计文档、计划、样张会剧透还没做的功能。
 # 这些文件留在本地和 dev 分支，不进公开仓库。
-# docs/TODO.md  ← dev 分支跟踪，公开分支忽略
-# docs/PLAN.md  ← dev 分支跟踪，公开分支忽略
-# docs/DONE.md  ← dev 分支跟踪，公开分支忽略
-# docs/WALKTHROUGH.md  ← dev 分支跟踪，公开分支忽略
-# docs/decisions.md  ← dev 分支跟踪，公开分支忽略
-# docs/creator-mode.md  ← dev 分支跟踪，公开分支忽略
-# docs/proactive.md  ← dev 分支跟踪，公开分支忽略
-# docs/v0.2.md  ← dev 分支跟踪，公开分支忽略
-# docs/previews/  ← dev 分支跟踪，公开分支忽略
-# AGENTS.md  ← dev 分支跟踪，公开分支忽略
+docs/TODO.md
+docs/PLAN.md
+docs/DONE.md
+docs/WALKTHROUGH.md
+docs/decisions.md
+docs/creator-mode.md
+docs/proactive.md
+docs/v0.2.md
+docs/previews/
+AGENTS.md
 
 # 发布清单（含隐私审计细节）不公开
-# docs/v0.2-发布清单.md  ← dev 分支跟踪，公开分支忽略
-# docs/v0.3-plan.md  ← dev 分支跟踪，公开分支忽略
-# docs/v0.3-发布清单.md  ← dev 分支跟踪，公开分支忽略
-# docs/fontlab-mcp-handoff.md  ← dev 分支跟踪，公开分支忽略
+docs/v0.2-发布清单.md
+docs/v0.3-plan.md
+docs/v0.3-发布清单.md
+docs/fontlab-mcp-handoff.md
 
 # 视频素材（截图 / 参考片，112 MB，不进仓库）
 视频素材/
