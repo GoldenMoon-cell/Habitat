@@ -1017,23 +1017,27 @@ export default function App() {
   const replyGate = useRef(makeEpochGate()).current;
 
   /*
-   * ── 气泡定时器单独的桶 ──
+   * ── 落地定时器 ──
    *
-   * 一条回复太长会被拆成 2~3 个气泡，后面几个靠定时器依次冒出来
-   * （间隔 bubbleDelay = 780~1400ms）。
+   * 「内容已经定了，只是还没放到会话里」的那一类。
    *
-   * 这些定时器原来和「回复链」共用一个 `timers` —— 而 scheduleReply
-   * 一开头就把 timers 全部清空（那是为了让新回复取消上一个排队中的回复）。
+   *   ① 多气泡回复的第 2..N 段（间隔 bubbleDelay = 780~1400ms）
+   *   ② 演示模式（没配 API）的「她正在想 → 说出这句话」
+   *
+   * 两类都曾经和「回复链」共用一个 `timers` —— 而 scheduleReply
+   * 一开头就把 timers 全部清空（为了让新回复取消上一个排队中的回复）。
    *
    * 于是剧本模式下必然出事：
    *   每 1400ms 调一次 scheduleReply（下一个成员）
-   *   而第 2 个气泡的定时器正好是 780~1400ms
-   *   → 下一个人的回复一到，清空 → **第 2 个气泡永远不会出现**
+   *   · 气泡：第 2 段定在 780~1400ms → 被下一个人清掉，永远不出现
+   *   · 演示：回复定在 1750ms  → 被下一个人清掉，
+   *           前一位**完全不回话**，而且它的 typing 标记永远释放不掉
+   *           （finishTyping 没跑，activeTyping 里那条一直躺着）
    *
-   * 气泡定时器不属于「下一条回复」，它属于**这一条消息本身**。
-   * 所以它单独一个桶：新回复不清它，只有离开会话才清。
+   * 它们不属于「下一条回复」，属于**这一条消息本身**。
+   * 所以单独一个桶：新回复不清它，只有离开会话才清。
    */
-  const bubbleTimers = useRef(new Set<number>());
+  const deliveryTimers = useRef(new Set<number>());
   const replyRequestSeq = useRef(0);
   const activeTyping = useRef(new Map<number, TypingMark<ConvId>>());
 
@@ -1760,18 +1764,18 @@ export default function App() {
               delay += bubbleDelay(i - 1);
               const isLast = i === parts.length - 1;
               /*
-               * 进 bubbleTimers，不是 timers —— 下一条回复不该把这些掐掉。
+               * 进 deliveryTimers，不是 timers —— 下一条回复不该把这些掐掉。
                * 触发之后自己从桶里摘掉，免得越攒越多。
                */
               const id = window.setTimeout(() => {
-                bubbleTimers.current.delete(id);
+                deliveryTimers.current.delete(id);
                 push(target, { author: responder, text: parts[i] });
                 if (isLast) {
                   /* 整组说完才轮到下一个人 —— 不是每个气泡算一回合 */
                   afterAiTurnRef.current(target, text, String(responder));
                 }
               }, delay);
-              bubbleTimers.current.add(id);
+              deliveryTimers.current.add(id);
             }
           }
         } catch (e) {
@@ -1834,22 +1838,33 @@ export default function App() {
         own && own.length > 0 ? own : DEMO_FALLBACK_REPLIES;
       const text = poolTexts[Math.floor(Math.random() * poolTexts.length)];
 
-      timers.current.push(
-        window.setTimeout(() => {
-          if (stale()) return;
-          beginTyping(typingMark);
-        }, 620),
-        window.setTimeout(() => {
-          if (stale()) {
-            finishTyping(typingMark);
-            return;
-          }
-          finishTyping(typingMark);
-          push(target, { author: responder, text });
-          /* 演示模式也走同一套循环 —— 不然「还没配 API」的人看不到这个功能 */
-          afterAiTurnRef.current(target, text, String(responder));
-        }, 1750 + Math.random() * 700)
-      );
+      /*
+       * 这两根进 deliveryTimers，不是 timers。
+       *
+       * 原来是 timers —— 于是剧本模式下，第二位成员一启动就把
+       * 第一位还没触发的「说出这句话」清掉了：
+       *   · 第一位完全不回话
+       *   · 它的 typing 标记永远释放不掉（finishTyping 没跑）
+       *
+       * 第一根（620ms 起「正在想」）也放进来 ——
+       * 它属于同一条回复，不该被下一个人掐掉。
+       */
+      const typingId = window.setTimeout(() => {
+        deliveryTimers.current.delete(typingId);
+        if (stale()) return;
+        beginTyping(typingMark);
+      }, 620);
+      deliveryTimers.current.add(typingId);
+
+      const sayId = window.setTimeout(() => {
+        deliveryTimers.current.delete(sayId);
+        finishTyping(typingMark);
+        if (stale()) return;
+        push(target, { author: responder, text });
+        /* 演示模式也走同一套循环 —— 不然「还没配 API」的人看不到这个功能 */
+        afterAiTurnRef.current(target, text, String(responder));
+      }, 1750 + Math.random() * 700);
+      deliveryTimers.current.add(sayId);
     },
     [push, pushToast, personas, personaMap, getGroup, threads, llmProbe]
   );
@@ -2783,11 +2798,11 @@ export default function App() {
     }
 
     /*
-     * 气泡定时器也要清 —— 但要在这里清，不在 scheduleReply 里。
+     * 落地定时器也要清 —— 但要在这里清，不在 scheduleReply 里。
      * 判据是「离没离开这个会话」，不是「有没有下一条回复」。
      */
-    bubbleTimers.current.forEach((x) => window.clearTimeout(x));
-    bubbleTimers.current.clear();
+    deliveryTimers.current.forEach((x) => window.clearTimeout(x));
+    deliveryTimers.current.clear();
 
     replyQueue.current = [];
     activeTyping.current.clear();
