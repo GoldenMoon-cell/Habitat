@@ -42,6 +42,7 @@ import { subscribeClock, timeOffset, timeOffsetLabel } from "./lib/clock";
 import { dueDeadlines, clearDeadline, deadlineOf } from "./lib/deadline";
 import { hasProfile, ownerName, readProfile } from "./lib/profile";
 import { log } from "./lib/eventLog";
+import { makeEpochGate } from "./lib/replyGate";
 import { extract, isDuplicate, worthAsking, weightForTag } from "./lib/extract";
 import { MEMORY_CHANGED } from "./lib/memoryNotes";
 import { rememberRename } from "./lib/nameHistory";
@@ -991,6 +992,22 @@ export default function App() {
    */
   const userSpokeAt = useRef(0);
   const autoTimer = useRef<number | null>(null);
+
+  /*
+   * 回复代次闸门。
+   *
+   * 每次换会话 bump 一次。scheduleReply 开工时开一张票，
+   * 等模型回来之后对一下 —— 票过期就说明用户已经走了，
+   * 这条回复属于上一个会话，丢掉。
+   *
+   * 为什么需要它：scheduleReply 是 async 的，await 模型可能几秒到几十秒。
+   * 清定时器只能拦住「还没开始的」，拦不住「已经在路上的」。
+   * 而已经在路上的那条回来之后会照旧 push(target) ——
+   * 用户切走了，原会话里凭空冒出一句。
+   *
+   * 放在 refs 这一段，是因为 scheduleReply 在上面就要用到它。
+   */
+  const replyGate = useRef(makeEpochGate()).current;
   /**
    * 为什么用 ref 转一道：
    * scheduleReply 要用 afterAiTurn，afterAiTurn 要用 scheduleReply —— 循环。
@@ -1217,6 +1234,10 @@ export default function App() {
     async (target: ConvId, force?: AgentId, continuation?: { selfText: string }) => {
       timers.current.forEach((t) => window.clearTimeout(t));
       timers.current = [];
+
+      /* 开一张票。下面每个「准备写回会话」的地方都拿它对一下。 */
+      const ticket = replyGate.ticket();
+      const stale = () => replyGate.stale(ticket);
 
       /* 群聊只能在「群成员」里选人 —— 之前的随机池是全部角色，
          导致不在群里的 Grok / Qwen 也会插话。
@@ -1531,6 +1552,18 @@ export default function App() {
             text = await run(alt);
           }
 
+          /*
+           * 模型回来了 —— 先看用户还在不在这个会话。
+           *
+           * 不在就丢掉。不丢的话：切走、模型过十几秒才回、
+           * 原来那个会话里凭空冒出一句没人问的话。
+           * 用户会觉得「它在背后自己说话了」。
+           */
+          if (stale()) {
+            setTyping(null);
+            return;
+          }
+
           setTyping(null);
           if (!text) throw new Error("模型返回了空内容");
 
@@ -1665,6 +1698,8 @@ export default function App() {
           }
         } catch (e) {
           setTyping(null);
+          /* 同上：这条报错属于已经离开的那个会话，不往这儿贴 */
+          if (stale()) return;
           const info = explainLlmError(e);
 
           push(target, {
@@ -1722,6 +1757,7 @@ export default function App() {
         window.setTimeout(() => setTyping(target), 620),
         window.setTimeout(() => {
           setTyping(null);
+          if (stale()) return;
           push(target, { author: responder, text });
           /* 演示模式也走同一套循环 —— 不然「还没配 API」的人看不到这个功能 */
           afterAiTurnRef.current(target, text, String(responder));
@@ -2618,10 +2654,30 @@ export default function App() {
    * 迟早还会有第三个入口。
    */
   const clearPendingReplies = useCallback(() => {
+    /*
+     * 四样东西都要收，少一样就漏一条路：
+     *
+     *   timers        普通延迟（气泡间隔、MIN_GAP 等待）
+     *   scriptTimers  剧本排的「每人回一句」
+     *   autoTimer     群聊接力那根 —— 单独一个 ref，最容易忘
+     *   replyQueue    已经排队但还没送出去的
+     *
+     * 再加一个 epoch++，把**已经在路上**的模型请求作废。
+     * 前四样只管「还没开始的」，最后一样才管「已经出发的」。
+     */
     timers.current.forEach((t) => window.clearTimeout(t));
     timers.current = [];
+
     scriptTimers.current.forEach((t) => window.clearTimeout(t));
     scriptTimers.current = [];
+
+    if (autoTimer.current) {
+      window.clearTimeout(autoTimer.current);
+      autoTimer.current = null;
+    }
+
+    replyQueue.current = [];
+    replyGate.bump();
   }, []);
 
   /** 换到别的会话时，把上一个会话排着队的回复全掐掉。覆盖所有 setConv 路径。 */

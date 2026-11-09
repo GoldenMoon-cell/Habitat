@@ -893,10 +893,15 @@ export default function StarMapView({ conv, personas, onSwitchConv, onClose }: S
             存储里只有每条记忆的「最后一次被想起」和「一共想起几次」，
             没有访问时间线 —— 所以还原不出某天真实的星图。
 
-            它能做的是：拿现在的 lastAccessed / accessCount，
+            它能做的是：拿现在的 lastAccessed / accessCount / weight，
             套一个更早的 now 去算 effectiveWeight。
-            对「lastAccessed 之后」那段是准的，
-            对之前那段是**假定它一直满着**，于是偏乐观。
+
+            连「lastAccessed 之后」也不算准 —— weight 本身会被
+            手动提权（promoteMemory）、忘掉、恢复改掉，
+            而这些操作各自都没有记时间。
+            对之前那段更粗：**假定它一直满着**，于是偏乐观。
+
+            **整条都是推算，不是回放。**
 
             所以游标上写明「反推」，不叫「回到那天」。
             真历史回放要等存了访问时间线再做。

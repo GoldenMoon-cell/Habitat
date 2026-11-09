@@ -28,6 +28,7 @@ globalThis.localStorage = {
 const { collectForMap, shouldDissolve } = await import("../src/lib/starMapData.ts");
 const { effectiveWeight } = await import("../src/lib/forgetting.ts");
 const { promoteMemory } = await import("../src/lib/memoryNotes.ts");
+const { makeEpochGate } = await import("../src/lib/replyGate.ts");
 
 let pass = 0, fail = 0;
 const t = (name, fn) => {
@@ -176,6 +177,58 @@ t("shouldDissolve：固化 / 里程碑 / 改名的不散", () => {
   ok(!shouldDissolve(mem({ weight: 0.05, lastAccessed: old, reason: "milestone" }), NOW), "里程碑不散");
   ok(!shouldDissolve(mem({ weight: 0.05, lastAccessed: old, reason: "rename" }), NOW), "改名不散");
   ok(!shouldDissolve(mem({ weight: 0.05, lastAccessed: old, forgotten: true }), NOW), "已经忘了的不散");
+});
+
+console.log("\n③ 回复代次 —— 切走的会话不该再回话\n");
+
+t("开工时开的票，换代之后作废", () => {
+  const g = makeEpochGate();
+  const ticket = g.ticket();
+  ok(!g.stale(ticket), "还没换代，票有效");
+  g.bump();
+  ok(g.stale(ticket), "换代之后，旧票作废");
+});
+
+t("★ 一条卡在 await 里的回复，切走之后回来会被丢掉", () => {
+  /* 这是审查指出、而清定时器拦不住的那种：
+     定时器清得掉「还没开始的」，清不掉「已经在路上的」。 */
+  const g = makeEpochGate();
+  const ticket = g.ticket();          // scheduleReply 开工
+  // …… await 模型（模拟：期间用户切走了）
+  g.bump();                            // 换会话
+  // …… 模型回来
+  eq(g.stale(ticket), true, "必须判过期，否则会往旧会话写");
+});
+
+t("没切走的话不会误杀自己的回复", () => {
+  const g = makeEpochGate();
+  const ticket = g.ticket();
+  for (let i = 0; i < 5; i++) void 0;  // 期间没有任何换代
+  eq(g.stale(ticket), false, "同一代内不该丢");
+});
+
+t("切走再切回来 —— 之前那张票仍然是废的", () => {
+  /* 不能靠「又回到了同一个会话」来判定有效：
+     那条回复是上一次进去时的上下文，回来已经不该再冒出来。 */
+  const g = makeEpochGate();
+  const ticket = g.ticket();
+  g.bump();  // 切到 B
+  g.bump();  // 切回 A
+  eq(g.stale(ticket), true, "两次换代之后旧票仍作废");
+});
+
+t("每次换代只作废旧票，新票有效", () => {
+  const g = makeEpochGate();
+  g.bump();
+  const fresh = g.ticket();
+  eq(g.stale(fresh), false, "新开的是有效的");
+});
+
+t("多张并发票：换代一起作废", () => {
+  const g = makeEpochGate();
+  const a = g.ticket(), b = g.ticket(), c = g.ticket();
+  g.bump();
+  ok(g.stale(a) && g.stale(b) && g.stale(c), "三张都作废");
 });
 
 console.log(`\n${fail === 0 ? "通过" : "失败"} —— ${pass} 通过 / ${fail} 失败\n`);
